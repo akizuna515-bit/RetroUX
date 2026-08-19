@@ -1,0 +1,386 @@
+# 論理ロケーション（2026-07-30 / マッパー機能 4.3）
+#
+# ★★ **このファイルは生成物。** ★★
+#   `python research/probes/archived/extract_map_names.py --write` で作り直せます。
+#   手で直した場合は、同じ内容をスクリプトの JA 表にも反映してください。
+#
+# | 項目 | 出どころ |
+# | --- | --- |
+# | `en` / `type` / どのマップが含まれるか | 北米版逆アセンブルのコメント（確か） |
+# | `name` の**階層**（B1 / 2F …） | 同じコメント（確か） |
+# | `name`（日本語） | ⚠ `name_source` を見てください |
+#
+# `name_source`:
+#   rom       … ROM の会話辞書から取った（確か）
+#   knowledge … ⚠ **ROM から取っていない。**一般に流通している名前。
+#                間違っていたらここを直してください（表示だけに使います）
+#   null      … 日本語名が無い。英名のまま表示します
+#
+# ★階層（自動移動が使う情報）は ROM 由来なので、
+#   名前が間違っていても経路の判断は壊れません。
+
+locations:
+  fake_midenhall:
+    name: 偽のローレシア
+    name_source: knowledge
+    name_en: Fake Midenhall
+    type: castle
+  world_map:
+    name: 世界地図
+    name_source: knowledge
+    name_en: World Map
+    type: overworld
+  midenhall:
+    name: ローレシア
+    name_source: rom
+    name_en: Midenhall
+    type: castle
+    floors:
+      known:
+      - -1
+      - 1
+      - 2
+      spans_ground: true
+  leftwyne:
+    name: リリザ
+    name_source: knowledge
+    name_en: Leftwyne
+    type: town
+  cannock:
+    name: サマルトリア
+    name_source: rom
+    name_en: Cannock
+    type: town
+  hamlin:
+    name: ムーンペタ
+    name_source: knowledge
+    name_en: Hamlin
+    type: town
+  hamlin_waterway:
+    name: ムーンペタの水門
+    name_source: knowledge
+    name_en: Hamlin Waterway
+    type: dungeon
+  moonbrooke:
+    name: ムーンブルク
+    name_source: rom
+    name_en: Moonbrooke
+    type: castle
+    floors:
+      known:
+      - -1
+      spans_ground: false
+  lianport:
+    name: ルプガナ
+    name_source: knowledge
+    name_en: Lianport
+    type: town
+  tantegel:
+    name: ラダトーム
+    name_source: knowledge
+    name_en: Tantegel
+    type: town
+  tantegel_town:
+    name: ラダトームの町
+    name_source: knowledge
+    name_en: Tantegel Town
+    type: town
+    floors:
+      known:
+      - 2
+      spans_ground: false
+  tantegel_castle:
+    name: ラダトーム城
+    name_source: knowledge
+    name_en: Tantegel Castle
+    type: castle
+    floors:
+      known:
+      - 2
+      spans_ground: false
+  osterfair:
+    name: デルコンダル
+    name_source: knowledge
+    name_en: Osterfair
+    type: town
+  zahan:
+    name: ザハン
+    name_source: knowledge
+    name_en: Zahan
+    type: town
+  tuhn:
+    name: テパ
+    name_source: knowledge
+    name_en: Tuhn
+    type: town
+  tuhn_watergate:
+    name: テパの水門
+    name_source: knowledge
+    name_en: Tuhn Watergate
+    type: dungeon
+  wellgarth:
+    name: ペルポイ
+    name_source: knowledge
+    name_en: Wellgarth
+    type: town
+  wellgarth_underground:
+    name: ペルポイの地下
+    name_source: knowledge
+    name_en: Wellgarth Underground
+    type: dungeon
+  beran:
+    name: ベラヌール
+    name_source: knowledge
+    name_en: Beran
+    type: town
+  hargon_s_castle:
+    name: ハーゴンの城
+    name_source: rom
+    name_en: Hargon's Castle
+    type: castle
+    floors:
+      known:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      spans_ground: false
+  charlock_castle:
+    name: 竜王の城
+    name_source: knowledge
+    name_en: Charlock Castle
+    type: castle
+    floors:
+      known:
+      - -8
+      - -4
+      - -3
+      - -1
+      spans_ground: false
+  shrine_nw_of_midenhall:
+    name: ローレシアの北西のほこら
+    name_source: rom
+    name_en: Shrine NW of Midenhall
+    type: castle
+  shrine_sw_of_cannock:
+    name: サマルトリアの南西のほこら
+    name_source: rom
+    name_en: Shrine SW of Cannock
+    type: shrine
+  shrine_nw_of_lianport:
+    name: ルプガナの北西のほこら
+    name_source: knowledge
+    name_en: Shrine NW of Lianport
+    type: shrine
+  shrine_se_of_rimuldar:
+    name: リムルダールの南東のほこら
+    name_source: knowledge
+    name_en: Shrine SE of Rimuldar
+    type: shrine
+  shrine_nw_of_beran:
+    name: ベラヌールの北西のほこら
+    name_source: knowledge
+    name_en: Shrine NW of Beran
+    type: shrine
+  shrine_nw_of_zahan:
+    name: ザハンの北西のほこら
+    name_source: knowledge
+    name_en: Shrine NW of Zahan
+    type: shrine
+  rhone_shrine:
+    name: ロンダルキアのほこら
+    name_source: rom
+    name_en: Rhone Shrine
+    type: shrine
+  shrine_sw_of_moonbrooke:
+    name: ムーンブルクの南西のほこら
+    name_source: rom
+    name_en: Shrine SW of Moonbrooke
+    type: castle
+  rhone_cave_shrine:
+    name: ロンダルキアの洞窟のほこら
+    name_source: rom
+    name_en: Rhone Cave Shrine
+    type: shrine
+  shrine_s_of_midenhall:
+    name: ローレシアの南のほこら
+    name_source: rom
+    name_en: Shrine S of Midenhall
+    type: castle
+  rubiss_shrine:
+    name: ルビスのほこら
+    name_source: knowledge
+    name_en: Rubiss' Shrine
+    type: shrine
+    floors:
+      known:
+      - -7
+      - -6
+      - -5
+      - -4
+      - -3
+      - -2
+      - -1
+      spans_ground: false
+  shrine_w_of_zahan:
+    name: ザハンの西のほこら
+    name_source: knowledge
+    name_en: Shrine W of Zahan
+    type: shrine
+  cave_to_hamlin:
+    name: ムーンペタへの洞窟
+    name_source: knowledge
+    name_en: Cave to Hamlin
+    type: dungeon
+  lake_cave:
+    name: 湖の洞窟
+    name_source: knowledge
+    name_en: Lake Cave
+    type: dungeon
+    floors:
+      known:
+      - -2
+      - -1
+      spans_ground: false
+  sea_cave:
+    name: 海底洞窟
+    name_source: knowledge
+    name_en: Sea Cave
+    type: dungeon
+    floors:
+      known:
+      - -5
+      - -4
+      - -3
+      - -2
+      - -1
+      spans_ground: false
+  cave_to_rhone:
+    name: ロンダルキアへの洞窟
+    name_source: rom
+    name_en: Cave to Rhone
+    type: dungeon
+    floors:
+      known:
+      - -1
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      spans_ground: true
+  spring_of_bravery:
+    name: 勇者の泉
+    name_source: knowledge
+    name_en: Spring of Bravery
+    type: town
+  unused:
+    name: unused?
+    name_source: null
+    name_en: unused?
+    type: town
+  cave_to_rimuldar:
+    name: リムルダールへの洞窟
+    name_source: knowledge
+    name_en: Cave to Rimuldar
+    type: dungeon
+  moon_tower:
+    name: 月の塔
+    name_source: knowledge
+    name_en: Moon Tower
+    type: tower
+    floors:
+      known:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      spans_ground: false
+  lighthouse:
+    name: 灯台
+    name_source: knowledge
+    name_en: Lighthouse
+    type: tower
+    floors:
+      known:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      spans_ground: false
+  wind_tower:
+    name: 風の塔
+    name_source: knowledge
+    name_en: Wind Tower
+    type: tower
+    floors:
+      known:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      spans_ground: false
+  dragon_horn_south:
+    name: 竜のツノ・南
+    name_source: knowledge
+    name_en: Dragon Horn South
+    type: dungeon
+    floors:
+      known:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      spans_ground: false
+  dragon_horn_north:
+    name: 竜のツノ・北
+    name_source: knowledge
+    name_en: Dragon Horn North
+    type: dungeon
+    floors:
+      known:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      spans_ground: false
+  moonbrooke_prologue:
+    name: ムーンブルク（プロローグ）
+    name_source: rom
+    name_en: Moonbrooke (prologue
+    type: castle
+  midenhall_1f_prologue:
+    name: ローレシア 1F（プロローグ）
+    name_source: rom
+    name_en: Midenhall 1F (prologue
+    type: castle
+  world_map_at_moonbrooke_prologue:
+    name: 世界地図・ムーンブルク（プロローグ）
+    name_source: rom
+    name_en: World Map at Moonbrooke (prologue
+    type: overworld
+  world_map_at_midenhall_prologue:
+    name: 世界地図・ローレシア（プロローグ）
+    name_source: rom
+    name_en: World Map at Midenhall (prologue
+    type: overworld

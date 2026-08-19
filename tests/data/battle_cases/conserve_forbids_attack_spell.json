@@ -1,0 +1,87 @@
+{
+ "schema_version": 1,
+ "case_type": "golden",
+ "case_id": "golden_conserve_forbids_attack_spell",
+ "note": "★★ 指示書 §14.2「禁止結果」の見本。\n⚠ 戦術「省資源」のとき、攻撃呪文を禁じること。\n★これは Phase 10A で実際に効かせている唯一の拒否です。⚠ ここが崩れると、MPを温存する意味が無くなります。",
+ "state": {
+  "turn": 3,
+  "actor": "samaltria",
+  "party": [
+   {
+    "id": "lorasia",
+    "index": 0,
+    "hp": 98,
+    "max_hp": 188,
+    "mp": 0,
+    "max_mp": 0,
+    "alive": true,
+    "attack": 211
+   },
+   {
+    "id": "samaltria",
+    "index": 1,
+    "hp": 70,
+    "max_hp": 159,
+    "mp": 112,
+    "max_mp": 112,
+    "alive": true,
+    "attack": 75
+   },
+   {
+    "id": "moonbrooke",
+    "index": 2,
+    "hp": 84,
+    "max_hp": 146,
+    "mp": 163,
+    "max_mp": 163,
+    "alive": true,
+    "attack": 50
+   }
+  ],
+  "enemies": [
+   {
+    "slot": 0,
+    "monster_id": 76,
+    "hp": 54
+   },
+   {
+    "slot": 1,
+    "monster_id": 76,
+    "hp": 4
+   }
+  ],
+  "monster_ids": [
+   76,
+   76,
+   76
+  ]
+ },
+ "strategy": {
+  "engine": "layered",
+  "risk": "normal",
+  "reserve_mp": 15
+ },
+ "expected": {
+  "override": {
+   "plan": "conserve"
+  },
+  "plan": "conserve",
+  "resource_policy": "preserve_mp",
+  "forbidden_action_types": [
+   "attack_spell"
+  ],
+  "allowed_action_types": [
+   "heal",
+   "item"
+  ]
+ },
+ "provenance": {
+  "source": "real_emulator",
+  "rom_hash": "48349B0B",
+  "decision_id": "b4_t3_samaltria",
+  "turn": 3,
+  "actor": "samaltria",
+  "promoted_by": "human_review",
+  "promoted_at": "2026-08-08"
+ }
+}

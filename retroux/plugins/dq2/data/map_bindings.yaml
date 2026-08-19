@@ -1,0 +1,627 @@
+# 物理マップ -> 論理ロケーションの対応（2026-07-30 / マッパー機能 4.5）
+#
+# ★★ **このファイルは生成物。** ★★ 出どころは
+#   北米版逆アセンブルのコメント `; Map ID #$2D: Lake Cave B2`。
+#   `python research/probes/archived/extract_map_names.py --write` で作り直せます。
+#
+# ⚠ `map_ptr` は**入れていません**。日本版の map_id は北米版と同じ
+#   並びだと確認できていますが（ヘッダ表が109/109一致）、
+#   ポインタまで一致するとは言えないためです。
+#   → `map_id` だけで引き、ポインタは**画面に出して確認用**に使います。
+#
+# `confidence: probable` … 北米版のコメント由来。実機で確認したら
+#   `confirmed` に上げてください（そのマップに実際に立てば分かります）。
+
+bindings:
+- map_id: 0
+  location_id: fake_midenhall
+  confidence: probable
+  evidence_en: Fake Midenhall
+- map_id: 1
+  location_id: world_map
+  confidence: probable
+  evidence_en: World Map
+- map_id: 2
+  location_id: midenhall
+  confidence: probable
+  evidence_en: Midenhall 2F
+  floor_label: 2F
+  floor_index: 2
+- map_id: 3
+  location_id: midenhall
+  confidence: probable
+  evidence_en: Midenhall 1F
+  floor_label: 1F
+  floor_index: 1
+- map_id: 4
+  location_id: midenhall
+  confidence: probable
+  evidence_en: Midenhall B1
+  floor_label: B1
+  floor_index: -1
+- map_id: 5
+  location_id: leftwyne
+  confidence: probable
+  evidence_en: Leftwyne
+- map_id: 6
+  location_id: cannock
+  confidence: probable
+  evidence_en: Cannock
+- map_id: 7
+  location_id: hamlin
+  confidence: probable
+  evidence_en: Hamlin
+- map_id: 8
+  location_id: hamlin_waterway
+  confidence: probable
+  evidence_en: Hamlin Waterway
+- map_id: 9
+  location_id: moonbrooke
+  confidence: probable
+  evidence_en: Moonbrooke
+- map_id: 10
+  location_id: moonbrooke
+  confidence: probable
+  evidence_en: Moonbrooke B1
+  floor_label: B1
+  floor_index: -1
+- map_id: 11
+  location_id: lianport
+  confidence: probable
+  evidence_en: Lianport
+- map_id: 12
+  location_id: tantegel
+  confidence: probable
+  evidence_en: Tantegel
+- map_id: 13
+  location_id: tantegel_town
+  confidence: probable
+  evidence_en: Tantegel Town 2F
+  floor_label: 2F
+  floor_index: 2
+- map_id: 14
+  location_id: tantegel_castle
+  confidence: probable
+  evidence_en: Tantegel Castle 2F
+  floor_label: 2F
+  floor_index: 2
+- map_id: 15
+  location_id: osterfair
+  confidence: probable
+  evidence_en: Osterfair
+- map_id: 16
+  location_id: zahan
+  confidence: probable
+  evidence_en: Zahan
+- map_id: 17
+  location_id: tuhn
+  confidence: probable
+  evidence_en: Tuhn
+- map_id: 18
+  location_id: tuhn_watergate
+  confidence: probable
+  evidence_en: Tuhn Watergate
+- map_id: 19
+  location_id: wellgarth
+  confidence: probable
+  evidence_en: Wellgarth
+- map_id: 20
+  location_id: wellgarth_underground
+  confidence: probable
+  evidence_en: Wellgarth Underground
+- map_id: 21
+  location_id: beran
+  confidence: probable
+  evidence_en: Beran
+- map_id: 22
+  location_id: hargon_s_castle
+  confidence: probable
+  evidence_en: Hargon's Castle 1F
+  floor_label: 1F
+  floor_index: 1
+- map_id: 23
+  location_id: hargon_s_castle
+  confidence: probable
+  evidence_en: Hargon's Castle 7F
+  floor_label: 7F
+  floor_index: 7
+- map_id: 24
+  location_id: charlock_castle
+  confidence: probable
+  evidence_en: Charlock Castle B8
+  floor_label: B8
+  floor_index: -8
+- map_id: 25
+  location_id: shrine_nw_of_midenhall
+  confidence: probable
+  evidence_en: Shrine NW of Midenhall
+- map_id: 26
+  location_id: shrine_sw_of_cannock
+  confidence: probable
+  evidence_en: Shrine SW of Cannock
+- map_id: 27
+  location_id: shrine_nw_of_lianport
+  confidence: probable
+  evidence_en: Shrine NW of Lianport
+- map_id: 28
+  location_id: shrine_se_of_rimuldar
+  confidence: probable
+  evidence_en: Shrine SE of Rimuldar
+- map_id: 29
+  location_id: shrine_nw_of_beran
+  confidence: probable
+  evidence_en: Shrine NW of Beran
+- map_id: 30
+  location_id: shrine_nw_of_zahan
+  confidence: probable
+  evidence_en: Shrine NW of Zahan
+- map_id: 31
+  location_id: rhone_shrine
+  confidence: probable
+  evidence_en: Rhone Shrine
+- map_id: 32
+  location_id: shrine_sw_of_moonbrooke
+  confidence: probable
+  evidence_en: Shrine SW of Moonbrooke
+- map_id: 33
+  location_id: rhone_cave_shrine
+  confidence: probable
+  evidence_en: Rhone Cave Shrine
+- map_id: 34
+  location_id: shrine_s_of_midenhall
+  confidence: probable
+  evidence_en: Shrine S of Midenhall
+- map_id: 35
+  location_id: rubiss_shrine
+  confidence: probable
+  evidence_en: Rubiss' Shrine B1
+  floor_label: B1
+  floor_index: -1
+- map_id: 36
+  location_id: rubiss_shrine
+  confidence: probable
+  evidence_en: Rubiss' Shrine B2
+  floor_label: B2
+  floor_index: -2
+- map_id: 37
+  location_id: rubiss_shrine
+  confidence: probable
+  evidence_en: Rubiss' Shrine B3
+  floor_label: B3
+  floor_index: -3
+- map_id: 38
+  location_id: rubiss_shrine
+  confidence: probable
+  evidence_en: Rubiss' Shrine B4
+  floor_label: B4
+  floor_index: -4
+- map_id: 39
+  location_id: rubiss_shrine
+  confidence: probable
+  evidence_en: Rubiss' Shrine B5
+  floor_label: B5
+  floor_index: -5
+- map_id: 40
+  location_id: rubiss_shrine
+  confidence: probable
+  evidence_en: Rubiss' Shrine B6
+  floor_label: B6
+  floor_index: -6
+- map_id: 41
+  location_id: rubiss_shrine
+  confidence: probable
+  evidence_en: Rubiss' Shrine B7
+  floor_label: B7
+  floor_index: -7
+- map_id: 42
+  location_id: shrine_w_of_zahan
+  confidence: probable
+  evidence_en: Shrine W of Zahan
+- map_id: 43
+  location_id: cave_to_hamlin
+  confidence: probable
+  evidence_en: Cave to Hamlin
+- map_id: 44
+  location_id: lake_cave
+  confidence: probable
+  evidence_en: Lake Cave B1
+  floor_label: B1
+  floor_index: -1
+- map_id: 45
+  location_id: lake_cave
+  confidence: probable
+  evidence_en: Lake Cave B2
+  floor_label: B2
+  floor_index: -2
+- map_id: 46
+  location_id: sea_cave
+  confidence: probable
+  evidence_en: Sea Cave B1
+  floor_label: B1
+  floor_index: -1
+- map_id: 47
+  location_id: sea_cave
+  confidence: probable
+  evidence_en: Sea Cave B2
+  floor_label: B2
+  floor_index: -2
+- map_id: 48
+  location_id: sea_cave
+  confidence: probable
+  evidence_en: Sea Cave B3-1
+  floor_label: B3
+  floor_index: -3
+  floor_variant: 1
+- map_id: 49
+  location_id: sea_cave
+  confidence: probable
+  evidence_en: Sea Cave B3-2
+  floor_label: B3
+  floor_index: -3
+  floor_variant: 2
+- map_id: 50
+  location_id: sea_cave
+  confidence: probable
+  evidence_en: Sea Cave B4
+  floor_label: B4
+  floor_index: -4
+- map_id: 51
+  location_id: sea_cave
+  confidence: probable
+  evidence_en: Sea Cave B5
+  floor_label: B5
+  floor_index: -5
+- map_id: 52
+  location_id: charlock_castle
+  confidence: probable
+  evidence_en: Charlock Castle B1
+  floor_label: B1
+  floor_index: -1
+- map_id: 53
+  location_id: charlock_castle
+  confidence: probable
+  evidence_en: Charlock Castle B3
+  floor_label: B3
+  floor_index: -3
+- map_id: 54
+  location_id: charlock_castle
+  confidence: probable
+  evidence_en: Charlock Castle B4-2
+  floor_label: B4
+  floor_index: -4
+  floor_variant: 2
+- map_id: 55
+  location_id: cave_to_rhone
+  confidence: probable
+  evidence_en: Cave to Rhone B1
+  floor_label: B1
+  floor_index: -1
+- map_id: 56
+  location_id: cave_to_rhone
+  confidence: probable
+  evidence_en: Cave to Rhone 1F
+  floor_label: 1F
+  floor_index: 1
+- map_id: 57
+  location_id: cave_to_rhone
+  confidence: probable
+  evidence_en: Cave to Rhone 2F-1
+  floor_label: 2F
+  floor_index: 2
+  floor_variant: 1
+- map_id: 58
+  location_id: cave_to_rhone
+  confidence: probable
+  evidence_en: Cave to Rhone 2F-2
+  floor_label: 2F
+  floor_index: 2
+  floor_variant: 2
+- map_id: 59
+  location_id: cave_to_rhone
+  confidence: probable
+  evidence_en: Cave to Rhone 2F-3
+  floor_label: 2F
+  floor_index: 2
+  floor_variant: 3
+- map_id: 60
+  location_id: cave_to_rhone
+  confidence: probable
+  evidence_en: Cave to Rhone 3F
+  floor_label: 3F
+  floor_index: 3
+- map_id: 61
+  location_id: cave_to_rhone
+  confidence: probable
+  evidence_en: Cave to Rhone 4F
+  floor_label: 4F
+  floor_index: 4
+- map_id: 62
+  location_id: cave_to_rhone
+  confidence: probable
+  evidence_en: Cave to Rhone 5F
+  floor_label: 5F
+  floor_index: 5
+- map_id: 63
+  location_id: cave_to_rhone
+  confidence: probable
+  evidence_en: Cave to Rhone 6F
+  floor_label: 6F
+  floor_index: 6
+- map_id: 64
+  location_id: spring_of_bravery
+  confidence: probable
+  evidence_en: Spring of Bravery
+- map_id: 65
+  location_id: unused
+  confidence: probable
+  evidence_en: unused?
+- map_id: 66
+  location_id: unused
+  confidence: probable
+  evidence_en: unused?
+- map_id: 67
+  location_id: cave_to_rimuldar
+  confidence: probable
+  evidence_en: Cave to Rimuldar
+- map_id: 68
+  location_id: hargon_s_castle
+  confidence: probable
+  evidence_en: Hargon's Castle 2F
+  floor_label: 2F
+  floor_index: 2
+- map_id: 69
+  location_id: hargon_s_castle
+  confidence: probable
+  evidence_en: Hargon's Castle 3F
+  floor_label: 3F
+  floor_index: 3
+- map_id: 70
+  location_id: hargon_s_castle
+  confidence: probable
+  evidence_en: Hargon's Castle 4F
+  floor_label: 4F
+  floor_index: 4
+- map_id: 71
+  location_id: hargon_s_castle
+  confidence: probable
+  evidence_en: Hargon's Castle 5F
+  floor_label: 5F
+  floor_index: 5
+- map_id: 72
+  location_id: hargon_s_castle
+  confidence: probable
+  evidence_en: Hargon's Castle 6F
+  floor_label: 6F
+  floor_index: 6
+- map_id: 73
+  location_id: moon_tower
+  confidence: probable
+  evidence_en: Moon Tower 1F
+  floor_label: 1F
+  floor_index: 1
+- map_id: 74
+  location_id: moon_tower
+  confidence: probable
+  evidence_en: Moon Tower 2F
+  floor_label: 2F
+  floor_index: 2
+- map_id: 75
+  location_id: moon_tower
+  confidence: probable
+  evidence_en: Moon Tower 3F
+  floor_label: 3F
+  floor_index: 3
+- map_id: 76
+  location_id: moon_tower
+  confidence: probable
+  evidence_en: Moon Tower 4F
+  floor_label: 4F
+  floor_index: 4
+- map_id: 77
+  location_id: moon_tower
+  confidence: probable
+  evidence_en: Moon Tower 5F
+  floor_label: 5F
+  floor_index: 5
+- map_id: 78
+  location_id: moon_tower
+  confidence: probable
+  evidence_en: Moon Tower 6F
+  floor_label: 6F
+  floor_index: 6
+- map_id: 79
+  location_id: moon_tower
+  confidence: probable
+  evidence_en: Moon Tower 7F
+  floor_label: 7F
+  floor_index: 7
+- map_id: 80
+  location_id: lighthouse
+  confidence: probable
+  evidence_en: Lighthouse 1F
+  floor_label: 1F
+  floor_index: 1
+- map_id: 81
+  location_id: lighthouse
+  confidence: probable
+  evidence_en: Lighthouse 2F
+  floor_label: 2F
+  floor_index: 2
+- map_id: 82
+  location_id: lighthouse
+  confidence: probable
+  evidence_en: Lighthouse 3F
+  floor_label: 3F
+  floor_index: 3
+- map_id: 83
+  location_id: lighthouse
+  confidence: probable
+  evidence_en: Lighthouse 4F
+  floor_label: 4F
+  floor_index: 4
+- map_id: 84
+  location_id: lighthouse
+  confidence: probable
+  evidence_en: Lighthouse 5F
+  floor_label: 5F
+  floor_index: 5
+- map_id: 85
+  location_id: lighthouse
+  confidence: probable
+  evidence_en: Lighthouse 6F
+  floor_label: 6F
+  floor_index: 6
+- map_id: 86
+  location_id: lighthouse
+  confidence: probable
+  evidence_en: Lighthouse 7F
+  floor_label: 7F
+  floor_index: 7
+- map_id: 87
+  location_id: lighthouse
+  confidence: probable
+  evidence_en: Lighthouse 8F
+  floor_label: 8F
+  floor_index: 8
+- map_id: 88
+  location_id: wind_tower
+  confidence: probable
+  evidence_en: Wind Tower 1F
+  floor_label: 1F
+  floor_index: 1
+- map_id: 89
+  location_id: wind_tower
+  confidence: probable
+  evidence_en: Wind Tower 2F
+  floor_label: 2F
+  floor_index: 2
+- map_id: 90
+  location_id: wind_tower
+  confidence: probable
+  evidence_en: Wind Tower 3F
+  floor_label: 3F
+  floor_index: 3
+- map_id: 91
+  location_id: wind_tower
+  confidence: probable
+  evidence_en: Wind Tower 4F
+  floor_label: 4F
+  floor_index: 4
+- map_id: 92
+  location_id: wind_tower
+  confidence: probable
+  evidence_en: Wind Tower 5F
+  floor_label: 5F
+  floor_index: 5
+- map_id: 93
+  location_id: wind_tower
+  confidence: probable
+  evidence_en: Wind Tower 6F
+  floor_label: 6F
+  floor_index: 6
+- map_id: 94
+  location_id: wind_tower
+  confidence: probable
+  evidence_en: Wind Tower 7F
+  floor_label: 7F
+  floor_index: 7
+- map_id: 95
+  location_id: wind_tower
+  confidence: probable
+  evidence_en: Wind Tower 8F
+  floor_label: 8F
+  floor_index: 8
+- map_id: 96
+  location_id: dragon_horn_south
+  confidence: probable
+  evidence_en: Dragon Horn South 1F
+  floor_label: 1F
+  floor_index: 1
+- map_id: 97
+  location_id: dragon_horn_south
+  confidence: probable
+  evidence_en: Dragon Horn South 2F
+  floor_label: 2F
+  floor_index: 2
+- map_id: 98
+  location_id: dragon_horn_south
+  confidence: probable
+  evidence_en: Dragon Horn South 3F
+  floor_label: 3F
+  floor_index: 3
+- map_id: 99
+  location_id: dragon_horn_south
+  confidence: probable
+  evidence_en: Dragon Horn South 4F
+  floor_label: 4F
+  floor_index: 4
+- map_id: 100
+  location_id: dragon_horn_south
+  confidence: probable
+  evidence_en: Dragon Horn South 5F
+  floor_label: 5F
+  floor_index: 5
+- map_id: 101
+  location_id: dragon_horn_south
+  confidence: probable
+  evidence_en: Dragon Horn South 6F
+  floor_label: 6F
+  floor_index: 6
+- map_id: 102
+  location_id: dragon_horn_north
+  confidence: probable
+  evidence_en: Dragon Horn North 1F
+  floor_label: 1F
+  floor_index: 1
+- map_id: 103
+  location_id: dragon_horn_north
+  confidence: probable
+  evidence_en: Dragon Horn North 2F
+  floor_label: 2F
+  floor_index: 2
+- map_id: 104
+  location_id: dragon_horn_north
+  confidence: probable
+  evidence_en: Dragon Horn North 3F
+  floor_label: 3F
+  floor_index: 3
+- map_id: 105
+  location_id: dragon_horn_north
+  confidence: probable
+  evidence_en: Dragon Horn North 4F
+  floor_label: 4F
+  floor_index: 4
+- map_id: 106
+  location_id: dragon_horn_north
+  confidence: probable
+  evidence_en: Dragon Horn North 5F
+  floor_label: 5F
+  floor_index: 5
+- map_id: 107
+  location_id: dragon_horn_north
+  confidence: probable
+  evidence_en: Dragon Horn North 6F
+  floor_label: 6F
+  floor_index: 6
+- map_id: 108
+  location_id: dragon_horn_north
+  confidence: probable
+  evidence_en: Dragon Horn North 7F
+  floor_label: 7F
+  floor_index: 7
+- map_id: 109
+  location_id: moonbrooke_prologue
+  confidence: probable
+  evidence_en: Moonbrooke (prologue
+- map_id: 110
+  location_id: midenhall_1f_prologue
+  confidence: probable
+  evidence_en: Midenhall 1F (prologue
+- map_id: 111
+  location_id: world_map_at_moonbrooke_prologue
+  confidence: probable
+  evidence_en: World Map at Moonbrooke (prologue
+- map_id: 112
+  location_id: world_map_at_midenhall_prologue
+  confidence: probable
+  evidence_en: World Map at Midenhall (prologue

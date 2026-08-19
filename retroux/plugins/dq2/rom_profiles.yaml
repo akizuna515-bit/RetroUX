@@ -1,0 +1,109 @@
+# ROM ごとの RAM プロファイル（2026-08-02 / マップ指示書 §3.3）
+#
+# ★★ **北米版のアドレスを日本版へフォールバックさせない。** ★★
+#   指示書 §3「北米版で判明したRAMアドレスやROMオフセットを、
+#   日本版へ直接適用しないこと」。
+#
+#   ⚠ 結果として**同じ番地だった**ものが多いが、それは
+#     「決め打ちした」のではなく「**測ったら一致した**」ということ。
+#     測っていないものは `null` のままにする（推測で埋めない）。
+#
+# ## どうやって測ったか
+#
+#   `research/probes/active/map_state_probe.lua`
+#     セーブ 3 / 5 / 7 / 8（ロンダルキア洞窟・街・塔）で
+#       A 静止    : 入力せず待つ
+#       B 1歩移動 : 4方向、**押している最中**に採る
+#       C メニュー: A で開き、**開いている最中**に採る
+#     を実行し、場面ごとに取った値の集合を比べた。
+#
+#   ★4つのセーブすべてで同じ振る舞いをしたものだけを採用した。
+
+schema_version: 1
+
+rom_profiles:
+  dq2_jp:
+    # ⚠ ハッシュは実行時に照合する。ここは目印
+    name: ドラゴンクエストII（日本版）
+    hashes: []          # ★未記入。実行時のROMハッシュで埋める
+
+    ram:
+      # --- 既に確定していたもの（別の調査で実測済み）-------------------
+      map_x: 0x0016              # 2026-07-29 / 10セーブで実測
+      map_y: 0x0017              # 同上
+      map_id: 0x0031             # 同上
+      scroll_x: 0x0005           # 2026-08-01 / 960通り総当たり＋左移動
+      scroll_y: 0x0006           # 同上
+
+      # --- 2026-08-02 に実測したもの -----------------------------------
+      #
+      # ★メニューID。静止・移動では **00 のまま**、コマンドメニューを
+      #   開くと **06**。4セーブすべてで再現。
+      # ⚠ 北米版の逆アセンブル `$59` と同じ値・同じ意味だったが、
+      #   **それを根拠にしたのではなく、測って一致した**。
+      menu_id: 0x0059
+      menu_id_none: 0x00         # ★メニューが出ていないときの値
+      menu_id_command: 0x06      # コマンドメニュー
+
+      # ★メニュー開閉フラグ。00 -> FF。4セーブすべてで再現。
+      menu_open_flag: 0x0035
+      menu_open_true: 0xFF
+
+      # ★移動カウンタ。移動中に 11 -> 12 -> 13 と増える。
+      #   Data Crystal の記載（Movement Counter）と同じ番地だった。
+      movement_counter: 0x05FB
+
+      # ⚠⚠ **まだ測っていないもの。null のままにする。**
+      #   推測で埋めない（指示書 §3.3）。
+      message_state: null        # メッセージ表示中
+      pixel_x_low: null
+      pixel_x_high: null
+      pixel_y_low: null
+      pixel_y_high: null
+      map_render_type: null
+      transition_state: null     # マップ切替中
+      fade_state: null
+
+    ppu:
+      # ★2026-08-01 実測。ネームテーブル2枚が**左右に並ぶ**（垂直ミラーリング）
+      #   $2000 == $2800 / $2400 == $2C00
+      nametable_left: 0x2000
+      nametable_right: 0x2400
+      attribute_left: 0x23C0
+      attribute_right: 0x27C0
+      background_palette: 0x3F00
+
+# --- 北米版（解析の参考。★フォールバックさせない）-----------------------
+#
+# ⚠ ここは `work/dq2-disasm/src/global/ram.asm` と Data Crystal から
+#   写しただけで、**RetroUX は読まない**。日本版の値を決める根拠にもしない。
+#   ★「同じかどうか」を測るときの当たりを付けるためだけに置いてある。
+  dw2_us_reference:
+    name: Dragon Warrior II（北米版 / 参考のみ）
+    use_at_runtime: false        # ★★ 実行時に使わない ★★
+    ram:
+      map_x: 0x0016              # ram.asm: map_xpos
+      map_y: 0x0017              # ram.asm: map_ypos
+      map_id: 0x0031             # ram.asm: map_id / True Room ID
+      input: 0x002F              # ram.asm: Input（B0=A B1=B … B7=Right）
+      menu_frame_x: 0x004D       # ram.asm: X Position of SGTLC
+      menu_frame_y: 0x004E       # ram.asm: Y Position of SGTLC
+      menu_id: 0x0059            # ram.asm: Menu ID（06=Command / 04=Talk）
+      text_position: 0x007C      # ram.asm: Current Text Character Position
+      cursor_x: 0x0082
+      cursor_y: 0x0083
+      battle_flag_a: 0x008E      # ram.asm: flag for in battle or not (#$FF)?
+      battle_flag_b: 0x0094      # ram.asm: Battle Flag（B1=戦闘外）
+      movement_counter: 0x05FB   # ram.asm ＋ Data Crystal
+      attr_buffer: 0x0300        # ram.asm: attr_buffer $40 バイト
+      menu_cover: 0x0340         # ram.asm: メニューがスプライトを覆う配列
+
+# --- 状態の見分け方（2026-08-02 実測）-----------------------------------
+#
+# ★★ **スクロールの端数で「移動中」が分かる。** ★★
+#   静止中のスクロールは**必ず 16 の倍数**（00 / 20 / 90 …）。
+#   移動中だけ 11・12 のような半端な値になる。
+#   ⚠ 別の番地に頼らずに判定できるので、これを主に使う。
+state_rules:
+  moving_when_scroll_not_aligned: true
+  scroll_alignment: 16

@@ -1,0 +1,126 @@
+# Secrets
+.env
+.env.*
+auth.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Real input data / sensitive material
+input/data/
+input/raw/
+*.secret.*
+
+# ROM images and emulator artifacts 窶・邨ｶ蟇ｾ縺ｫ繧ｳ繝溘ャ繝医＠縺ｪ縺・
+*.nes
+*.fds
+*.unf
+*.unif
+*.nsf
+*.fm2
+*.fcm
+*.fc[0-9]
+# ⚠⚠ **`.fcs` の除外が漏れていた**（2026-08-14 / RX-0046）。
+#   `*.fc[0-9]` は `DQ2_J.fc1` を拾うが、★`DQ2_J.fc1.fcs` は拾わない。
+#   その結果、セーブステート1件が **Git へ入っていた**
+#   （`input/save_bak_260808/DQ2_J.fc1.fcs` / commit 6d184bc）。
+#   ★中身は `FCSX` マジックの FCEUX セーブステート（実測）。
+*.fcs
+*.sav
+*.srm
+fceux.cfg
+
+# Generated outputs and work files
+output/**
+!output/.gitkeep
+# ★work/ は「実行時のデータと出力」だけ（状態・ログ・DB・ROM・生成物）。
+#   中身は毎回変わるので Git には入れない。
+work/**
+!work/.gitkeep
+
+# ★★ research/ は **Git で守る**（2026-08-01 / リファクタ §13）★★
+#   調査スクリプトは work/ に置いてあったが、work/ は管理外なので
+#   ⚠ 誤って消しても戻せなかった（実際に一度失った）。
+#   「どう測ったか」は資産なので、実行時データと分けて追跡する。
+research/probes/**/__pycache__/
+research/generated/**
+!research/generated/.gitkeep
+
+# Tools and dependencies
+tools/**
+!tools/.gitkeep
+vendor/
+node_modules/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Logs/temp
+*.log
+*.tmp
+*.bak
+*.cache
+
+# Large/archive binaries
+*.zip
+*.7z
+*.rar
+*.iso
+*.img
+*.bin
+*.chd
+*.pbp
+
+# Cloned external disassembly (Nathan-R-Og/dq2)
+work/dq2-disasm/
+
+# 他のAIに相談するための書き出し（scripts/export-for-review.ps1 が生成）
+# ZIP も案内も生成物なので追跡しない。中身はソースとドキュメントから再生成できる。
+output/*.zip
+EXPORT-INFO.md
+
+# セーブステートの世代バックアップ（retroux/tools/savestate_backup.py が生成）
+# プレイデータのコピーなので追跡しない。
+work/savestate-backup/
+
+# 利用者ごとの設定（MVP2 Phase 1）。雛形は user_config.example.yaml を共有する。
+# 環境依存の値なので共有しない。
+user_config.yaml
+
+# 利用者ごとの設定（2026-08-01 のリファクタ指示書 §2.2）。
+# ★★ **既定は同梱、変更ぶんは各自**。 ★★
+#   同梱: retroux/config/default_*.yaml（Git 管理下）
+#   各自: config/*.yaml（ここで除外）
+# ⚠ 窓の位置やキーの好みは人それぞれ。共有すると他人の環境で
+#   「知らないうちに配置が変わる」ことになる。
+config/layout.yaml
+config/keybindings.yaml
+# まんたんの方針（2026-08-02 / 指示書 `input/260802_manatan.md` §3.1）。
+# ★既定は retroux/plugins/dq2/config.yaml の `mantan`（同梱・Git 管理下）。
+#   GUI で変えたぶんだけここへ保存する。⚠ 同梱の config.yaml は書き換えない。
+config/mantan.yaml
+# 大目的（2026-08-05 / 戦闘AI再設計 Phase 3）。
+# ★レベル上げ / ダンジョン攻略 / ボス手動 のどれを選んでいるか。
+# ⚠ 人それぞれなので共有しない（既定は「ダンジョン攻略」＝従来の挙動）。
+config/mission.yaml
+
+# 複数ターンテストの再現データ（2026-08-05 / テスト高度化指示書 §13）。
+# ★異常が出た場面だけが入る。⚠ 中身は work/ と同じ「調べるための材料」で、
+#   コミットするものではない（消してよい）。
+failures/
+
+# ROM から作り直せる生成物 ★同梱しない（指示書 §14.2）
+#  ⚠ 絵は ROM 由来。index.json と report.md だけ残す
+artifacts/maps/*/
+
+# ★実機の記録（Test Phase C）。⚠ 大きくなるので同梱しない
+work/replay/
+# ★止まったときの画面（依頼者の提案 / watch_stuck.ps1）
+work/stuck/
+# ★公開版の生成レポート（RX-0079 / export のたびに作り直す）
+release/public-report.md

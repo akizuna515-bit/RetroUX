@@ -1,0 +1,122 @@
+# キーバインドの既定値（2026-08-01 の指示書 §12.1）。
+#
+# ★★ **このファイルは利用者が編集する対象ではありません。** ★★
+#   直したいときは `config/keybindings.yaml` に**変えたいものだけ**書きます。
+#   書かなかった項目はここの値が使われます（指示書 §12.2）。
+#   画面の「キーバインド設定」から編集・検証・反映できます。
+#
+# ⚠⚠ **キーは FCEUX 本体と重複しないものを選ぶこと。**
+#   `Q` は FCEUX の「ムービーの読み取り専用切替」に予約済みで使えません。
+#   `M`（まんたん）と `R`（補充）は重複していますが動作します
+#   （FCEUX 側の動作も同時に走ります）。
+#   空いているアルファベット: A B C E G H J K N T U V X Y
+#   ★`research\probes\active\check_hotkeys.py` でゲームパッド割り当てと FCEUX 側の両方を調べられます。
+#
+# ⚠ `context` は「いまどの画面か」で同じキーを別の意味に使うための印です。
+#   ★第一弾では切り替えを実装していないので、**全体で重複禁止**です。
+
+schema_version: 1
+
+bindings:
+  # --- 通常プレイ中（実行後ゲームへフォーカスを戻す）------------------
+  toggle_auto:
+    context: gameplay
+    # ★依頼者の要望で A のトグル。⚠ **キーボードの A** です
+    #   （ゲームパッドの A ボタンではありません）。
+    keyboard:
+      - A
+    restore_emulator_focus: true
+
+  toggle_turbo:
+    context: gameplay
+    # ⚠ 指示書の例は T。FCEUX 側と重複しない空きキーです。
+    keyboard:
+      - T
+    restore_emulator_focus: true
+
+  emergency_manual:
+    context: gameplay
+    # ⚠ Escape は FCEUX で「メニューを閉じる/終了」に使われることがあるため、
+    #   既定では**割り当てません**（空 = 割り当てなし / 指示書 §14.3）。
+    #   使いたい人は config/keybindings.yaml で設定してください。
+    keyboard: []
+    restore_emulator_focus: true
+
+  open_map:
+    context: global
+    # ⚠ 指示書の例は M ですが、**M は「まんたん」で使用中**です。
+    #   重複はエラーになるので、地図は G（Ｇeography）にしています。
+    keyboard:
+      - G
+    restore_emulator_focus: true
+
+  toggle_map_follow:
+    context: map
+    # ⚠⚠ **F は使えません**（2026-08-01 / 依頼者の実機確認）★★
+    #
+    #   > いまの場所を追うが外れる？ → Fと連動してる。
+    #   > FはFCEUXのAボタンと一緒なので
+    #
+    #   戦闘で A（攻撃）を押すたびに追従が反転していました。
+    #   2秒に11回反転し、どちらで止まったか分からない状態でした。
+    #
+    # ★★ **ゲームの操作キーと同じ文字を割り当てないこと。** ★★
+    #   FCEUX の割り当ては `tools/fceux/fceux.cfg` にありますが
+    #   base64 で符号化されており、こちらからは読めません。
+    #   ⚠ 迷ったら**修飾キーを付ける**（Ctrl+）。ゲームは修飾を使いません。
+    keyboard:
+      - Ctrl+F
+    restore_emulator_focus: true
+
+  reset_layout:
+    context: global
+    # ★ゲーム操作中に誤って押しにくい組み合わせ（指示書 §7.2）
+    keyboard:
+      - Ctrl+Shift+R
+    restore_emulator_focus: true
+
+  focus_emulator:
+    context: global
+    keyboard:
+      - F9
+    restore_emulator_focus: true
+
+  # --- 設定・編集（RetroUX 側にフォーカスを残す）----------------------
+  open_tactics_profile:
+    context: global
+    # ⚠⚠ **P は FCEUX のセーブステート読み込み**です（2026-08-07 / 依頼者報告）。
+    #   > ロードでPを押すと戦術画面が出る。キーが被っている。
+    #   ★ロードのたびに戦術画面が開くので、ボタンだけにします。
+    #   ⚠ 空きキーへ移すこともできますが、依頼者の指示は
+    #     「戦術画面はいったんボタン起動のみでよい」。
+    keyboard: []
+    restore_emulator_focus: false
+
+  open_settings:
+    context: global
+    # ⚠ 設定画面はこの版では未実装。**キーだけ先に配らない**。
+    keyboard: []
+    restore_emulator_focus: false
+
+  open_keybinding_settings:
+    context: global
+    keyboard:
+      - Ctrl+K
+    restore_emulator_focus: false
+
+  show_lua_window:
+    context: global
+    # ★障害調査用の逃げ道（指示書 §9.2）。普段は使わないので修飾キー付き。
+    keyboard:
+      - Ctrl+Shift+L
+    restore_emulator_focus: false
+
+# --- 将来のゲームパッド（指示書 §16）----------------------------------
+#
+# ★スキーマは今から拡張できる形にしてあります。書けば読みますが、
+#   ⚠ **この版では何も起きません**（本実装は今回の対象外）。
+#
+#   bindings:
+#     toggle_auto:
+#       gamepad:
+#         - button_x

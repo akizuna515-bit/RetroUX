@@ -1,0 +1,80 @@
+{
+  "game_id": "dq2_fc_jp",
+  "title": "ドラゴンクエストII 悪霊の神々",
+  "region": "JP",
+  "platform": "Famicom",
+  "_note_mapper": "指示書 2.2 は Mapper 1 (MMC1) と書いているが、それは北米版 Dragon Warrior II の値。この ROM の iNES ヘッダを実測すると Mapper 2 (UNROM) だった。docs/design/rom-analysis-tools-spec.md 1.1",
+  "mapper": 2,
+  "mapper_name": "UNROM",
+  "hashes": {
+    "sha1": "036f96215c102475e9ff7c4b89fe744cee069d9e",
+    "md5": "5c908061c1ebdabc5a5ea1782f83a2cd",
+    "crc32": "7b3d483f"
+  },
+  "rom_layout": {
+    "ines_header_size": 16,
+    "prg_bank_size": 16384,
+    "prg_banks": 8,
+    "chr_banks": 0,
+    "uses_chr_ram": true,
+    "mirroring": "vertical",
+    "fixed_bank": 7,
+    "_note": "UNROM: $8000-$BFFF が切り替えバンク、$C000-$FFFF は最終バンク固定"
+  },
+  "symbols": {
+    "monster_graphics_pointer_table": {
+      "prg_offset": "0x110FD",
+      "bank": 4,
+      "cpu_address": "0x90FD",
+      "name": "monster_graphics_pointer_table",
+      "confidence": "probable",
+      "evidence": [
+        {
+          "type": "disassembly_symbol",
+          "note": "bank4.asm:2678「count? + pointer to enemy graphics? + pointer to enemy palette」。1体5バイト、引き方は bank4.asm:1134-1151（monster_id * 5）",
+          "source": "work/dq2-disasm（Nathan-R-Og/dq2、北米版のみ）"
+        },
+        {
+          "type": "byte_signature",
+          "note": "5バイト間隔の count 列 14 個が一致。日本版ROM内で候補は1か所のみ",
+          "bank": 4,
+          "cpu_address": "0x90FD",
+          "rom_offset": "0x110FD"
+        }
+      ]
+    },
+    "monster_palette_table": null,
+    "monster_graphics_decoder": null,
+    "map_header_table": {
+      "prg_offset": "0x08000",
+      "bank": 2,
+      "cpu_address": "0x8000",
+      "name": "map_header_table",
+      "confidence": "probable",
+      "evidence": [
+        {
+          "type": "disassembly_symbol",
+          "note": "bank2.asm:58「map header info (exterior border tile ID, width, height, pointer low byte, pointer high byte, ?, ?, palette)」。1マップ8バイト",
+          "source": "work/dq2-disasm（Nathan-R-Og/dq2、北米版のみ）"
+        },
+        {
+          "type": "byte_signature",
+          "note": "8バイト間隔の (境界タイル, 幅, 高さ) 24 組が一致。日本版ROM内で候補は1か所のみ",
+          "bank": 2,
+          "cpu_address": "0x8000",
+          "rom_offset": "0x08000"
+        }
+      ]
+    },
+    "map_data": null,
+    "map_build_routine": null,
+    "overworld_data": null
+  },
+  "confidence": {
+    "monster_table": "probable",
+    "monster_decoder": "unverified",
+    "map_table": "probable",
+    "map_decoder": "unverified"
+  },
+  "_symbols_note": "symbols は手で書かない。`python -m dq2rom inspect --rom <ROM> --update-profile` が探索結果を書き戻す。北米版のアドレスは日本版に一切通用しない（src/jp/main.asm は中身が無い）。"
+}
