@@ -46,10 +46,12 @@ cd RetroUX
 uv sync
 
 # 3. FCEUX を置く（Lua 対応版）
-#    tools\fceux\fceux64.exe になるように配置
+#    実行ファイルが tools\fceux\fceux64.exe になるように配置
 
-# 4. ROM を置く
-#    work\rom\DQ2_J.nes になるように配置（正規に所有するもの）
+# 4. ROM を置く（正規に所有するもの）
+#    ★ファイル名を DQ2_J.nes にリネームし、work\rom\ に置く
+#      → 最終的に work\rom\DQ2_J.nes になること
+#    （別名・別の場所にしたい場合は user_config.yaml の paths.rom を変更）
 
 # 5. 設定を用意する
 copy user_config.example.yaml user_config.yaml
@@ -78,6 +80,51 @@ Start-RetroUX-Console.cmd
 
 ---
 
+## 操作方法
+
+### キーボード
+
+RetroUX 固有の操作（ゲーム画面を触りながら使えます）:
+
+| キー | はたらき |
+| --- | --- |
+| `M` | **まんたん**（HP/MP を回復。毒も治す） |
+| `R` | **はなす**（相手に応じて どうぐや補充 / ふくびき を自動選択） |
+| `A` | **AUTO**（AI 操作）オンオフ ※キーボードの A |
+| `T` | **Turbo**（戦闘倍速）オンオフ |
+| `G` | 見た**地図**を開く |
+| `F9` | ゲーム画面へフォーカスを戻す |
+| `Ctrl+F` | 地図で現在地を追う（地図ウィンドウ） |
+| `Ctrl+M` | いる場所に**メモ**を書く（地図ウィンドウ） |
+| `Ctrl+Shift+M` | マップの**名前・階層**を直す（地図ウィンドウ） |
+| `Ctrl+Shift+R` | 標準レイアウトに戻す |
+| `Ctrl+K` | キー割り当ての設定 |
+| `Ctrl+Shift+L` | Lua ウィンドウを出す（障害調査用） |
+
+ゲーム本体の操作（FCEUX の既定。**FCEUX の Config→Input で変更可**）:
+
+| キー | NES |
+| --- | --- |
+| 矢印キー | 十字（移動） |
+| `F` / `D` | A / B |
+| `Enter` / `S` | Start / Select |
+| `P` | セーブステートの**読み込み**（ロード） |
+
+★キー割り当ては `config/keybindings.yaml`（または `Ctrl+K` の設定画面）で変えられます。
+
+### ゲームパッド（XBOX）
+
+**挿すだけ**で使えます（FCEUX 側の設定は不要）。
+
+| パッド | はたらき |
+| --- | --- |
+| 十字 / 左スティック・A・B・Start・Back | 移動と NES 各ボタン |
+| LB / RB | セーブステートの**ロード / セーブ** |
+| LT / RT | **AUTO** / **Turbo** のオンオフ |
+| X / Y | どうぐや・ふくびき（`R`）/ まんたん（`M`） |
+
+詳しくは [`docs/60-gamepad-setup.md`](docs/60-gamepad-setup.md)。
+
 ## 主な機能
 
 - **戦闘の自動化**（省資源／全力などの戦術プロファイル、キャラ別の役割）
@@ -97,6 +144,24 @@ Start-RetroUX-Console.cmd
 項目の説明は `user_config.example.yaml` のコメントを参照してください。
 
 ---
+
+## フォルダ構成（どこに何を置くか）
+
+| 場所 | 中身 |
+| --- | --- |
+| `tools\fceux\fceux64.exe` | **エミュレータ本体**（各自で配置。同梱しません） |
+| `work\rom\DQ2_J.nes` | **ROM**（各自で用意し、この名前で配置） |
+| `tools\fceux\fcs\` | **セーブステート**（FCEUX が書き出す先。例 `DQ2_J.fc1`） |
+| `work\savestate-backup\` | セーブステートの**世代バックアップ**（上書きしても戻せる） |
+| `work\` | 実行時のデータ（DB・ログ・状態ファイル等。消えてよい生成物） |
+| `user_config.yaml` | あなたの設定（`user_config.example.yaml` をコピーして作る） |
+| `scripts\` | 起動スクリプト（`start-retroux.ps1` ほか） |
+| `retroux\` | **アプリ本体のソース**（Python + Lua 連携） |
+| `dq2rom\` | ROM 解析ツール（Python パッケージ） |
+| `tests\` | テスト |
+
+★セーブステートの保存/読み込みスロットや、ROM・各種パスは `user_config.yaml` で
+変えられます（既定は保存スロット 1）。
 
 ## 動作確認（任意）
 
