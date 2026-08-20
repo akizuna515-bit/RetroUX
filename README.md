@@ -228,3 +228,5 @@ soichannel3590 — YouTube: <https://www.youtube.com/@soichannel3590>
 
 - 本リポジトリは配布用です。開発は別のリポジトリで行っています。
 - 不具合や要望は Issue へどうぞ。
+- **改造・機能追加をしたい方へ**: 全体の構造は [`ARCHITECTURE.md`](ARCHITECTURE.md)、
+  Issue / PR の作法は [`CONTRIBUTING.md`](CONTRIBUTING.md) を参照してください。
