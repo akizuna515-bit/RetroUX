@@ -105,16 +105,20 @@ class PadState:
 
 
 def nes_mask(state: PadState | None,
-             deadzone: int = THUMB_DEADZONE) -> int:
+             deadzone: int = THUMB_DEADZONE,
+             swap_ab: bool = False) -> int:
     """パッドの状態を NES ボタンのビットマスクに変える（★純ロジック）。
 
     ★十字と左スティックの**両方**を方向に使う（どちらでも歩ける）。
     ⚠ レベル（押している間ずっと）で見る。方向は保持で歩き続けるため、
       ここは立ち上がりにしない（立ち上がりは独自機能ボタンだけ）。
+    ★swap_ab=True で A/B を入れ替える（ファミコン準拠: XBOX B→NES A / A→NES B）。
     """
     if state is None or not state.connected:
         return 0
     mask = 0
+    # ★A/B の割り当て（swap_ab でファミコン並びに）
+    a_out, b_out = (NES_B, NES_A) if swap_ab else (NES_A, NES_B)
     # ★方向: 十字 OR 左スティック（倒し）
     if state.pressed(BTN_DPAD_UP) or state.thumb_ly > deadzone:
         mask |= NES_UP
@@ -125,9 +129,9 @@ def nes_mask(state: PadState | None,
     if state.pressed(BTN_DPAD_RIGHT) or state.thumb_lx > deadzone:
         mask |= NES_RIGHT
     if state.pressed(BTN_A):
-        mask |= NES_A
+        mask |= a_out
     if state.pressed(BTN_B):
-        mask |= NES_B
+        mask |= b_out
     if state.pressed(BTN_START):
         mask |= NES_START
     if state.pressed(BTN_BACK):

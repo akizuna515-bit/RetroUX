@@ -140,6 +140,17 @@ def test_face_buttons_map_to_nes():
     assert nes_mask(_pad2(BTN_BACK)) == NES_SELECT     # ★Back → Select
 
 
+def test_swap_ab_follows_the_famicom_layout():
+    """★ファミコン準拠: XBOX B → NES A（決定＝右）、XBOX A → NES B。"""
+    assert nes_mask(_pad2(BTN_A), swap_ab=True) == NES_B
+    assert nes_mask(_pad2(BTN_B), swap_ab=True) == NES_A
+    # ★swap 無し（XBOX 標準）は従来どおり
+    assert nes_mask(_pad2(BTN_A), swap_ab=False) == NES_A
+    assert nes_mask(_pad2(BTN_B), swap_ab=False) == NES_B
+    # ⚠ 方向や Start/Select は swap の影響を受けない
+    assert nes_mask(_pad2(BTN_START), swap_ab=True) == NES_START
+
+
 def test_the_left_stick_also_moves():
     """★十字だけでなく左スティックでも歩ける（Y は上が +）。"""
     assert nes_mask(_pad2(ly=30000)) == NES_UP

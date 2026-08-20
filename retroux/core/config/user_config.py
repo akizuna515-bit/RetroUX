@@ -318,6 +318,11 @@ class GamepadConfig:
     # ★切り分け検証用の DEBUG ログ（フォーカス・押したボタン）。既定 OFF。
     #   環境変数 RETROUX_GAMEPAD_DEBUG でも ON にできる。
     debug: bool = False
+    # ★A/B を入れ替える（RX-0081 / 2026-08-20）。★既定 ON = ファミコン準拠。
+    #   ファミコンは A=右・B=左（決定＝A＝右）。XBOX は A=下・B=右なので、
+    #   ON にすると XBOX B→NES A / XBOX A→NES B（右ボタン＝決定）で自然になる。
+    #   ⚠ XBOX 標準（A=下=決定）にしたいときは false。
+    swap_ab: bool = True
 
 
 @dataclass

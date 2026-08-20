@@ -1746,6 +1746,8 @@ class MainWindow(QWidget):
         # ★検証モード（RX-0078）: NES 入力を FCEUX へ**注入するか**。
         #   False なら NES は FCEUX 本体のパッド割当に任せる（独自機能は常に有効）。
         self._gamepad_inject_nes = bool(cfg.gamepad.inject_nes_input)
+        # ★A/B の入れ替え（ファミコン準拠。既定 ON / RX-0081）
+        self._gamepad_swap_ab = bool(cfg.gamepad.swap_ab)
         # ★切り分け用 DEBUG（フォーカス・押したボタン）。config か環境変数で ON。
         self._gamepad_debug = bool(
             cfg.gamepad.debug or os.environ.get("RETROUX_GAMEPAD_DEBUG"))
@@ -1807,7 +1809,8 @@ class MainWindow(QWidget):
                     self._gamepad_seen = True
                     get_logger("gui").info("ゲームパッドを検出しました（XBOX/XInput）")
                 # NES ボタン（状態）。★検証モードで注入OFF なら常に 0。
-                mask = nes_mask(state) if self._gamepad_inject_nes else 0
+                mask = (nes_mask(state, swap_ab=self._gamepad_swap_ab)
+                        if self._gamepad_inject_nes else 0)
                 self._write_gamepad_nes(mask)
                 # 独自機能（立ち上がり）→ メインスレッドへ渡す
                 for event in router.poll(state):

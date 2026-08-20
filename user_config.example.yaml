@@ -145,6 +145,9 @@ gamepad:
   # 切り分け用の DEBUG ログ（フォーカス・押したボタン）。既定 OFF。
   # （環境変数 RETROUX_GAMEPAD_DEBUG でも ON にできます）
   debug: false
+  # A/B を入れ替える（★既定 ON = ファミコン準拠。決定＝A＝右）。
+  #   ON: XBOX B→NES A / XBOX A→NES B。⚠ XBOX標準(A=下=決定)にしたいときは false。
+  swap_ab: true
 
 # --- 画面に出すキャラの名前 -------------------------------------------
 #
