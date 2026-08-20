@@ -31,10 +31,35 @@ end
 -- 仕様 DEV-4「倍速は勝利メッセージが終わるまで継続する」を満たせない。
 -- そのため勝利表示メニューが出ている間も戦闘中として扱う。
 function DQ2:in_battle()
-  if memory.readbyte(self.a.battle_active.addr) ~= 0 then return true end
-  if self.cfg.speed and self.cfg.speed.include_victory_message then
-    return self:showing_victory()
+  if memory.readbyte(self.a.battle_active.addr) ~= 0 then
+    self._victory_hold_pos = nil
+    return true
   end
+  if self.cfg.speed and self.cfg.speed.include_victory_message
+     and self:showing_victory() then
+    -- ★★ 勝利表示の残留への締め切り（RX-0088 / 2026-08-20）★★
+    --
+    --   ⚠ 実機で、フィールドへ戻っても menu_id($0059) が 0x1D のまま残り、
+    --     in_battle が**永久に降りない**事故が起きた（新規ゲーム・手動戦闘。
+    --     以後の戦闘開始/終了/図鑑/Auto 判定が全部止まった）。
+    --     ★セーブステートの RAM 解析と動画（BATTLE 表示のまま歩いている）で確認。
+    --
+    --   ★勝利（レベルアップ含む）メッセージの表示中、プレイヤーは**歩けない**。
+    --     だから「battle_active=0 なのに位置が動いた」＝戦闘はもう終わっている。
+    --     位置が動くまでは今までどおり true（DEV-4: 倍速をメッセージまで続ける）。
+    local x, y = self:map_position()
+    local key = (x or 0) * 256 + (y or 0)
+    if self._victory_hold_pos == nil then
+      self._victory_hold_pos = key
+      return true
+    end
+    if key == self._victory_hold_pos then
+      return true
+    end
+    self._victory_hold_pos = nil        -- 歩いた＝残留。戦闘終了として扱う
+    return false
+  end
+  self._victory_hold_pos = nil
   return false
 end
 
