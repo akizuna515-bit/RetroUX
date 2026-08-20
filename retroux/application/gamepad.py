@@ -51,9 +51,13 @@ BTN_BACK = 0x0020        # ★XBOX の Back/View → NES の Select
 BTN_A = 0x1000           # ★XBOX A → NES A
 BTN_B = 0x2000           # ★XBOX B → NES B
 
-#: トリガは 0〜255 のアナログ。この値を超えたら「押した」とみなす。
-#  ★Microsoft の既定閾値（XINPUT_GAMEPAD_TRIGGER_THRESHOLD）。
-TRIGGER_THRESHOLD = 30
+#: トリガは 0〜255 のアナログ。★★ ヒステリシスで見る（RX-0076 実機）★★
+#  「押した」は高いしきい値、「離した」は低いしきい値。しきい値付近で値が
+#  揺れても ON/OFF を繰り返さない（実機で Auto/Turbo が連発したため）。
+TRIGGER_PRESS = 100      # これを超えたら「押した」
+TRIGGER_RELEASE = 40     # これを下回ったら「離した」（間は前の状態を保つ）
+#: 後方互換の別名（旧: 単一しきい値）。
+TRIGGER_THRESHOLD = TRIGGER_PRESS
 
 #: 左スティックの遊び（この範囲は倒していない扱い）。
 #  ★Microsoft の既定（XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE 相当）。
@@ -148,17 +152,31 @@ class GamepadRouter:
         (BTN_Y, EVENT_MANTAN),
     )
 
-    def __init__(self, trigger_threshold: int = TRIGGER_THRESHOLD) -> None:
-        self.trigger_threshold = int(trigger_threshold)
+    def __init__(self, trigger_press: int = TRIGGER_PRESS,
+                 trigger_release: int = TRIGGER_RELEASE) -> None:
+        self.trigger_press = int(trigger_press)
+        self.trigger_release = int(trigger_release)
         #: 「前回押されていたか」。★これが無いと立ち上がりを見られない。
         self._down: dict[str, bool] = {}
 
+    def _trigger_held(self, value: int, name: str) -> bool:
+        """トリガをヒステリシスで二値化する（★連発を防ぐ）。
+
+        ⚠ 押している間（前回 held）は低いしきい値まで下がらない限り離さない。
+          離している間は高いしきい値を超えないと押さない。間は前の状態を保つ。
+        """
+        if self._down.get(name, False):
+            return value > self.trigger_release
+        return value > self.trigger_press
+
     def _held(self, state: PadState) -> dict[str, bool]:
-        """いま押されている操作（トリガはアナログ→閾値で二値化）。"""
+        """いま押されている操作（トリガはヒステリシスで二値化）。"""
         held = {name: state.pressed(bit)
                 for bit, name in self._BUTTON_EVENTS}
-        held[EVENT_TOGGLE_AUTO] = state.left_trigger > self.trigger_threshold
-        held[EVENT_TOGGLE_TURBO] = state.right_trigger > self.trigger_threshold
+        held[EVENT_TOGGLE_AUTO] = self._trigger_held(
+            state.left_trigger, EVENT_TOGGLE_AUTO)
+        held[EVENT_TOGGLE_TURBO] = self._trigger_held(
+            state.right_trigger, EVENT_TOGGLE_TURBO)
         return held
 
     def poll(self, state: PadState | None) -> list[str]:
@@ -197,12 +215,19 @@ class XInputReader:
     #: 未接続のときに探し直す間隔（poll 呼び出しの回数）。
     #  ★33ms 周期なら約1秒に1回だけスロットを総なめする。
     _RESCAN_EVERY = 30
+    #: 覚えているスロットが「これだけ連続で読めなかったら」抜けたとみなす。
+    #  ⚠ 1回の一時的失敗で捨てると、その後 0.5 秒 None を返し続け、ルータの
+    #    立ち上がり判定がリセットされてボタンが**再発火**する（実機で連発）。
+    #    連続失敗で初めて手放す。単発の失敗は前回値を返して無視する。
+    _FAIL_LIMIT = 30
 
     def __init__(self) -> None:
         self._dll = self._load_dll()
         self._state_type = None
         self._slot: int | None = None    # 最後に繋がっていたスロット
         self._since_scan = 0
+        self._fail = 0                   # スロットの連続読み取り失敗数
+        self._last: PadState | None = None   # 直近の正常な読み取り
         if self._dll is not None:
             self._state_type = _make_state_type()
 
@@ -250,8 +275,17 @@ class XInputReader:
         if self._slot is not None:
             got = self._read_slot(self._slot)
             if got is not None:
+                self._last = got
+                self._fail = 0
                 return got
-            self._slot = None                          # 抜かれた
+            # ⚠ 一時的な読み取り失敗では slot を捨てない。前回値を返して
+            #   ルータの立ち上がり判定をリセットしない（連発の防止）。
+            self._fail += 1
+            if self._fail < self._FAIL_LIMIT:
+                return self._last
+            self._slot = None                          # 連続失敗＝抜かれた
+            self._fail = 0
+            self._last = None
 
         # ★未接続のときは間引いて探す（毎フレームは重い）
         self._since_scan += 1
@@ -262,6 +296,8 @@ class XInputReader:
             got = self._read_slot(index)
             if got is not None:
                 self._slot = index
+                self._last = got
+                self._fail = 0
                 return got
         return None
 

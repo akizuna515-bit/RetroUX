@@ -28,10 +28,12 @@
 ## 必要なもの
 
 - Windows 10 / 11
-- [FCEUX](https://fceux.com/)（Lua スクリプトが動く版。`fceux64.exe`）
+- **FCEUX 2.6.6（win64）**で動作確認しています（`fceux64.exe`。Lua が動く版）。
+  入手: 公式 GitHub Releases → <https://github.com/TASEmulators/fceux/releases/tag/v2.6.6>
+  （他のバージョンでも動く可能性はありますが、未確認です）
 - 正規に所有する DQ2(FC/JP) の ROM ファイル
 - Python 3.12 と [uv](https://docs.astral.sh/uv/)
-- （任意）XBOX の USB コントローラ
+- （任意）XInput 対応のコントローラ（XBOX 系）
 
 ---
 
@@ -112,9 +114,11 @@ RetroUX 固有の操作（ゲーム画面を触りながら使えます）:
 
 ★キー割り当ては `config/keybindings.yaml`（または `Ctrl+K` の設定画面）で変えられます。
 
-### ゲームパッド（XBOX）
+### ゲームパッド
 
-**挿すだけ**で使えます（FCEUX 側の設定は不要）。
+**XInput 対応（XBOX 系）のコントローラに対応**しています。基本操作も独自機能も
+RetroUX 側で読み取って FCEUX へ渡すため、**FCEUX 本体でパッドを割り当てなくても
+動きます**（起動前にコントローラを接続してください）。
 
 | パッド | はたらき |
 | --- | --- |
@@ -123,7 +127,12 @@ RetroUX 固有の操作（ゲーム画面を触りながら使えます）:
 | LT / RT | **AUTO** / **Turbo** のオンオフ |
 | X / Y | どうぐや・ふくびき（`R`）/ まんたん（`M`） |
 
-詳しくは [`docs/60-gamepad-setup.md`](docs/60-gamepad-setup.md)。
+- ⚠ 動作確認は XBOX(XInput) コントローラです。XInput 非対応のパッドは読めません。
+- ⚠⚠ **FCEUX の Input でパッドを割り当てないでください。** NES 入力は RetroUX が
+  読んで渡すので、FCEUX 側でも同じパッドを割り当てると**二重入力**になり A と B が
+  混ざるなどの誤動作が起きます。FCEUX の Port 1 は**キーボードのまま**でOKです。
+- NES 入力を FCEUX 本体に任せたい場合や、うまく動かないときの切り分け
+  （`inject_nes_input` の切替）は [`docs/60-gamepad-setup.md`](docs/60-gamepad-setup.md) を参照。
 
 ## 主な機能
 
@@ -132,7 +141,7 @@ RetroUX 固有の操作（ゲーム画面を触りながら使えます）:
 - **倍速**（戦闘の高速化）
 - **見た地図の可視化**（実際に歩いた範囲・ROM 由来のタイル）
 - **セーブステートの世代バックアップ**（上書きしても直前へ戻せる）
-- **XBOX ゲームパッド対応** … 挿すだけ。詳しくは
+- **ゲームパッド対応**（XInput / XBOX 系）… 基本操作も独自機能も。詳しくは
   [`docs/60-gamepad-setup.md`](docs/60-gamepad-setup.md)
 
 ---
@@ -142,6 +151,18 @@ RetroUX 固有の操作（ゲーム画面を触りながら使えます）:
 `user_config.yaml`（`user_config.example.yaml` をコピーして作る）で、
 ウィンドウの並び・保存スロット・ゲームパッド・回復方針などを変えられます。
 項目の説明は `user_config.example.yaml` のコメントを参照してください。
+
+### セーブについて
+
+- **既定ではスロット 1 に保存/読込します。** 「保存して終了」も、ゲームパッドの
+  **RB(セーブ) / LB(ロード)** も、**同じ 1 つのスロット**（`shutdown.save_slot`）を使います。
+- スロットは変更できます（1〜9。⚠ 0 は使えません）:
+  ```yaml
+  shutdown:
+    save_slot: 2
+  ```
+- 上書きしても、直前の内容は**世代バックアップ**（`work/savestate-backup/`）に残るので戻せます。
+- ★FCEUX 自身のセーブ/ロード（キーボード等）は別系統で、そちらは 0〜9 を使えます。
 
 ---
 

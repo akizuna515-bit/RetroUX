@@ -989,12 +989,20 @@ class MainWindow(QWidget):
             return
         self._torn_down = True
 
-        # ★ゲームパッドの巡回を止める（RX-0076）。⚠ 無い構成もある。
+        # ★ゲームパッドを止める（RX-0076）。⚠ 無い構成もある。
+        #   先に読み取りスレッドを止め、その後メインスレッドで解除を書く。
+        stop = getattr(self, "_gamepad_stop", None)
+        if stop is not None:
+            stop.set()
+        thread = getattr(self, "_gamepad_thread", None)
+        if thread is not None:
+            thread.join(timeout=0.5)
         timer = getattr(self, "_gamepad_timer", None)
         if timer is not None:
-            # ★止める前に「全部離す」を1回書く（bridge に押しっぱなしを残さない）
-            self._write_gamepad_nes(0)
             timer.stop()
+        if getattr(self, "_gamepad_reader", None) is not None:
+            # ★スレッド停止後に「全部離す」を1回書く（bridge に押しっぱなしを残さない）
+            self._write_gamepad_nes(0)
 
         # ⚠ import は関数の中（★この計画の作法）。
         #   ⚠⚠ ここを忘れて `NameError` を作った（2026-08-18 / 検査が捕まえた）。
@@ -1704,9 +1712,11 @@ class MainWindow(QWidget):
         ⚠ 無効化は環境変数 `RETROUX_NO_GAMEPAD`。閲覧専用でも動かさない
           （操作は command.json を書くため）。パッド未接続でも無害に休む。
         """
+        import collections
         import os
+        import threading
 
-        from PySide6.QtCore import Qt, QTimer
+        from PySide6.QtCore import QTimer
 
         from ..application.gamepad import GamepadRouter, XInputReader
         from ..core.config import user_config as user_config_mod
@@ -1750,44 +1760,77 @@ class MainWindow(QWidget):
             pathlib.Path(self.vm.recorder.command_path).parent
             / "gamepad_input.txt")
         self._gamepad_seq = 0
-        self._gamepad_last_mask = None
-        # ★応答性のため 60Hz（NES の歩行を渡すため）。独自機能のエッジも同じ間隔。
-        #   ⚠ PreciseTimer にして 16ms に近づける（既定の CoarseTimer は粗い）。
-        #   ★それでも refresh の重い更新中はメインスレッドが塞がるので、ブリッジ側は
-        #     数百ms 書けなくても入力を保持する（GAMEPAD_STALE_LIMIT）。
-        self._gamepad_timer = QTimer(self)
-        self._gamepad_timer.setTimerType(Qt.TimerType.PreciseTimer)
-        self._gamepad_timer.timeout.connect(self._poll_gamepad)
-        self._gamepad_timer.start(16)
-        mode = ("NES注入ON（挿すだけ）" if self._gamepad_inject_nes
-                else "NES注入OFF（NESはFCEUX本体へ / 検証モード）")
-        log.info("ゲームパッド: 開始 — %s。★独自機能(LB/RB/LT/RT/X/Y)は常に有効", mode)
+        # ★独自機能のイベントを 別スレッド→メインスレッド へ渡す待ち行列。
+        #   deque の append/popleft はスレッド安全（GIL 下で1操作）。
+        self._gamepad_events: "collections.deque[str]" = collections.deque()
+        self._gamepad_stop = threading.Event()
         # ★注入OFF のときは、前回の残り（押しっぱなし）を即 0 で解除しておく。
         if not self._gamepad_inject_nes:
             self._write_gamepad_nes(0)
 
-    def _poll_gamepad(self) -> None:
-        """パッドを1回読み、独自機能は**押した瞬間**、NES ボタンは**状態**を渡す。"""
-        reader = getattr(self, "_gamepad_reader", None)
-        if reader is None:
-            return
-        state = reader.read()
-        if state is not None and state.connected and not self._gamepad_seen:
-            self._gamepad_seen = True
-            get_logger("gui").info("ゲームパッドを検出しました（XBOX/XInput）")
-        # ★独自機能（ロード/セーブ/Auto/Turbo/X/Y）は立ち上がりで1回だけ。
-        #   ⚠ 注入 OFF でも**必ず**処理する（独自機能は常に有効）。
-        for event in self._gamepad_router.poll(state):
-            self._on_gamepad_event(event)
-        # ★NES ボタン（十字/A/B/Start/Select）は**毎フレームの状態**を bridge へ。
-        #   ⚠ seq を毎回進める。bridge は seq が止まったら「RetroUX 停止」とみなし
-        #     押しっぱなしを解除する（ボタンが刺さらないように）。
-        # ★検証モード（RX-0078）: 注入 OFF なら NES は送らない（常に 0）。
+        # ★★ 読み取り・NES注入は**専用スレッド**（RX-0076 / 2026-08-20）★★
+        #   ⚠ 起動時のイベント取り込みや refresh の重い更新でメインスレッドが
+        #     塞がっても、パッドの読み取りが止まらない（起動直後から効く）。
+        self._gamepad_thread = threading.Thread(
+            target=self._gamepad_loop, name="retroux-gamepad", daemon=True)
+        self._gamepad_thread.start()
+        # ★独自機能（ロード/セーブ/Auto/Turbo/X/Y）の**実行だけ**メインスレッドで
+        #   （Qt/CommandService を触るため）。スレッドが積んだものをここで捌く。
+        self._gamepad_timer = QTimer(self)
+        self._gamepad_timer.timeout.connect(self._drain_gamepad_events)
+        self._gamepad_timer.start(16)
+        mode = ("NES注入ON（挿すだけ）" if self._gamepad_inject_nes
+                else "NES注入OFF（NESはFCEUX本体へ / 検証モード）")
+        log.info("ゲームパッド: 開始（専用スレッド）— %s。★独自機能は常に有効", mode)
+
+    def _gamepad_loop(self) -> None:
+        """★別スレッド。XInput 読み取り→NES注入→独自機能の立ち上がり検出。
+
+        ⚠⚠ **ここで Qt ウィジェットや CommandService を触らない。**
+          触るのはメインスレッドだけ。独自機能は待ち行列へ入れて `_drain_*` で実行。
+          ここで安全に使えるのは: XInput 読み取り・ファイル書き込み・logging・
+          最前面ウィンドウ名の取得（ctypes のみ）。
+        """
+        import time
+
         from ..application.gamepad import nes_mask
-        mask = nes_mask(state) if getattr(self, "_gamepad_inject_nes", True) else 0
-        self._write_gamepad_nes(mask)
-        if getattr(self, "_gamepad_debug", False):
-            self._gamepad_debug_log(state, mask)
+
+        reader = self._gamepad_reader
+        router = self._gamepad_router
+        stop = self._gamepad_stop
+        while not stop.is_set():
+            start = time.perf_counter()
+            try:
+                state = reader.read()
+                if (state is not None and state.connected
+                        and not self._gamepad_seen):
+                    self._gamepad_seen = True
+                    get_logger("gui").info("ゲームパッドを検出しました（XBOX/XInput）")
+                # NES ボタン（状態）。★検証モードで注入OFF なら常に 0。
+                mask = nes_mask(state) if self._gamepad_inject_nes else 0
+                self._write_gamepad_nes(mask)
+                # 独自機能（立ち上がり）→ メインスレッドへ渡す
+                for event in router.poll(state):
+                    self._gamepad_events.append(event)
+                if self._gamepad_debug:
+                    self._gamepad_debug_log(state, mask)
+            except Exception as exc:                   # noqa: BLE001
+                get_logger("gui").debug("ゲームパッド読み取りで例外: %s", exc)
+            # ★約60Hz。stop されたら即抜ける（join を待たせない）。
+            elapsed = time.perf_counter() - start
+            stop.wait(max(0.0, 0.016 - elapsed))
+
+    def _drain_gamepad_events(self) -> None:
+        """★メインスレッド。別スレッドが積んだ独自機能を実行する。"""
+        events = getattr(self, "_gamepad_events", None)
+        if events is None:
+            return
+        while True:
+            try:
+                event = events.popleft()
+            except IndexError:
+                break
+            self._on_gamepad_event(event)
 
     def _write_gamepad_nes(self, mask: int) -> None:
         """`<seq> <mask>` を1行で書く（bridge が毎フレーム読む）。

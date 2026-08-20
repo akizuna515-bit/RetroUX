@@ -15,7 +15,7 @@ from retroux.application.gamepad import (
     BTN_DPAD_UP, BTN_LB, BTN_RB, BTN_START, BTN_X, BTN_Y, EVENT_LOAD,
     EVENT_MANTAN, EVENT_SAVE, EVENT_TALK, EVENT_TOGGLE_AUTO, EVENT_TOGGLE_TURBO,
     NES_A, NES_B, NES_DOWN, NES_LEFT, NES_RIGHT, NES_SELECT, NES_START, NES_UP,
-    THUMB_DEADZONE, GamepadRouter, PadState, nes_mask,
+    THUMB_DEADZONE, GamepadRouter, PadState, XInputReader, nes_mask,
 )
 
 
@@ -63,12 +63,23 @@ def test_release_then_press_fires_again():
 
 def test_a_trigger_below_the_threshold_does_not_fire():
     """⚠ 軽く触れただけ（アナログの遊び）では効かせない。"""
-    r = GamepadRouter(trigger_threshold=30)
+    r = GamepadRouter()                          # press=100 / release=40
     assert r.poll(_pad(lt=10)) == []            # 閾値以下
     assert r.poll(_pad(lt=200)) == [EVENT_TOGGLE_AUTO]  # 踏み込む→発火
     assert r.poll(_pad(lt=200)) == []           # 踏みっぱなしは無反応
     assert r.poll(_pad(lt=5)) == []             # 戻す
     assert r.poll(_pad(lt=200)) == [EVENT_TOGGLE_AUTO]  # また踏む→発火
+
+
+def test_trigger_hysteresis_prevents_chatter():
+    """★★ しきい値付近の揺れで連発しない（実機で Auto/Turbo が連発した対策）。"""
+    r = GamepadRouter()                          # press=100 / release=40
+    assert r.poll(_pad(lt=120)) == [EVENT_TOGGLE_AUTO]   # 踏み込む→1回だけ
+    # ★押し〜離しの間（40〜100）で値が揺れても、押しっぱなし扱い＝再発火しない
+    for v in (90, 60, 80, 45, 70, 99):
+        assert r.poll(_pad(lt=v)) == []
+    assert r.poll(_pad(lt=30)) == []            # 40 未満まで戻す→離す（発火なし）
+    assert r.poll(_pad(lt=120)) == [EVENT_TOGGLE_AUTO]   # もう一度踏む→発火
 
 
 # --- 抜き差し ----------------------------------------------------------
@@ -155,3 +166,38 @@ def test_dpad_and_stick_do_not_double_count():
 def test_a_disconnected_pad_is_all_zero():
     assert nes_mask(None) == 0
     assert nes_mask(PadState(connected=False, buttons=BTN_A)) == 0
+
+
+# --- 読み取りの頑丈さ（一時的失敗で連発しない）--------------------------
+
+def test_reader_holds_last_state_on_transient_failure():
+    """★★ 1回の読み取り失敗で slot を捨てない（前回値を返す）★★
+
+    ⚠ 捨てて None を返すと、ルータの立ち上がり判定がリセットされ、
+      押しっぱなしのボタンが**再発火**する（実機で LB のロードが連発）。
+    """
+    r = XInputReader()
+    r._dll = object()                      # ★DLL 有りとみなす（read が進む）
+    r._slot = 0
+    good = PadState(connected=True, buttons=BTN_A)
+    seq = [good, None, None, good, None]
+    r._read_slot = lambda idx: seq.pop(0) if seq else None
+
+    assert r.read().pressed(BTN_A)         # 正常
+    assert r.read().pressed(BTN_A)         # 失敗→前回値（押しっぱなし維持）
+    assert r.read().pressed(BTN_A)         # 失敗→前回値
+    assert r.read().pressed(BTN_A)         # また正常
+    assert r.read().pressed(BTN_A)         # 失敗→前回値
+
+
+def test_reader_gives_up_after_sustained_failure():
+    """★連続失敗が続けば「抜けた」とみなして手放す（無限に前回値を返さない）。"""
+    r = XInputReader()
+    r._dll = object()
+    r._slot = 0
+    r._last = PadState(connected=True, buttons=BTN_A)
+    r._read_slot = lambda idx: None        # ずっと失敗
+    # ★FAIL_LIMIT 回までは前回値、その後は総なめ（全部失敗なので None）
+    results = [r.read() for _ in range(r._FAIL_LIMIT + r._RESCAN_EVERY + 2)]
+    assert results[0] is not None          # 最初は前回値
+    assert results[-1] is None             # 十分続けば手放す
