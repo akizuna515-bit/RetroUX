@@ -1,6 +1,6 @@
 [project]
 name = "retroux"
-version = "1.0.0"
+version = "1.0.1"
 description = "RetroUX — modernizes the user experience of classic games without changing what made them great"
 requires-python = ">=3.12"
 dependencies = [

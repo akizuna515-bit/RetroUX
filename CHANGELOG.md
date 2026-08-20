@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-20
+
 ### 追加
 - ゲームパッドの右スティックでマウスカーソルを移動、R3（右スティック押し込み）で
   左クリック（押したままでドラッグ）。パッドだけで GUI のボタン等を操作できる。
@@ -33,5 +35,6 @@
 
 > ⚠ ROM と FCEUX は同梱していません（各自で用意）。
 
-[Unreleased]: https://github.com/akizuna515-bit/RetroUX/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/akizuna515-bit/RetroUX/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/akizuna515-bit/RetroUX/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/akizuna515-bit/RetroUX/releases/tag/v1.0.0
