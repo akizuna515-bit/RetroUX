@@ -319,11 +319,16 @@ def main() -> int:
     atexit.register(log_handle.shutdown)
 
     if not args.src.is_dir():
-        # ⚠ `pythonw.exe` では画面に出ない。**ログにも必ず書く**
-        #   （書かないと、起動しなかった理由がどこにも残らない）。
-        say(f"セーブステートの置き場が見つかりません: {args.src}",
-            logger=_log(), level="error")
-        return 1
+        # ★無ければ作る（新規の FCEUX 展開直後は fcs/ が未作成）。★2026-08-20 UAT。
+        #   FCEUX が最初のセーブステートを書くまで空だが、監視は始められる。
+        #   ⚠ `pythonw.exe` では画面に出ないので、作成・失敗ともログへ必ず書く。
+        try:
+            args.src.mkdir(parents=True, exist_ok=True)
+            say(f"セーブステートの置き場を作成しました: {args.src}", logger=_log())
+        except OSError as exc:
+            say(f"セーブステートの置き場を作れません: {args.src}（{exc}）",
+                logger=_log(), level="error")
+            return 1
 
     if args.once:
         made = scan(args.src, args.dst, args.generations)

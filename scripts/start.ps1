@@ -24,7 +24,9 @@ param(
     [string]$Root = "F:\Projects\260721_RetroUX",
     [string]$Lua = "retroux\emulator\fceux\run.lua",
     [string]$Rom = "work\rom\DQ2_J.nes",
-    [int]$FocusTimeoutSeconds = 8
+    [int]$FocusTimeoutSeconds = 8,
+    # ★FCEUX の映像倍率（--xscale/--yscale で渡す）。既定 2 = 2倍。1 で等倍。
+    [int]$Scale = 2
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,7 +49,14 @@ Write-Output ("  Lua   : " + $luaPath)
 Write-Output ("  ROM   : " + $romPath)
 
 # パスは引用符付きで渡す（スペースを含む場合の分割を防ぐ / playbook #11）
-$argList = @("-lua", ('"' + $luaPath + '"'), ('"' + $romPath + '"'))
+$argList = @()
+# ★映像倍率（新規展開の FCEUX は既定1倍なので、ここで倍率を渡す）。
+#   ⚠ 1 のときは付けない（既定挙動を尊重）。
+if ($Scale -gt 1) {
+    $argList += @("--xscale", "$Scale", "--yscale", "$Scale")
+    Write-Output ("  倍率  : x" + $Scale)
+}
+$argList += @("-lua", ('"' + $luaPath + '"'), ('"' + $romPath + '"'))
 $proc = Start-Process -FilePath $fceux -ArgumentList $argList -PassThru
 
 # --- フォーカスの移動 -------------------------------------------------

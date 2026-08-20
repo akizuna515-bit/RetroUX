@@ -60,9 +60,10 @@ uv sync
 #      → 最終的に work\rom\DQ2_J.nes になること
 #    （別名・別の場所にしたい場合は user_config.yaml の paths.rom を変更）
 
-# 5. 設定を用意する
-copy user_config.example.yaml user_config.yaml
-#    必要ならエディタで user_config.yaml を編集
+# 5. 設定（user_config.yaml は同梱済み。そのままでOK）
+#    ★必要ならエディタで user_config.yaml を編集
+#      例: emulator.window_scale（FCEUX の映像倍率。既定 2 = 2倍。1 で等倍）
+#          shutdown.save_slot（保存/読込スロット。既定 1）
 
 # 6. 設定から Lua を生成する
 uv run python -m retroux.core.config.generate_lua
