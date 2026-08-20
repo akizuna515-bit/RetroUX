@@ -202,9 +202,10 @@ class EmulatorConfig:
     # 並べる領域の左上（画面座標）
     align_x: int = 0
     align_y: int = 60
-    # ★FCEUX の映像倍率（起動時に --xscale/--yscale で渡す）。既定 2 = 2倍。
-    #   ⚠ FCEUX 側の winsizemulx/y に相当。1 で等倍。新規展開の FCEUX は既定1倍
-    #     なので、ここで2倍にして起動する（依頼者 2026-08-20 / UAT）。
+    # ★FCEUX の映像倍率。起動時に fceux.cfg の winsizemulx/y へ書き込む
+    #   （retroux.tools.fceux_scale）。⚠ --xscale/--yscale は窓を変えない（実測）。
+    #   既定 2 = 2倍。1 で等倍。新規展開の FCEUX は既定1倍なので、ここで2倍にする
+    #   （依頼者 2026-08-20 / UAT）。
     window_scale: int = 2
 
     # --- Lua Script ウィンドウ ---------------------------------------

@@ -225,13 +225,17 @@ try {
     # --- 6. エミュレータ ---------------------------------------------
     if (-not $NoEmulator) {
         $env:RETROUX_ROOT = $Root
-        $startArgs = @{ Root = $Root; Lua = $Lua }
-        if ($Rom -ne "") { $startArgs["Rom"] = $Rom }
-        # ★映像倍率を user_config から読んで FCEUX へ渡す（既定 2 倍）。
+        # ★映像倍率を user_config から読み、起動前に fceux.cfg へ書く。
+        #   ⚠ --xscale は効かない（実測）。窓倍率は winsizemulx/y が制御する。
         try {
             $scaleOut = (& $python -c "from retroux.core.config.user_config import load; print(load()[0].emulator.window_scale)") 2>$null
-            if ("$scaleOut".Trim() -match '^\d+$') { $startArgs["Scale"] = [int]"$scaleOut".Trim() }
+            $scale = "$scaleOut".Trim()
+            if ($scale -match '^\d+$' -and [int]$scale -ge 1) {
+                & $python -m retroux.tools.fceux_scale $scale | Out-Null
+            }
         } catch { }
+        $startArgs = @{ Root = $Root; Lua = $Lua }
+        if ($Rom -ne "") { $startArgs["Rom"] = $Rom }
         Write-Step "FCEUX を起動します..."
         & (Join-Path $Root "scripts\start.ps1") @startArgs
     }
