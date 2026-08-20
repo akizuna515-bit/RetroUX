@@ -87,6 +87,8 @@ Start-RetroUX-Console.cmd
 
 起動すると、設定の反映・世代バックアップの開始・GUI と FCEUX の起動・
 ウィンドウ整列まで自動で行います。
+★初回起動時は、モンスターの絵（図鑑用）を ROM から自動展開します
+（`work\monster-art-rom\`。2回目以降は展開済みなので何もしません）。
 
 ---
 
@@ -186,6 +188,7 @@ RetroUX 側で読み取って FCEUX へ渡すため、**FCEUX 本体でパッド
 | `work\rom\DQ2_J.nes` | **ROM**（各自で用意し、この名前で配置） |
 | `tools\fceux\fcs\` | **セーブステート**（FCEUX が書き出す先。例 `DQ2_J.fc1`） |
 | `work\savestate-backup\` | セーブステートの**世代バックアップ**（上書きしても戻せる） |
+| `work\monster-art-rom\` | **モンスターの絵**（初回起動時に ROM から自動展開） |
 | `work\` | 実行時のデータ（DB・ログ・状態ファイル等。消えてよい生成物） |
 | `user_config.yaml` | あなたの設定（`user_config.example.yaml` をコピーして作る） |
 | `scripts\` | 起動スクリプト（`start-retroux.ps1` ほか） |
