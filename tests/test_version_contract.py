@@ -66,3 +66,18 @@ def test_an_unreadable_version_does_not_lie():
     from retroux import version
 
     assert "unknown" in version.UNKNOWN
+
+
+def test_pull_直後でも古いメタデータに負けない(monkeypatch):
+    """★★ pyproject を先に読む（RX-0087）★★
+
+    ⚠ clone して editable で動かす使い方では、`git pull` しても
+      インストール済みメタデータは古いまま。実際に公開クローンで
+      pyproject 1.0.1 なのに画面へ 1.0.0 が出た（2026-08-20 依頼者）。
+    """
+    from retroux import version
+
+    monkeypatch.setattr(version, "_from_metadata", lambda: "9.9.9")
+    got = version.get_version()
+    assert got != "9.9.9", "⚠ メタデータが勝っている（pyproject を先に読むこと）"
+    assert got == version._from_pyproject()

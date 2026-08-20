@@ -54,8 +54,16 @@ def _from_pyproject() -> str | None:
 
 
 def get_version() -> str:
-    """バージョン文字列。読めなければ `UNKNOWN`。"""
-    return _from_metadata() or _from_pyproject() or UNKNOWN
+    """バージョン文字列。読めなければ `UNKNOWN`。
+
+    ★★ pyproject.toml を**先に**読む（RX-0087 / 2026-08-20）★★
+      以前はメタデータ優先だったが、この使い方（リポジトリを clone して
+      editable で動かす）では **`git pull` してもメタデータは古いまま**で、
+      画面に前のバージョンが出続けた（実例: pyproject 1.0.1 なのに表示 1.0.0）。
+      ⚠ 出どころは pyproject の1か所、が本方針。メタデータは
+      pyproject が見つからない環境（wheel 配布など）の受け皿にする。
+    """
+    return _from_pyproject() or _from_metadata() or UNKNOWN
 
 
 #: 画面に出す形（例 `RetroUX 0.1.0`）
