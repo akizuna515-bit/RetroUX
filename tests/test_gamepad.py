@@ -16,6 +16,7 @@ from retroux.application.gamepad import (
     EVENT_MANTAN, EVENT_SAVE, EVENT_TALK, EVENT_TOGGLE_AUTO, EVENT_TOGGLE_TURBO,
     NES_A, NES_B, NES_DOWN, NES_LEFT, NES_RIGHT, NES_SELECT, NES_START, NES_UP,
     THUMB_DEADZONE, GamepadRouter, PadState, XInputReader, nes_mask,
+    should_write_pad,
 )
 
 
@@ -212,3 +213,44 @@ def test_reader_gives_up_after_sustained_failure():
     results = [r.read() for _ in range(r._FAIL_LIMIT + r._RESCAN_EVERY + 2)]
     assert results[0] is not None          # 最初は前回値
     assert results[-1] is None             # 十分続けば手放す
+
+
+# --- アイドル中の書き込み間引き（音もたつき対策 / RX-0083）-------------
+
+def _run_writes(masks, heartbeat=30):
+    """マスク列を流し、実際に書いた回数と、書いた各フレームを返す。"""
+    last, idle, wrote_frames = -1, 0, []
+    for i, m in enumerate(masks):
+        write, idle = should_write_pad(m, last, idle, heartbeat)
+        if write:
+            wrote_frames.append(i)
+        last = m
+    return wrote_frames
+
+
+def test_押しっぱなしは毎フレーム書く():
+    """★mask!=0 の間は毎フレーム書く（seq を進めないと hold が切れる）。"""
+    frames = _run_writes([NES_RIGHT] * 100)
+    assert frames == list(range(100)), "押下中は間引いてはいけない"
+
+
+def test_アイドルは間引くがハートビートは残す():
+    """★mask==0 が続くあいだは heartbeat 周期でだけ書く。"""
+    frames = _run_writes([0] * 100, heartbeat=30)
+    # 0フレーム目: last=-1 と違うので書く。以後は 30 ごと。
+    assert frames == [0, 30, 60, 90], frames
+
+
+def test_変化した瞬間は必ず書く():
+    """★離した/押した瞬間は 1 フレームで反映する（遅延させない）。"""
+    seq = [0] * 5 + [NES_RIGHT] + [0] * 5
+    frames = _run_writes(seq, heartbeat=30)
+    assert 5 in frames, "押した瞬間を書いていない"
+    assert 6 in frames, "離した瞬間を書いていない"
+
+
+def test_アイドルの書き込みが大幅に減る():
+    """★放置1000フレームで、60Hz全書き込みから heartbeat 相当まで減る。"""
+    frames = _run_writes([0] * 1000, heartbeat=30)
+    assert len(frames) <= 1000 // 30 + 2, len(frames)
+    assert len(frames) < 40, "間引きが効いていない"

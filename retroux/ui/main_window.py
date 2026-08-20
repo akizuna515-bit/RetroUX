@@ -1762,6 +1762,16 @@ class MainWindow(QWidget):
             pathlib.Path(self.vm.recorder.command_path).parent
             / "gamepad_input.txt")
         self._gamepad_seq = 0
+        # ★アイドル中の書き込み間引き（音のもたつき対策 / RX-0083）。
+        #   mask==0 が続くあいだ毎フレーム書き換えると、Windows のキャッシュ無効化と
+        #   ウイルス対策の再スキャンが FCEUX 側の**毎フレーム読取り**に乗り、
+        #   放置中でも数秒おきに音がもたつく。押下中(mask!=0)と変化時は今どおり
+        #   毎フレーム書いて seq を進める（押しっぱなしが途中で切れる不具合を保つ）。
+        self._gamepad_last_mask = -1
+        self._gamepad_idle_ticks = 0
+        # ★アイドル中でも生存を示すハートビート（0.5秒ごと）。bridge の生存判定と
+        #   世代の整合のため、書き込みを完全には止めない。
+        self._GAMEPAD_IDLE_HEARTBEAT = 30
         # ★独自機能のイベントを 別スレッド→メインスレッド へ渡す待ち行列。
         #   deque の append/popleft はスレッド安全（GIL 下で1操作）。
         self._gamepad_events: "collections.deque[str]" = collections.deque()
@@ -1795,7 +1805,7 @@ class MainWindow(QWidget):
         """
         import time
 
-        from ..application.gamepad import nes_mask
+        from ..application.gamepad import nes_mask, should_write_pad
 
         reader = self._gamepad_reader
         router = self._gamepad_router
@@ -1811,7 +1821,15 @@ class MainWindow(QWidget):
                 # NES ボタン（状態）。★検証モードで注入OFF なら常に 0。
                 mask = (nes_mask(state, swap_ab=self._gamepad_swap_ab)
                         if self._gamepad_inject_nes else 0)
-                self._write_gamepad_nes(mask)
+                # ★アイドル(mask==0 が継続)中だけ書き込みを間引く（音もたつき対策
+                #   / RX-0083）。押下中・変化時は毎フレーム書いて seq を進めるので、
+                #   押しっぱなしが途中で切れる不具合は起きない。判断は純ロジックへ。
+                write, self._gamepad_idle_ticks = should_write_pad(
+                    mask, self._gamepad_last_mask, self._gamepad_idle_ticks,
+                    self._GAMEPAD_IDLE_HEARTBEAT)
+                if write:
+                    self._write_gamepad_nes(mask)
+                self._gamepad_last_mask = mask
                 # 独自機能（立ち上がり）→ メインスレッドへ渡す
                 for event in router.poll(state):
                     self._gamepad_events.append(event)

@@ -139,6 +139,30 @@ def nes_mask(state: PadState | None,
     return mask
 
 
+def should_write_pad(mask: int, last_mask: int, idle_ticks: int,
+                     heartbeat: int) -> tuple[bool, int]:
+    """アイドル中の書き込みを間引く（★純ロジック / RX-0083）。
+
+    RetroUX は `work/gamepad_input.txt` を 60Hz で書き、FCEUX 側は**毎フレーム**
+    開いて読む。mask==0（何も押していない）まま毎フレーム書き換えると、
+    Windows のファイルキャッシュ無効化とウイルス対策の再スキャンが
+    エミュの読取りに乗り、放置中でも数秒おきに音がもたつく。
+
+    そこで:
+      - 押下中(mask != 0) または 変化時 … 毎フレーム書く（seq を進めて
+        「押しっぱなし」の生存を示す。ここを止めると hold が途中で切れる）。
+      - アイドル(mask==0 が継続) … `heartbeat` フレームに1回だけ書く。
+
+    戻り値は `(書くか, 次の idle_ticks)`。
+    """
+    if mask != 0 or mask != last_mask:
+        return True, 0
+    idle_ticks += 1
+    if idle_ticks >= heartbeat:
+        return True, 0
+    return False, idle_ticks
+
+
 # --- 純ロジック: 状態 → 立ち上がりの操作 -------------------------------
 
 class GamepadRouter:

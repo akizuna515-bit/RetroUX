@@ -6952,26 +6952,47 @@ local NES_BITS = {
 local GAMEPAD_STALE_LIMIT = 30
 
 function Bridge:_poll_pad_input()
-  local handle = io.open(self.gamepad_input_path, "r")
-  if handle == nil then return end          -- ファイルが無い＝パッド無効/未接続
-  local body = handle:read("*a")
-  handle:close()
-  local seq, mask = (body or ""):match("(%d+)%s+(%d+)")
+  -- ★★ ファイルを開くのは**実時間**で間引く（RX-0083 / 2026-08-20）★★
+  --
+  --   書き手（RetroUX）は実時間 60Hz でしか書かないので、それより速く
+  --   開いても新しい値は無い。ところがここは**フレーム毎**に呼ばれるため、
+  --   ターボ中（実測 ×30 ≒ 秒1800フレーム）は**秒1800回の io.open** になり、
+  --   ターボが速いほど I/O の税が重くなる＝実効倍率の頭を押さえていた。
+  --   ⚠ 実測: パッド機能が動く前 ×29〜32 → 動いた後 ×20〜26（開発機）、
+  --     公開クローン(C:\Tools)では ×3.5〜6.5 まで落ちた（8/19-20 のログ）。
+  --
+  --   ⚠ 副次修正: 従来 stale はフレーム数で数えていたので、ターボ×30 では
+  --     30フレーム＝実時間17ms で「止まった」と誤判定し押しっぱなしが
+  --     解除されえた。実時間ゲート後は 30回×8ms以上 ≒ 0.24〜0.5秒になる。
+  --
+  --   ★8ms（最大125Hz）: 通常の60fpsでは毎フレーム開く（今までと同じ）。
+  --     間引かれたフレームも下の request_input は毎フレーム出す（入力の保持）。
+  local now = os.clock()
+  if self.gamepad_poll_clock == nil
+     or now - self.gamepad_poll_clock >= 0.008
+     or now < self.gamepad_poll_clock then   -- ⚠ clock 巻き戻りは開き直す
+    self.gamepad_poll_clock = now
+    local handle = io.open(self.gamepad_input_path, "r")
+    if handle == nil then return end        -- ファイルが無い＝パッド無効/未接続
+    local body = handle:read("*a")
+    handle:close()
+    local seq, mask = (body or ""):match("(%d+)%s+(%d+)")
 
-  -- ★半端読み（seq==nil）のときは**前回の入力を保持**する（1フレームの穴を作らない）。
-  --   ⚠ ここで return して非アサートにすると、書き込みと読み取りが競合した
-  --     フレームだけ方向キーが離れ、歩行がガクつく／止まる。
-  if seq ~= nil then
-    seq = tonumber(seq); mask = tonumber(mask)
-    -- ★生存判定: seq が変わっていれば RetroUX は書き続けている
-    if seq ~= self.gamepad_last_seq then
-      self.gamepad_last_seq = seq
-      self.gamepad_stale = 0
-      self.gamepad_mask = mask
-    else
-      self.gamepad_stale = self.gamepad_stale + 1
-      if self.gamepad_stale >= GAMEPAD_STALE_LIMIT then
-        self.gamepad_mask = 0               -- 本当に止まった → 全部離す
+    -- ★半端読み（seq==nil）のときは**前回の入力を保持**する（1フレームの穴を作らない）。
+    --   ⚠ ここで return して非アサートにすると、書き込みと読み取りが競合した
+    --     フレームだけ方向キーが離れ、歩行がガクつく／止まる。
+    if seq ~= nil then
+      seq = tonumber(seq); mask = tonumber(mask)
+      -- ★生存判定: seq が変わっていれば RetroUX は書き続けている
+      if seq ~= self.gamepad_last_seq then
+        self.gamepad_last_seq = seq
+        self.gamepad_stale = 0
+        self.gamepad_mask = mask
+      else
+        self.gamepad_stale = self.gamepad_stale + 1
+        if self.gamepad_stale >= GAMEPAD_STALE_LIMIT then
+          self.gamepad_mask = 0             -- 本当に止まった → 全部離す
+        end
       end
     end
   end
