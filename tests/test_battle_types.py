@@ -117,16 +117,20 @@ def test_知らない値を黙って通さない(result):
 
 # --- ★ Phase 1 完了条件4: 切り替えフラグ --------------------------------
 
-def test_既定はlegacy(result):
-    """★★★ **触らなければこれまでとまったく同じ**。"""
+def test_フォールバックはlegacy(result):
+    """★未指定・設定が読めない環境は legacy（安全側）。★同梱の明示値とは別。"""
     assert _ok(result, "★★ 既定は legacy（触らなければ従来どおり）")
-    assert _ok(result, "同梱の設定は legacy")
+    assert _ok(result, "同梱の設定は layered")
 
 
-def test_同梱の設定がlegacyになっている():
-    """⚠ ハーネスとは別経路で見る（生成物ではなく yaml を直接）。"""
+def test_同梱の設定がlayeredになっている():
+    """⚠ ハーネスとは別経路で見る（生成物ではなく yaml を直接）。
+
+    ★2026-08-20 依頼者の指定で既定を layered へ（RX-0089）。
+      拒否層は実装済みで作者が常用。フォールバック（未指定/不明名）は legacy のまま。
+    """
     config = yaml.safe_load(CONFIG.read_bytes().decode("utf-8"))
-    assert (config.get("auto_input") or {}).get("engine") == "legacy"
+    assert (config.get("auto_input") or {}).get("engine") == "layered"
 
 
 def test_知らないエンジン名は警告してlegacyへ(result):

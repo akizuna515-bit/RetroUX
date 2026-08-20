@@ -77,16 +77,19 @@ def test_壊れていても止まらない(tmp_path, monkeypatch, capsys):
     assert "読めません" in capsys.readouterr().out
 
 
-def test_原本を書き換えていない():
-    """★★ `config.yaml`（ゲームの知識）は `legacy` のままであること。
+def test_原本の既定エンジンはlayered():
+    """★★ 同梱の既定は `layered`（2026-08-20 依頼者の指定 / RX-0089）。
 
-    ⚠ ここが `layered` になっていたら、★**全員の挙動が変わります**。
+    ★かつては「原本は legacy のまま」を守るテストだった。既定を layered に
+      した判断ごとここで固定する（⚠ 黙って戻さない・黙って進めない）。
+      フォールバック（未指定・不明名）が legacy のままであることは
+      tests/test_battle_types.py::test_フォールバックはlegacy が見る。
     """
     cfg = yaml.safe_load(
         (PROJECT_ROOT / "retroux" / "plugins" / "dq2"
          / "config.yaml").read_bytes().decode("utf-8"))
-    assert cfg["auto_input"]["engine"] == "legacy", (
-        "⚠⚠ 原本が legacy ではありません。★試すなら user_config.yaml で")
+    assert cfg["auto_input"]["engine"] == "layered", (
+        "⚠⚠ 同梱の既定が layered ではありません（RX-0089 を参照）")
 
 
 def test_生成に組み込まれている():
