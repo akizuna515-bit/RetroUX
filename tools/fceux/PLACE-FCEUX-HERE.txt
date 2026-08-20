@@ -1,0 +1,16 @@
+このフォルダに FCEUX（2.6.6 / win64）を展開してください。
+
+★ exe だけでは動きません。RetroUX は Lua で制御するため lua5.1.dll が必須です。
+
+やり方:
+1. 公式 GitHub Releases から fceux-2.6.6-win64.zip を入手
+   https://github.com/TASEmulators/fceux/releases/tag/v2.6.6
+2. その zip の中身を、このフォルダ（tools\fceux\）に丸ごと展開する
+   → tools\fceux\fceux64.exe
+     tools\fceux\lua5.1.dll
+     tools\fceux\lua51.dll
+     tools\fceux\7z_64.dll
+     tools\fceux\auxlib.lua   などが揃った状態になる
+
+詳しくはリポジトリ直下の README.md を参照してください。
+（このファイルは目印です。展開後は残っていても消しても構いません）

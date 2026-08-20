@@ -28,9 +28,12 @@
 ## 必要なもの
 
 - Windows 10 / 11
-- **FCEUX 2.6.6（win64）**で動作確認しています（`fceux64.exe`。Lua が動く版）。
+- **FCEUX 2.6.6（win64）**で動作確認しています（Lua が動く版）。
   入手: 公式 GitHub Releases → <https://github.com/TASEmulators/fceux/releases/tag/v2.6.6>
   （他のバージョンでも動く可能性はありますが、未確認です）
+  ⚠ **exe 単体では動きません。** RetroUX は Lua で制御するため、**`lua5.1.dll` が必須**です。
+  配布 zip（`fceux-2.6.6-win64.zip`）を**丸ごと展開**してください（`fceux64.exe` /
+  `lua5.1.dll` / `lua51.dll` / `7z_64.dll` / `auxlib.lua` などが揃った状態）。
 - 正規に所有する DQ2(FC/JP) の ROM ファイル
 - Python 3.12 と [uv](https://docs.astral.sh/uv/)
 - （任意）XInput 対応のコントローラ（XBOX 系）
@@ -47,8 +50,10 @@ cd RetroUX
 # 2. 依存をそろえる
 uv sync
 
-# 3. FCEUX を置く（Lua 対応版）
-#    実行ファイルが tools\fceux\fceux64.exe になるように配置
+# 3. FCEUX を置く（fceux-2.6.6-win64.zip を丸ごと展開）
+#    ★exe だけでは不可。lua5.1.dll などの DLL も要る。
+#    tools\fceux\ の中に fceux64.exe と lua5.1.dll が揃うように展開する
+#    → 例: tools\fceux\fceux64.exe / tools\fceux\lua5.1.dll
 
 # 4. ROM を置く（正規に所有するもの）
 #    ★ファイル名を DQ2_J.nes にリネームし、work\rom\ に置く
