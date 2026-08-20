@@ -1776,6 +1776,12 @@ class MainWindow(QWidget):
         #   deque の append/popleft はスレッド安全（GIL 下で1操作）。
         self._gamepad_events: "collections.deque[str]" = collections.deque()
         self._gamepad_stop = threading.Event()
+        # ★右スティック＝マウス（RX-0084）。倒し＝移動、R3＝左クリック/ドラッグ。
+        #   ⚠ Win32(ctypes) を直接叩くので Qt に触らない＝このスレッドで完結できる。
+        self._gamepad_mouse = bool(cfg.gamepad.mouse)
+        # px/秒 → px/tick（ループは約60Hz）
+        self._gamepad_mouse_speed = max(0.0, float(cfg.gamepad.mouse_speed)) / 60.0
+        self._gamepad_mouse_frac = [0.0, 0.0]   # 1px 未満の端数の持ち越し
         # ★注入OFF のときは、前回の残り（押しっぱなし）を即 0 で解除しておく。
         if not self._gamepad_inject_nes:
             self._write_gamepad_nes(0)
@@ -1805,11 +1811,14 @@ class MainWindow(QWidget):
         """
         import time
 
-        from ..application.gamepad import nes_mask, should_write_pad
+        from ..application.gamepad import (
+            MouseButton, mouse_velocity, nes_mask, should_write_pad,
+        )
 
         reader = self._gamepad_reader
         router = self._gamepad_router
         stop = self._gamepad_stop
+        mouse_button = MouseButton()
         while not stop.is_set():
             start = time.perf_counter()
             try:
@@ -1833,6 +1842,14 @@ class MainWindow(QWidget):
                 # 独自機能（立ち上がり）→ メインスレッドへ渡す
                 for event in router.poll(state):
                     self._gamepad_events.append(event)
+                # ★右スティック＝マウス（RX-0084）。Win32 直叩きなのでこの
+                #   スレッドで完結する（Qt に触らない）。
+                if self._gamepad_mouse:
+                    self._gamepad_move_mouse(mouse_velocity(
+                        state, max_speed=self._gamepad_mouse_speed))
+                    edge = mouse_button.poll(state)
+                    if edge is not None:
+                        self._gamepad_click_mouse(edge)
                 if self._gamepad_debug:
                     self._gamepad_debug_log(state, mask)
             except Exception as exc:                   # noqa: BLE001
@@ -1840,6 +1857,9 @@ class MainWindow(QWidget):
             # ★約60Hz。stop されたら即抜ける（join を待たせない）。
             elapsed = time.perf_counter() - start
             stop.wait(max(0.0, 0.016 - elapsed))
+        # ⚠ 終了時、R3 を押したままなら左ボタンを解放する（刺さり防止）。
+        if mouse_button.poll(None) == "up":
+            self._gamepad_click_mouse("up")
 
     def _drain_gamepad_events(self) -> None:
         """★メインスレッド。別スレッドが積んだ独自機能を実行する。"""
@@ -1870,6 +1890,31 @@ class MainWindow(QWidget):
         except OSError:
             # ⚠ 書けなくても止めない（次の tick で書ければよい）。
             pass
+
+    def _gamepad_move_mouse(self, vel: tuple[float, float]) -> None:
+        """カーソルを相対移動する（★別スレッドから呼ぶ / RX-0084）。
+
+        ★Win32 は `self.windows`（WindowManager）経由（画面から直に呼ばない規約）。
+        ★1px 未満の端数は持ち越す（少し倒したときも滑らかに動くように）。
+        ⚠ スティックが中立に戻ったら端数を捨てる（残った端数で漂わないように）。
+        """
+        dx, dy = vel
+        if dx == 0.0 and dy == 0.0:
+            self._gamepad_mouse_frac = [0.0, 0.0]
+            return
+        fx = self._gamepad_mouse_frac[0] + dx
+        fy = self._gamepad_mouse_frac[1] + dy
+        ix, iy = int(fx), int(fy)
+        self._gamepad_mouse_frac = [fx - ix, fy - iy]
+        if ix != 0 or iy != 0:
+            self.windows.move_cursor(ix, iy)
+
+    def _gamepad_click_mouse(self, edge: str) -> None:
+        """マウス左ボタンの down/up（★別スレッドから呼ぶ / RX-0084）。
+
+        ★down と up を分ける＝R3 を押しながらスティックで**ドラッグ**できる。
+        """
+        self.windows.mouse_left(edge)
 
     def _on_gamepad_event(self, event: str) -> None:
         """パッドの1操作を既存の入口へ流す（★配線はここだけ）。

@@ -100,7 +100,13 @@ gamepad:
 | --- | --- | --- |
 | 十字 / 左アナログ・A・B・Start・Back | NES 標準入力 | NES用（`inject_nes_input` で RetroUX 注入 / FCEUX 本体 を切替） |
 | LB / RB / LT / RT / X / Y | ロード/セーブ/Auto/Turbo/どうぐや/まんたん | RetroUX 専用（常に有効） |
-| 右スティック・スティック押し込み・Guide | — | 未使用 |
+| 右スティック / R3 押し込み | **マウス移動 / 左クリック**（押したままでドラッグ） | RetroUX 専用（`gamepad.mouse` 既定 ON / RX-0084） |
+| 左スティック押し込み（L3）・Guide | — | 未使用 |
+
+- 右スティックは倒すほど速く動きます（最高速は `gamepad.mouse_speed`、px/秒）。
+- R3 は down/up を分けて送るので、**押したままスティックでドラッグ**できます。
+- ⚠ カーソル移動は**フォーカスに関係なく**全画面で効きます（マウスと同じ扱い）。
+  無効にするには `gamepad.mouse: false`。
 
 ★**NES用と RetroUX専用はボタンが重ならない**ので、FCEUX ネイティブ割当（NES）と
 RetroUX の XInput（独自機能）を**同時に使っても競合しません**（同じ物理ボタンを

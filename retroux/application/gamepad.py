@@ -63,6 +63,12 @@ TRIGGER_THRESHOLD = TRIGGER_PRESS
 #  ★Microsoft の既定（XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE 相当）。
 THUMB_DEADZONE = 8000
 
+#: 右スティック（マウス移動 / RX-0084）。押し込み＝R3。
+BTN_RIGHT_THUMB = 0x0080
+#: 右スティックの遊び。★Microsoft の既定
+#  （XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE = 8689。左より少し広い）。
+RIGHT_THUMB_DEADZONE = 8689
+
 #: bridge へ渡す NES 状態のビット（★RetroUX と bridge.lua で合わせる）。
 NES_UP = 0x01
 NES_DOWN = 0x02
@@ -99,6 +105,8 @@ class PadState:
     right_trigger: int = 0       # 0〜255
     thumb_lx: int = 0            # 左スティック X（-32768〜32767）
     thumb_ly: int = 0            # 左スティック Y（-32768〜32767。上が +）
+    thumb_rx: int = 0            # 右スティック X（マウス移動 / RX-0084）
+    thumb_ry: int = 0            # 右スティック Y（上が +）
 
     def pressed(self, bit: int) -> bool:
         return bool(self.buttons & bit)
@@ -137,6 +145,59 @@ def nes_mask(state: PadState | None,
     if state.pressed(BTN_BACK):
         mask |= NES_SELECT
     return mask
+
+
+def _axis_ratio(value: int, deadzone: int) -> float:
+    """1軸の倒しを -1.0〜1.0 へ（遊びを引いてから正規化。★純ロジック）。"""
+    mag = abs(value)
+    if mag <= deadzone:
+        return 0.0
+    ratio = (mag - deadzone) / (32767.0 - deadzone)
+    if ratio > 1.0:
+        ratio = 1.0
+    return ratio if value > 0 else -ratio
+
+
+def mouse_velocity(state: PadState | None,
+                   deadzone: int = RIGHT_THUMB_DEADZONE,
+                   max_speed: float = 15.0) -> tuple[float, float]:
+    """右スティックの倒しをカーソル速度 (dx, dy) px/tick へ（★純ロジック / RX-0084）。
+
+    ★2乗カーブ: 少し倒すとゆっくり・いっぱい倒すと速い（細かい操作と
+      大きな移動を1本のスティックで両立する。マウス代替の定石）。
+    ⚠ Y は反転する（XInput は上が +、画面座標は下が +）。
+    """
+    if state is None or not state.connected:
+        return (0.0, 0.0)
+    rx = _axis_ratio(state.thumb_rx, deadzone)
+    ry = _axis_ratio(state.thumb_ry, deadzone)
+    # ★2乗カーブ（符号は保つ）
+    return (rx * abs(rx) * max_speed, -ry * abs(ry) * max_speed)
+
+
+class MouseButton:
+    """R3（右スティック押し込み）→ マウス左ボタンの down/up（★純ロジック）。
+
+    ★立ち上がりで "down"、立ち下がりで "up" を返す（押している間 None）。
+      down と up を分けるので**ドラッグもできる**（押しながらスティックで移動）。
+    ⚠ 切断（抜いた/読めない）は**強制 up**。押しっぱなしのままパッドが抜けると
+      左ボタンが刺さり、マウス全体が使えなくなるため。
+    """
+
+    def __init__(self, bit: int = BTN_RIGHT_THUMB) -> None:
+        self._bit = bit
+        self._held = False
+
+    def poll(self, state: PadState | None) -> str | None:
+        pressed = (state is not None and state.connected
+                   and state.pressed(self._bit))
+        if pressed and not self._held:
+            self._held = True
+            return "down"
+        if not pressed and self._held:
+            self._held = False
+            return "up"
+        return None
 
 
 def should_write_pad(mask: int, last_mask: int, idle_ticks: int,
@@ -290,7 +351,8 @@ class XInputReader:
         return PadState(connected=True, buttons=pad.wButtons,
                         left_trigger=pad.bLeftTrigger,
                         right_trigger=pad.bRightTrigger,
-                        thumb_lx=pad.sThumbLX, thumb_ly=pad.sThumbLY)
+                        thumb_lx=pad.sThumbLX, thumb_ly=pad.sThumbLY,
+                        thumb_rx=pad.sThumbRX, thumb_ry=pad.sThumbRY)
 
     def read(self) -> PadState | None:
         """繋がっている最初のパッドを読む。無ければ None。

@@ -56,6 +56,14 @@ class WindowManager:
         """いま最前面のウィンドウ名（★フォーカス確認の切り分け用 / RX-0078）。"""
         return window_align.foreground_title()
 
+    def move_cursor(self, dx: int, dy: int) -> bool:
+        """カーソルを相対移動（★パッドの右スティック＝マウス / RX-0084）。"""
+        return window_align.move_cursor(dx, dy)
+
+    def mouse_left(self, edge: str) -> bool:
+        """左ボタンの down / up（★パッドの R3＝左クリック / RX-0084）。"""
+        return window_align.mouse_left(edge)
+
     def _emulator_title(self) -> str:
         return self._config().emulator.window_title_contains
 

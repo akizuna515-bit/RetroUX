@@ -323,6 +323,12 @@ class GamepadConfig:
     #   ON にすると XBOX B→NES A / XBOX A→NES B（右ボタン＝決定）で自然になる。
     #   ⚠ XBOX 標準（A=下=決定）にしたいときは false。
     swap_ab: bool = True
+    # ★右スティックでマウスを動かす（RX-0084 / 2026-08-20 依頼者）。
+    #   倒し＝カーソル移動（速度比例）、R3 押し込み＝左クリック（押している間
+    #   ドラッグ）。GUI のボタン等をパッドだけで操作できる。False で無効。
+    mouse: bool = True
+    # マウス移動の最高速度（px/秒。いっぱいに倒したとき）。
+    mouse_speed: float = 900.0
 
 
 @dataclass

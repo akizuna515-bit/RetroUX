@@ -65,6 +65,45 @@ def foreground_title() -> str:
         return ""
 
 
+def move_cursor(dx: int, dy: int) -> bool:
+    """マウスカーソルを相対移動する（★パッドのマウス代替 / RX-0084）。
+
+    ⚠ Win32 依存はこのファイルに閉じる方針。失敗しても False を返すだけ
+      （呼び出し側は次の tick で再試行すればよい）。
+    """
+    if not available() or (dx == 0 and dy == 0):
+        return False
+    import ctypes
+    import ctypes.wintypes
+
+    try:
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        pt = ctypes.wintypes.POINT()
+        if not user32.GetCursorPos(ctypes.byref(pt)):
+            return False
+        return bool(user32.SetCursorPos(pt.x + dx, pt.y + dy))
+    except Exception:                                  # noqa: BLE001
+        return False
+
+
+def mouse_left(edge: str) -> bool:
+    """マウス左ボタンの down / up（★パッドの R3＝左クリック / RX-0084）。
+
+    ★down と up を分けて送る＝押したままカーソルを動かせば**ドラッグ**になる。
+    """
+    if not available():
+        return False
+    import ctypes
+
+    try:
+        flag = 0x0002 if edge == "down" else 0x0004    # LEFTDOWN / LEFTUP
+        ctypes.WinDLL("user32", use_last_error=True).mouse_event(
+            flag, 0, 0, 0, 0)
+        return True
+    except Exception:                                  # noqa: BLE001
+        return False
+
+
 def title_matches(window_title: str, needle: str, match: str = "contains") -> bool:
     """タイトルの照合。**Win32 に触らないのでテストできる。**
 

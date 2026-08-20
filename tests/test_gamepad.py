@@ -16,6 +16,7 @@ from retroux.application.gamepad import (
     EVENT_MANTAN, EVENT_SAVE, EVENT_TALK, EVENT_TOGGLE_AUTO, EVENT_TOGGLE_TURBO,
     NES_A, NES_B, NES_DOWN, NES_LEFT, NES_RIGHT, NES_SELECT, NES_START, NES_UP,
     THUMB_DEADZONE, GamepadRouter, PadState, XInputReader, nes_mask,
+    BTN_RIGHT_THUMB, RIGHT_THUMB_DEADZONE, MouseButton, mouse_velocity,
     should_write_pad,
 )
 
@@ -254,3 +255,54 @@ def test_アイドルの書き込みが大幅に減る():
     frames = _run_writes([0] * 1000, heartbeat=30)
     assert len(frames) <= 1000 // 30 + 2, len(frames)
     assert len(frames) < 40, "間引きが効いていない"
+
+
+# --- 右スティック＝マウス（RX-0084）------------------------------------
+
+def _pad3(buttons=0, rx=0, ry=0):
+    return PadState(connected=True, buttons=buttons, thumb_rx=rx, thumb_ry=ry)
+
+
+def test_マウスは遊びの範囲では動かない():
+    assert mouse_velocity(_pad3(rx=RIGHT_THUMB_DEADZONE - 1,
+                                ry=RIGHT_THUMB_DEADZONE - 1)) == (0.0, 0.0)
+
+
+def test_マウスのYは画面座標に反転する():
+    """★XInput は上が+、画面は下が+。上に倒したら dy は負（上へ動く）。"""
+    dx, dy = mouse_velocity(_pad3(ry=32767), max_speed=10.0)
+    assert dx == 0.0 and dy < 0
+    dx, dy = mouse_velocity(_pad3(ry=-32768), max_speed=10.0)
+    assert dy > 0
+
+
+def test_マウスは倒すほど速い_2乗カーブ():
+    small = abs(mouse_velocity(_pad3(rx=15000), max_speed=10.0)[0])
+    big = abs(mouse_velocity(_pad3(rx=32767), max_speed=10.0)[0])
+    assert 0 < small < big <= 10.0
+    # ★2乗カーブ: 半分の倒しは最高速の半分よりずっと遅い（細かい操作用）
+    half = abs(mouse_velocity(
+        _pad3(rx=(RIGHT_THUMB_DEADZONE + 32767) // 2), max_speed=10.0)[0])
+    assert half < 5.0
+
+
+def test_マウスは未接続なら動かない():
+    assert mouse_velocity(None) == (0.0, 0.0)
+    assert mouse_velocity(PadState(connected=False, thumb_rx=32767)) == (0.0, 0.0)
+
+
+def test_R3で左ボタンのdownとupが出る():
+    b = MouseButton()
+    assert b.poll(_pad3()) is None                       # 押していない
+    assert b.poll(_pad3(BTN_RIGHT_THUMB)) == "down"      # 押した瞬間
+    assert b.poll(_pad3(BTN_RIGHT_THUMB)) is None        # 押しっぱなしは無反応
+    assert b.poll(_pad3()) == "up"                       # 離した瞬間
+    assert b.poll(_pad3()) is None
+
+
+def test_R3押下中に切断したら強制up():
+    """⚠ 左ボタンが刺さるとマウス全体が使えなくなる。"""
+    b = MouseButton()
+    assert b.poll(_pad3(BTN_RIGHT_THUMB)) == "down"
+    assert b.poll(None) == "up"                          # 抜けた → 解放
+    assert b.poll(None) is None
