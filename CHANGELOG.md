@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-08-21
+
 ### 追加
 - `ARCHITECTURE.md`（全体構造・ファイルIPC・不変条件・機能追加の入口）と
   `CONTRIBUTING.md`（Issue/PR の作法。配布用ミラーである事情も明記）。
@@ -15,6 +17,8 @@
   従来どおりにしたい場合は `user_config.yaml` で `battle.engine: legacy`。
 
 ### 修正
+- 戦闘が終わっても「戦闘中」のまま戻らないことがあった（勝利メッセージの
+  画面IDがフィールドでも残留するため）。位置が動いたら戦闘終了とみなすようにした。
 - 新規セットアップ（clone 直後）でモンスターの絵が1枚も表示されなかった。
   初回起動時に ROM から自動展開するようにした（`work\monster-art-rom\`）。
 
@@ -48,6 +52,7 @@
 
 > ⚠ ROM と FCEUX は同梱していません（各自で用意）。
 
-[Unreleased]: https://github.com/akizuna515-bit/RetroUX/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/akizuna515-bit/RetroUX/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/akizuna515-bit/RetroUX/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/akizuna515-bit/RetroUX/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/akizuna515-bit/RetroUX/releases/tag/v1.0.0
