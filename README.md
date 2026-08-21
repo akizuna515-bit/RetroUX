@@ -66,10 +66,10 @@ uv sync
 #    例: emulator.window_scale（映像倍率。既定 2 = 2倍。1 で等倍）
 #        gamepad.swap_ab（A/B 入れ替え。既定 true = ファミコン準拠）
 #        shutdown.save_slot（保存/読込スロット。既定 1）
-
-# 6. 設定から Lua を生成する
-uv run python -m retroux.core.config.generate_lua
 ```
+
+これで完了です。★設定から Lua への変換やモンスターの絵の展開は、
+**起動のたびに自動で行われる**ので手動の手順はありません。
 
 ---
 
