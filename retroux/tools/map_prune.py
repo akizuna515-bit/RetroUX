@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     _out(f"DB: {db_path}")
     if not meta:
         _out("⚠ maps.json が無いので、マップの大きさと食い違いを判断できません。")
-        _out("   先に `python -m dq2rom maps export --out work/map-data` を実行してください。")
+        _out("   ROM を置いて RetroUX を一度起動すれば自動生成されます（retroux.tools.map_meta_setup）。")
         return 1
 
     db = Database(db_path)

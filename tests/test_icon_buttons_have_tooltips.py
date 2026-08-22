@@ -17,9 +17,18 @@
 
 from __future__ import annotations
 
+import pathlib
+
 import pytest
 
 pytest.importorskip("PySide6")
+
+# ★★ ROM が要る検査は**無ければ飛ばす**（2026-08-22 / v1.0.3 の公開前確認）★★
+#   ⚠ ここは `build_view_model` を通すので ROM を読む。clone しただけの環境では
+#     `FileNotFoundError` で**落ちていた**（公開版の README は「ROM が要る検査は
+#     自動でスキップします」と約束しているのに、実際は 4 件とも赤だった）。
+_ROM = pathlib.Path(__file__).resolve().parents[1] / "work" / "rom" / "DQ2_J.nes"
+pytestmark = pytest.mark.skipif(not _ROM.exists(), reason="ROM が無い環境")
 
 
 @pytest.fixture(scope="module")

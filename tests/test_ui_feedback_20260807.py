@@ -193,6 +193,67 @@ def test_押した側で記録する():
     assert 'AUTOボタン: %s を書きます' in source
 
 
+def test_押した側で記録するの挙動(tmp_path, caplog):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    実物の窓でボタンを**押し**、`retroux.gui` の DEBUG に「書きます」が
+    **1回だけ**出ることを見ます。★そのあと実機の値を何度取り込んでも
+    増えない（⚠ 毎ポーリング鳴るのが 195件の正体）。
+    """
+    import logging
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    import pytest
+
+    pytest.importorskip("PySide6", reason="PySide6 が無い環境")
+    from PySide6.QtWidgets import QApplication
+
+    from retroux.core.db.database import Database
+    from retroux.core.recorder import Recorder
+    from retroux.ui.main_window import MainWindow
+    from retroux.ui.view_model import ViewModel
+
+    assert QApplication.instance() or QApplication([])
+    db = Database(tmp_path / "t.sqlite3")
+    db.register_rom("HASH", "テストROM", "JP", mapper=2)
+    events = tmp_path / "events.jsonl"
+    events.write_bytes(b"")
+    vm = ViewModel(Recorder(db, "HASH", events, tmp_path / "command.json"),
+                   db, "HASH", {1: "スライム"})
+    vm._mission_path = tmp_path / "mission.yaml"
+    win = MainWindow(vm, interval_ms=10 ** 6, log_path=tmp_path / "r.log")
+    try:
+        def presses(label: str) -> list[str]:
+            return [r.getMessage() for r in caplog.records
+                    if r.name == "retroux.gui" and r.getMessage().startswith(label)]
+
+        # ★初期の入切は問わない（押せば**反対**になる）
+        t1 = "OFF" if win._turbo_button.isChecked() else "ON"
+        a1 = "OFF" if win._auto_button.isChecked() else "ON"
+        t2 = "ON" if t1 == "OFF" else "OFF"
+        with caplog.at_level(logging.DEBUG, logger="retroux.gui"):
+            win._turbo_button.click()          # ★人が押す道（toggled 経由）
+            assert presses("高速化ボタン") == [f"高速化ボタン: {t1} を書きます"]
+            win._auto_button.click()
+            assert presses("AUTOボタン") == [f"AUTOボタン: {a1} を書きます"]
+
+            # ★押していない間に実機の値を何度も取り込む（毎ポーリングの道）
+            for _ in range(10):
+                win._sync_turbo_button(False)
+                win._sync_auto_button(False)
+                vm.recorder.poll()
+            assert presses("高速化ボタン") == [f"高速化ボタン: {t1} を書きます"], (
+                "⚠ 押していないのに鳴っています（★鳴りすぎも壊れ方）")
+            assert presses("AUTOボタン") == [f"AUTOボタン: {a1} を書きます"]
+
+            win._turbo_button.click()          # ★もう一度押す（戻す）
+            assert presses("高速化ボタン")[-1] == f"高速化ボタン: {t2} を書きます"
+            assert len(presses("高速化ボタン")) == 2
+    finally:
+        win.close()
+
+
 def test_毎ポーリング通る道にログを置かない():
     """★★★ **これが 195件の正体**（2026-08-07）。
 

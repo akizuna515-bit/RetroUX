@@ -47,7 +47,8 @@ def app():
 
 @pytest.fixture(scope="module")
 def mm() -> dict:
-    return yaml.safe_load(MAP_PATH.read_text(encoding="utf-8"))
+    from conftest import load_memory_map_with_enemies  # ★敵の表は ROM 由来（RX-0090）
+    return load_memory_map_with_enemies()
 
 
 META = {
@@ -195,3 +196,94 @@ def test_new_map_appears_without_pressing_reload(window):
     win.follow(0x59, 0xA48B, 2, 2)
     app.processEvents()
     assert win._list.count() == 2
+
+
+# --- 世界地図の見せ方（RX-0094 / 2026-08-21）-------------------------------
+#
+# ★依頼者「maps.json が無かった公開版の見え方（歩いた範囲）のほうが見やすい。
+#   config で切り替えたい」。既定は walked、full で 256×256 固定。
+#   ⚠ 変わるのは描き方だけ。記録（`map_size`）は両方とも 256×256 のまま。
+
+def _walk_world(view_model, app, win):
+    # ★世界地図の種別と大きさ（gui.py では maps.json と config.yaml から入る）
+    view_model.map_meta[0x01] = {"map_id": 1, "type": "overworld",
+                                 "width": None, "height": None, "data_pointer": "0x8000"}
+    view_model.overworld_size = (256, 256)
+    view_model.note_position(field(map_id=0x01, ptr=0x8000, x=120, y=130))
+    win.reload()
+    app.processEvents()
+
+
+def test_world_map_defaults_to_the_walked_extent(window):
+    win, view_model, app = window
+    assert view_model.overworld_view == "walked"
+    _walk_world(view_model, app, win)
+    assert win._view.width_tiles is None, "★walked では大きさを渡さない"
+    assert not win._view.is_overworld, "★walked では街と同じ描き方（枠に収める）"
+    assert win._view.bounds() == (121, 131)
+    # ⚠ 記録側の大きさは変わらない
+    assert view_model.map_size(0x01) == (256, 256)
+
+
+def test_world_map_full_view_is_fixed_256(window):
+    win, view_model, app = window
+    view_model.overworld_view = "full"
+    _walk_world(view_model, app, win)
+    assert win._view.width_tiles == 256
+    assert win._view.is_overworld
+    assert win._view.bounds() == (256, 256)
+
+
+def test_unknown_overworld_view_falls_back_to_walked(vm):
+    """⚠ 綴り違いを黙って full にしない。"""
+    view_model, _tmp = vm
+    from retroux.ui.view_model import ViewModel
+    bad = ViewModel(view_model.recorder, view_model.db, "HASH", overworld_view="typo")
+    assert bad.overworld_view == "walked"
+
+
+# --- いまの部屋（RX-0053 / 2026-08-21）-------------------------------------
+#
+# ★DQ2 のダンジョンは「入った区画だけ見える」。ROM の区画表（region_map.py）を
+#   現在地の論理セルで引き、見出しの下に1行出す（依頼者: 案 a）。
+
+ROM_PATH = pathlib.Path(__file__).resolve().parents[1] / "work" / "rom" / "DQ2_J.nes"
+needs_rom = pytest.mark.skipif(not ROM_PATH.exists(), reason="ROM が無い")
+
+
+def _live(tmp_path):
+    from dq2rom.monsters.palette import load_nes_palette
+    from retroux.core.bgmap.catalog import AssetStore
+    from retroux.core.bgmap.live import LiveMetatiles, RomTileSource
+    palette = (pathlib.Path(__file__).resolve().parents[1]
+               / "tools" / "fceux" / "palettes" / "FCEUX.pal")
+    return LiveMetatiles(RomTileSource(ROM_PATH), AssetStore(tmp_path / "art"),
+                         load_nes_palette(palette))
+
+
+@needs_rom
+def test_the_room_line_names_the_room_you_stand_in(window, tmp_path):
+    """★map $40（区画 10 部屋）。論理 (0,2) は区画 1 の 136 マスの部屋、
+    (16,2) は通路。物理座標は論理 ×2（span）。"""
+    win, view_model, app = window
+    view_model.live_metatiles = _live(tmp_path)
+    view_model.map_meta[0x40] = {"map_id": 0x40, "type": "dungeon_a",
+                                 "width": 18, "height": 20, "data_pointer": "0xA293"}
+    view_model.note_position(field(map_id=0x40, ptr=0xA293, x=0, y=4))
+    win.reload()
+    win._draw(here=(0, 4))
+    app.processEvents()
+    assert win._room_note.text() == "🚪 いまの部屋: 1 番（136 マス）"
+    assert win._room_note.isVisible()
+    win._draw(here=(32, 4))                 # 論理 (16,2) = 通路
+    assert win._room_note.text() == "🚪 いまの部屋: 通路"
+
+
+def test_the_room_line_hides_when_there_is_no_room_data(window):
+    """⚠ 世界地図・区画表の無いマップ・現在地不明では行ごと消す（空欄を作らない）。"""
+    win, view_model, app = window
+    view_model.note_position(field(x=1, y=1))          # 街 0x07（live_metatiles 無し）
+    win.reload()
+    win._draw(here=(1, 1))
+    assert win._room_note.text() == ""
+    assert not win._room_note.isVisible()

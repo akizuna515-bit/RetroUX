@@ -47,7 +47,8 @@ def app():
 
 @pytest.fixture(scope="module")
 def mm() -> dict:
-    return yaml.safe_load(MAP_PATH.read_text(encoding="utf-8"))
+    from conftest import load_memory_map_with_enemies  # ★敵の表は ROM 由来（RX-0090）
+    return load_memory_map_with_enemies()
 
 
 META = {
@@ -552,3 +553,47 @@ def test_the_underlay_stays_inside_the_frame(view, app):
     rect = view.target_rect(4, 4, zoom)
     outside = _pixel(view, app, max(rect.left() - 6, 0), rect.top() + 4)
     assert outside.name() == BACKDROP.name(),         f"枠の外まで塗っている: {outside.name()}"
+
+
+# --- 速さ（RX-0095 / 2026-08-21）---------------------------------------------
+#
+# ★依頼者「地図の追従が遅い」。実測: 世界地図 52,153 マスの1回の描画で
+#   `image_path` が os.stat を 52,153 回（6.5 秒）、`build_image` が QColor を
+#   52,153 個（0.7 秒）作っていた。10.2 秒 → 0.14 秒。⚠ 絵は1画素も変えない
+#   （変更前後の描画を画素比較して差ゼロを確認済み）。
+
+def test_tile_rgbはtile_colorと同じ色を返す():
+    from retroux.ui.map.canvas import tile_color, tile_rgb
+    for packed in ("F00", "0a7", "087bee", "2e2e36", "", None, "zz", "12345"):
+        color = tile_color(packed)
+        rgb = tile_rgb(packed)
+        if color is None:
+            assert rgb is None, packed
+        else:
+            assert rgb == (0xFF000000 | (color.rgb() & 0xFFFFFF)), packed
+    # ★2回目はメモから（同じ答え）
+    assert tile_rgb("087bee") == tile_rgb("087bee")
+
+
+def test_画像の有無は覚えて_statを繰り返さない(tmp_path, monkeypatch):
+    from retroux.core.bgmap.catalog import AssetStore
+    cat = AssetStore(tmp_path)
+    calls = {"n": 0}
+    real = pathlib.Path.exists
+
+    def counting(self):
+        calls["n"] += 1
+        return real(self)
+    monkeypatch.setattr(pathlib.Path, "exists", counting)
+    for _ in range(100):
+        assert cat.image_path("abcd", "1x") is None
+    assert calls["n"] == 1, "★「無い」は TTL の間は stat し直さない"
+    # 作られたら見える（put の経路は _exists を直接更新する。ここは forget で）
+    d = cat.metatile_dir("abcd"); d.mkdir(parents=True)
+    (d / "1x.png").write_bytes(b"x")
+    cat.forget_missing()
+    assert cat.image_path("abcd", "1x") == d / "1x.png"
+    n = calls["n"]
+    for _ in range(100):
+        cat.image_path("abcd", "1x")
+    assert calls["n"] == n, "★「有る」は二度と stat しない"

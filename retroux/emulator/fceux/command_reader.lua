@@ -81,6 +81,7 @@ end
 ---   request_id = 123,           -- その通し番号
 ---   auto_enabled = true,        -- 状態（無ければ nil）
 ---   turbo_enabled = false,
+---   force_auto = true,          -- 強制AUTO（無ければ nil）
 --- }
 --- ```
 ---
@@ -97,6 +98,8 @@ function CommandReader:poll(discard_actions)
     body = body,
     auto_enabled = CommandReader.flag(body, "auto_enabled"),
     turbo_enabled = CommandReader.flag(body, "turbo_enabled"),
+    -- ★強制AUTO（パッドの X 長押し / RX-0082）。⚠ 無ければ nil（触らない）
+    force_auto = CommandReader.flag(body, "force_auto"),
     tactics_revision = CommandReader.number(body, "tactics_revision"),
     mantan_mode = CommandReader.text(body, "mantan_mode"),
     save_slot = CommandReader.number(body, "save_slot"),

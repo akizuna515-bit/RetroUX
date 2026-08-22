@@ -60,12 +60,15 @@ def render(blocks: list[Block], palettes: MonsterPalettes,
     rows: list[list[Pixel]] = [[TRANSPARENT] * width for _ in range(height)]
 
     grid = other = skipped = 0
-    # ★下のレイヤーから描く
-    for on_grid in (False, True):
+    # ★下のレイヤーから描く: 格子（背景）→ 画素指定（スプライト）の順。
+    #   ⚠ 2026-08-22（RX-0052）まで逆だった。画素指定のタイルは OAM のスプライトで
+    #     **背景の前**に出る。79 枚の撮影と画素比較して、順を直すと 16 体が改善し
+    #     うち 14 体が 100% 一致した（逆順で 100% だった体が悪化することは無い）。
+    for on_grid in (True, False):
         for block, place in placements:
             if place.on_grid != on_grid:
                 continue
-            colors = palettes.for_layer(on_grid)
+            colors = palettes.for_layer(on_grid, place.palette)
             if colors is None:
                 # ★パレットが宣言されていない。**推測で色を作らない**
                 skipped += 1
@@ -91,10 +94,10 @@ def render(blocks: list[Block], palettes: MonsterPalettes,
             "画素で置くタイル（bit6=0）の位置は撮影3枚から割り出した式で、"
             "格子のタイルほど確かではない")
     if palettes.ambiguous:
-        confidence = Confidence.PROBABLE
+        # ★2026-08-22（RX-0051）: 置き方の bit4-5 で選ぶようにした。確度は下げない
         notes.append(
             f"パレットが複数ある（低{len(palettes.low)} 高{len(palettes.high)}）。"
-            "どのタイルがどれを使うかは未解明なので先頭を使った")
+            "置き方の先頭バイト bit4-5 でタイルごとに選んだ")
     if skipped:
         confidence = Confidence.TENTATIVE
         notes.append(f"パレットが無いレイヤーのタイルを {skipped} 枚描けなかった")

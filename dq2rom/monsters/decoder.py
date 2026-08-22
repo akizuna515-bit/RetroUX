@@ -80,6 +80,12 @@ class Placement:
     variant: int
     on_grid: bool               # True: 8x8 格子（確認済み） / False: 画素指定
     raw: tuple[int, ...]        # 記録のバイト列（生のまま残す）
+    # ★どのパレットを使うか（先頭バイトの bit4-5 / 2026-08-22 / RX-0051）。
+    #   ⚠ 83 体を数えると、この 2 ビットが 0 以外になるのは**パレットを複数持つ
+    #     6 体だけ**で、値は常にその体のパレット数未満だった（シドー: 低4本で 0〜3）。
+    #   以前は無視して先頭のパレットを当てていたため、シドーの桃色と鮭色が
+    #   448 画素で入れ替わっていた。
+    palette: int = 0
 
 
 @dataclasses.dataclass(frozen=True)
@@ -158,11 +164,12 @@ def _read_records(reader: _Reader, keep: bool) -> list[tuple[int, list[int]]]:
 
 def _to_placement(head: int, extra: list[int]) -> Placement:
     variant = (head >> 1) & 0x03
+    pal = (head >> 4) & 0x03
     if head & 0x40:
         return Placement(x=(extra[0] & 0x0F) * 8, y=(extra[0] >> 4) * 8,
-                         variant=variant, on_grid=True, raw=tuple(extra))
+                         variant=variant, on_grid=True, raw=tuple(extra), palette=pal)
     return Placement(x=extra[0], y=extra[1] - OTHER_Y_BIAS,
-                     variant=variant, on_grid=False, raw=tuple(extra))
+                     variant=variant, on_grid=False, raw=tuple(extra), palette=pal)
 
 
 def decode_block(prg: bytes, cpu_addr: int) -> Block:

@@ -114,7 +114,7 @@ def cmd_organize(root: pathlib.Path) -> int:
         _out(f"  {cap.capture_id}: map ${cap.int_of('map_id') or 0:02X} "
              f"({cap.int_of('x')},{cap.int_of('y')}) -> {target.name}/")
     _out(f"\n★{len(files)} 地点 / {moved} ファイルをまとめました")
-    _out("⚠ セーブステートは手で置いてください（Lua からは保存できません）:")
+    _out("⚠ セーブステートはこの場所へ（★Lua でも保存できますが、ここでは手動配置）:")
     _out(f"   {root}\\<capture_id>\\state.fc?")
     return 0
 

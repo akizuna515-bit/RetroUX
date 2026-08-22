@@ -630,6 +630,9 @@ function Bridge:_install_exit_guard()
     -- ★events はハンドルを持たなくなったので閉じるものが無い（2026-08-13 / §25）。
     --   ⚠ 書き込みを止めたいので、行き先だけ消す。
     self.events_path = nil
+    -- ★パッド入力は**開いたまま**読んでいる（RX-0097）。⚠ 閉じないと
+    --   Windows ではそのファイルを消せないままになる。
+    self:_close_gamepad_input()
   end)
 end
 
@@ -884,7 +887,8 @@ end
 -- ★地図が一色の帯だと、陸と海の区別が付かない。
 --   **画面に出ている色そのもの**を1マス1色で拾って、地図に写す。
 --
--- ⚠ 拾うのは色だけ。地形の種類（壁・扉）は分からないままで、
+-- ⚠ ここ（Lua）で拾うのは色だけ。地形の種類（壁・扉）は Python 側が ROM から復号する
+--   （retroux/core/bgmap/。「分からないまま」は古い（2026-08-21 訂正 / RX-0010））。以前の文:
 --   それは正直に画面へ書いてある。
 --
 -- ⚠ 画面の割り付け（1マス16px / 主人公が中央）は
@@ -1889,7 +1893,8 @@ end
 -- なぜ必要か（依頼者の指摘より）:
 --   遭遇済みの登録は戦闘開始時に行う（見た＝初見体験は済んだ、という理屈）。
 --   そのため**逃げた相手も遭遇済みになり、次回は倍速＋自動たたかうが有効**になる。
---   ところが自動入力は「たたかう」しか押さないので逃げるという選択ができない。
+--   ところが自動入力は「にげる」を**押さない方針**なので、逃げるという選択ができない
+--   （呪文・道具・ぼうぎょは押す。「たたかう」しか押さない、は古い（2026-08-21 訂正 / RX-0010））。
 --   「勝てないから逃げた」相手に自動で殴りかかることになり、
 --   DEV-8（ボスに敗北後の再戦）と同じ穴だった。
 --   実ログでは141戦闘のうち34戦が勝利表示なし（逃走/敗北）で、
@@ -2661,6 +2666,21 @@ function Bridge:_apply_auto_command(want)
   end
 end
 
+--- 画面（パッドの X 長押し）からの強制AUTO を反映する（RX-0082 / 2026-08-22）。
+---
+--- ★★ **「いまの状態」と比べる**（前回の指示とは比べない）★★
+---   ⚠ 戦闘終了で `battle_controller` が強制AUTO を落とす。前回の指示と
+---     比べる作りだと、X を押したまま次の戦闘に入っても**二度と入らない**
+---     （指示は true のままなので「変化なし」と見えるため）。
+---   ★実際の状態と違えば入れ直す。同じなら `set_force_auto` が false を返すので
+---     ログも画面通知も出ない（＝うるさくならない）。
+function Bridge:_apply_force_auto_command(want)
+  if want == nil then return end                  -- ⚠ 指示が無い＝触らない
+  if self.battle == nil then return end
+  if self.battle.force_auto == (want == true) then return end
+  self:_set_force_auto(want == true)
+end
+
 function Bridge:_poll_command(discard_actions)
   -- ★★ 読むのは `command_reader`（リファクタ §4.2）★★
   --   ⚠ `request_id` の重複排除もあちらが持つ。ここで持つと2か所になる。
@@ -2721,6 +2741,7 @@ function Bridge:_poll_command(discard_actions)
   --     ここで判定を書くと同じ規則が2か所になり、戻り不具合が復活する。
   self:_apply_turbo_command(reader.turbo_enabled)
   self:_apply_auto_command(reader.auto_enabled)
+  self:_apply_force_auto_command(reader.force_auto)
 
   -- まんたんの回復目標モード。GUI からの切り替え用。
   -- ★これは状態の変更であって単発の操作ではないので request_id は要らない。
@@ -2836,6 +2857,14 @@ function Bridge:_tick_tile_shot()
   end
 end
 
+-- 利用者のスロット番号（0〜9）→ `savestate.object()` の番号（1〜10）。
+-- ★FCEUX 2.6.6 lua-engine.cpp: `FCEU_MakeFName(FCEUMKF_STATE, which % 10, 0)`。
+--   0 を渡すと "invalid player's savestate" の Lua エラーになるので 10 に読み替える。
+function Bridge._api_slot(slot)
+  if slot == 0 then return 10 end
+  return slot
+end
+
 -- 指定スロットへセーブステートを保存する（GUI の「終了」から呼ばれる）。
 --
 -- ★★ スロットは**上書き**される ★★
@@ -2843,16 +2872,22 @@ end
 --   上書きしても、世代バックアップ（savestate_backup）が直前の内容を
 --   世代として残すので**戻せる**。この2つは対で意味を持つ。
 --
--- ⚠ スロット0は使ってはいけない。savestate.object(0) は FCEUX をハングさせる
---   （実測。docs/design/ai-batchiri-spec.md にも記録がある）。
+-- ★スロット0も使える（2026-08-21 / RX-0080）。
+--   ⚠ 以前ここに「savestate.object(0) は FCEUX をハングさせる（実測）」と
+--     書いてあったが、★根拠は playbook #3（`persist()` の話）の付け違いだった。
+--   FCEUX 2.6.6 のソース（lua-engine.cpp `savestate_create_aliased`）で確かめた事実:
+--     `savestate.object(n)` は **n が 1〜10 以外だと Lua エラー**
+--     （"invalid player's savestate 0"。ハングではない）。
+--     番号は QWERTY 式で **1〜9 → スロット1〜9、10 → スロット0**（`which % 10`）。
+--   だから利用者の「スロット0」は `savestate.object(10)` で扱う（`_api_slot`）。
 function Bridge:_save_state(slot)
   if savestate == nil or savestate.object == nil then
     self:log("セーブステートを保存できません（この FCEUX には savestate API がありません）",
              "savestate: unavailable", "ERROR")
     return
   end
-  if slot == nil or slot < 1 or slot > 9 then
-    self:log(string.format("セーブステートのスロット指定が不正です: %s（1〜9）",
+  if slot == nil or slot < 0 or slot > 9 then
+    self:log(string.format("セーブステートのスロット指定が不正です: %s（0〜9）",
              tostring(slot)), "savestate: bad slot", "ERROR")
     return
   end
@@ -2877,7 +2912,7 @@ function Bridge:_save_state(slot)
   --     番号つきスロットでも**これが無いとファイルにならない**。
   --     説明ではなく**実測に従う**。
   local ok, err = pcall(function()
-    local obj = savestate.object(slot)
+    local obj = savestate.object(Bridge._api_slot(slot))
     savestate.save(obj)
     -- ★古い FCEUX には無いかもしれないので、あるときだけ呼ぶ
     if savestate.persist ~= nil then savestate.persist(obj) end
@@ -2899,20 +2934,20 @@ end
 --   ⚠ ロード直後は画面が一瞬暗転する（FCEUX の仕様）。地図の取り込みは
 --     `savestate.registerload` の既存ハンドラが自動で一時停止するので、
 --     ここでは特別なことはしない（人が P キーで読んだときと同じ扱い）。
--- ⚠ スロット0は使わない（`savestate.object(0)` は FCEUX をハングさせる）。
+-- ★スロット0は `savestate.object(10)`（`_api_slot`。`_save_state` の注記を参照）。
 function Bridge:_load_state(slot)
   if savestate == nil or savestate.object == nil or savestate.load == nil then
     self:log("セーブステートを読み込めません（この FCEUX には savestate API がありません）",
              "loadstate: unavailable", "ERROR")
     return
   end
-  if slot == nil or slot < 1 or slot > 9 then
-    self:log(string.format("セーブステートのスロット指定が不正です: %s（1〜9）",
+  if slot == nil or slot < 0 or slot > 9 then
+    self:log(string.format("セーブステートのスロット指定が不正です: %s（0〜9）",
              tostring(slot)), "loadstate: bad slot", "ERROR")
     return
   end
   local ok, err = pcall(function()
-    local obj = savestate.object(slot)
+    local obj = savestate.object(Bridge._api_slot(slot))
     savestate.load(obj)
   end)
   if not ok then
@@ -6951,6 +6986,16 @@ local NES_BITS = {
 --   ★本当に RetroUX が落ちたときは 0.5 秒で解除される（押しっぱなしが残らない）。
 local GAMEPAD_STALE_LIMIT = 30
 
+--- パッド入力ファイルのハンドルを閉じる（RX-0097）。
+---
+--- ⚠ 開いたままだと Windows ではそのファイルを**消せない**。
+---   ★掴み直したいとき（差し替え・停止検知）と、スクリプト終了時に呼ぶ。
+function Bridge:_close_gamepad_input()
+  local handle = self.gamepad_handle
+  self.gamepad_handle = nil
+  if handle ~= nil then pcall(function() handle:close() end) end
+end
+
 function Bridge:_poll_pad_input()
   -- ★★ ファイルを開くのは**実時間**で間引く（RX-0083 / 2026-08-20）★★
   --
@@ -6972,10 +7017,34 @@ function Bridge:_poll_pad_input()
      or now - self.gamepad_poll_clock >= 0.008
      or now < self.gamepad_poll_clock then   -- ⚠ clock 巻き戻りは開き直す
     self.gamepad_poll_clock = now
-    local handle = io.open(self.gamepad_input_path, "r")
-    if handle == nil then return end        -- ファイルが無い＝パッド無効/未接続
-    local body = handle:read("*a")
-    handle:close()
+
+    -- ★★ **開き直さない**（2026-08-22 / RX-0097）★★
+    --
+    --   ⚠ 以前はここで毎回 io.open していた。**実測 2,839 µs/回**
+    --     （p95 20 ms・最大 55 ms / 書き手が 60Hz で書き換えている最中）。
+    --     ⚠ 高いのは「読むこと」ではなく **「書き換わったファイルを開くこと」**
+    --     （ウイルス対策の再スキャンが開くたびに乗る）。
+    --   ★ハンドルを持ち回して seek で読み直すと **137 µs**（p95 289 µs）＝ 20 分の 1。
+    --     エミュレータのスレッドが払う代金は 29% → 1.7% になる（ターボ中）。
+    --
+    --   ⚠ 開いたままだと**そのファイルを消せない**（Windows）。★RetroUX の
+    --     書き手は切り詰めずに上書きするので通常運用では問題にならないが、
+    --     停止を検知したときと終了時には閉じる（`_close_gamepad_input`）。
+    local handle = self.gamepad_handle
+    if handle == nil then
+      handle = io.open(self.gamepad_input_path, "r")
+      if handle == nil then return end      -- ファイルが無い＝パッド無効/未接続
+      self.gamepad_handle = handle
+    end
+    local ok, body = pcall(function()
+      handle:seek("set", 0)
+      return handle:read("*a")
+    end)
+    if not ok or body == nil then
+      -- ⚠ 掴んでいたファイルが差し替わった等。★次の回で開き直す
+      self:_close_gamepad_input()
+      return
+    end
     local seq, mask = (body or ""):match("(%d+)%s+(%d+)")
 
     -- ★半端読み（seq==nil）のときは**前回の入力を保持**する（1フレームの穴を作らない）。
@@ -6992,6 +7061,9 @@ function Bridge:_poll_pad_input()
         self.gamepad_stale = self.gamepad_stale + 1
         if self.gamepad_stale >= GAMEPAD_STALE_LIMIT then
           self.gamepad_mask = 0             -- 本当に止まった → 全部離す
+          -- ★開き直す（⚠ RetroUX が作り直したファイルを掴み損ねている可能性）。
+          --   ここは 0.24〜0.5 秒に1回しか来ないので、開く代金を払ってよい。
+          self:_close_gamepad_input()
         end
       end
     end

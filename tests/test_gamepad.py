@@ -306,3 +306,171 @@ def test_R3押下中に切断したら強制up():
     assert b.poll(_pad3(BTN_RIGHT_THUMB)) == "down"
     assert b.poll(None) == "up"                          # 抜けた → 解放
     assert b.poll(None) is None
+
+
+# --- 開きっぱなしで書く（RX-0097 / 2026-08-22）--------------------------------
+#
+# ⚠ 以前は毎回 write_text（開く→切り詰める→書く→閉じる）で **1,098 µs/回**だった。
+#   ★開き直す代金がほとんど。ハンドルを持ち回すと 64 µs（17 分の 1）。
+# ⚠⚠ 切り詰めないので **長さを固定**しないと前の行の残りが後ろに残る
+#   （`123 24` の上に `4 0` を書くと `4 024` になる）。
+
+class _FakeWindow:
+    """`_write_gamepad_nes` / `_close_gamepad_out` だけを借りる入れ物。"""
+
+    from retroux.ui.main_window import MainWindow as _MW
+    _write_gamepad_nes = _MW._write_gamepad_nes
+    _close_gamepad_out = _MW._close_gamepad_out
+
+    def __init__(self, path):
+        self._gamepad_input_path = path
+        self._gamepad_seq = 0
+        self._gamepad_out = None
+        self._GAMEPAD_LINE_WIDTH = 24
+
+
+def _read(path):
+    return path.read_text(encoding="ascii")
+
+
+def test_書き込みは開いたまま行われる(tmp_path, monkeypatch):
+    path = tmp_path / "gamepad_input.txt"
+    win = _FakeWindow(path)
+    import builtins
+    opens = {"n": 0}
+    real_open = builtins.open
+
+    def counting(file, *a, **kw):
+        if str(file) == str(path):
+            opens["n"] += 1
+        return real_open(file, *a, **kw)
+
+    monkeypatch.setattr(builtins, "open", counting)
+    for mask in (8, 24, 0, 128):
+        win._write_gamepad_nes(mask)
+    assert opens["n"] == 1, "★2回目以降は開き直さない"
+    win._close_gamepad_out()
+
+
+def test_短い行でも前の残りが混ざらない(tmp_path):
+    path = tmp_path / "gamepad_input.txt"
+    win = _FakeWindow(path)
+    win._write_gamepad_nes(128)          # "1 128" + 空白
+    win._write_gamepad_nes(1)            # "2 1"   + 空白（★短くなる）
+    body = _read(path)
+    seq, mask = body.split()[:2]
+    assert (seq, mask) == ("2", "1"), f"⚠ 前の 128 の残りを拾っている: {body!r}"
+    assert len(body) == win._GAMEPAD_LINE_WIDTH, "★長さは固定"
+    win._close_gamepad_out()
+
+
+def test_閉じたあとも書ける(tmp_path):
+    """★終了時に閉じたあと、また書かれても開き直して続く。"""
+    path = tmp_path / "gamepad_input.txt"
+    win = _FakeWindow(path)
+    win._write_gamepad_nes(4)
+    win._close_gamepad_out()
+    assert win._gamepad_out is None
+    win._write_gamepad_nes(2)
+    assert _read(path).split()[1] == "2"
+    win._close_gamepad_out()
+
+
+def test_書けなくても止まらない(tmp_path):
+    """⚠ 書けない状況でも例外を出さない（次の tick で開き直す）。"""
+    win = _FakeWindow(tmp_path / "no_such_dir" / "x" / "gamepad_input.txt")
+    win._write_gamepad_nes(8)            # ★例外にならないこと
+    win._close_gamepad_out()
+
+
+def test_閉じるのは何回呼んでも安全(tmp_path):
+    win = _FakeWindow(tmp_path / "gamepad_input.txt")
+    win._write_gamepad_nes(1)
+    win._close_gamepad_out()
+    win._close_gamepad_out()             # ★2回目も落ちない
+
+
+# --- X 長押し = 強制AUTO ＋ 一時ターボ（RX-0082 / 2026-08-22）------------------
+#
+# ★指示書 260822_AHK §6〜§9。**押している間だけ**（トグルではない）。
+# ⚠ 解除漏れが一番危ないので、離す以外の道（戦闘終了・切断・戦闘外）も全部見る。
+
+from retroux.application.gamepad import (          # noqa: E402
+    EVENT_FORCE_AUTO_BEGIN, EVENT_FORCE_AUTO_END, HoldRouter,
+)
+
+
+def _x(down=True):
+    return PadState(connected=True, buttons=(BTN_X if down else 0))
+
+
+def test_短押しでは強制AUTOに入らない():
+    r = HoldRouter(hold_ms=500)
+    assert r.poll(_x(), in_battle=True, now=0.0) == []
+    assert r.poll(_x(), in_battle=True, now=0.3) == []      # ★0.3 秒はまだ
+    assert r.poll(_x(False), in_battle=True, now=0.31) == []
+    assert not r.active
+
+
+def test_長押しで入り離すと出る():
+    r = HoldRouter(hold_ms=500)
+    r.poll(_x(), in_battle=True, now=0.0)
+    assert r.poll(_x(), in_battle=True, now=0.4) == []
+    assert r.poll(_x(), in_battle=True, now=0.5) == [EVENT_FORCE_AUTO_BEGIN]
+    assert r.active
+    # ★押し続けても**1回だけ**（連発しない）
+    assert r.poll(_x(), in_battle=True, now=1.0) == []
+    assert r.poll(_x(False), in_battle=True, now=1.2) == [EVENT_FORCE_AUTO_END]
+    assert not r.active
+
+
+def test_戦闘中のXは短押しを出さない():
+    """⚠ 長押しに使うので、戦闘中は「はなす」を出さない（指示書 §9）。"""
+    r = HoldRouter(hold_ms=500)
+    r.poll(_x(), in_battle=True, now=0.0)
+    assert r.suppress_talk() is True
+    r.poll(_x(False), in_battle=True, now=0.2)
+    assert r.suppress_talk() is False
+
+
+def test_戦闘外では長押しにならない():
+    """★非戦闘時の X は従来どおり（はなす）。⚠ 抑止もしない。"""
+    r = HoldRouter(hold_ms=500)
+    r.poll(_x(), in_battle=False, now=0.0)
+    assert r.suppress_talk() is False
+    assert r.poll(_x(), in_battle=False, now=2.0) == []
+    assert not r.active
+
+
+def test_戦闘が終わったら押したままでも解除する():
+    """⚠⚠ 解除漏れの本命（指示書 §18）。"""
+    r = HoldRouter(hold_ms=500)
+    r.poll(_x(), in_battle=True, now=0.0)
+    assert r.poll(_x(), in_battle=True, now=0.6) == [EVENT_FORCE_AUTO_BEGIN]
+    # ★X は押したまま、戦闘だけ終わる
+    assert r.poll(_x(), in_battle=False, now=0.7) == [EVENT_FORCE_AUTO_END]
+    assert not r.active
+
+
+def test_パッドが抜けたら解除する():
+    r = HoldRouter(hold_ms=500)
+    r.poll(_x(), in_battle=True, now=0.0)
+    r.poll(_x(), in_battle=True, now=0.6)
+    assert r.poll(None, in_battle=True, now=0.7) == [EVENT_FORCE_AUTO_END]
+    assert not r.active
+
+
+def test_解除は1回だけ出る():
+    """⚠ 毎回 END を出すと、離したあとずっと解除を送り続けることになる。"""
+    r = HoldRouter(hold_ms=500)
+    r.poll(_x(), in_battle=True, now=0.0)
+    r.poll(_x(), in_battle=True, now=0.6)
+    assert r.poll(_x(False), in_battle=True, now=0.7) == [EVENT_FORCE_AUTO_END]
+    assert r.poll(_x(False), in_battle=True, now=0.8) == []
+    assert r.poll(None, in_battle=True, now=0.9) == []
+
+
+def test_閾値は設定から変えられる():
+    r = HoldRouter(hold_ms=200)
+    r.poll(_x(), in_battle=True, now=0.0)
+    assert r.poll(_x(), in_battle=True, now=0.2) == [EVENT_FORCE_AUTO_BEGIN]

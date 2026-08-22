@@ -167,10 +167,9 @@ def test_設定の耐性名がmemory_mapに実在する():
               ).get("spells") or {}
     assert spells, "⚠ 補助行動の設定がありません"
 
-    text = MEMORY_MAP.read_bytes().decode("utf-8")
-    m = re.search(r"resist:\s*\{([^}]*)\}", text)
-    assert m, "⚠ memory_map に resist が見当たりません"
-    known = set(re.findall(r"(\w+):", m.group(1)))
+    # ★耐性の表は ROM から起こす（RX-0090）。名前の正本は dq2rom.enemies.RESIST_KEYS
+    from dq2rom import enemies
+    known = set(enemies.RESIST_KEYS)
 
     for spell_id, effect in spells.items():
         field = effect.get("resist_field")

@@ -50,7 +50,7 @@ RetroUX は **3つのプロセス**が**ファイル経由**で会話します�
 | `retroux/ui/` | PySide6 の画面。⚠ Win32 は `ui/window_manager.py` だけが窓口（テストで強制） |
 | `retroux/application/` | 入力・コマンドの束ね（ゲームパッド等） |
 | `retroux/emulator/fceux/` | **Lua 側の本体**。`run.lua`（入口）→ `bridge.lua`（毎フレームの中枢）＋戦闘AI各モジュール |
-| `retroux/plugins/dq2/` | **ゲーム知識**。`config.yaml`（振る舞いの設定）・`memory_map.yaml`（RAM/ROMアドレスと根拠）・`dq2.lua`（読み取り関数） |
+| `retroux/plugins/dq2/` | **ゲーム知識**。`config.yaml`（振る舞いの設定）・`memory_map.yaml`（RAM/ROMアドレスと根拠。★敵の表は入っておらず、起動時に ROM から起こす → `retroux/core/enemy_tables.py`）・`dq2.lua`（読み取り関数） |
 | `retroux/tools/` | 起動補助 CLI（倍率設定・絵の展開・プレイデータ退避…） |
 | `dq2rom/` | ROM 解析 CLI（`python -m dq2rom --help`）。実行時に利用者の ROM から表や絵を抽出 |
 | `tests/` | 3,000件超。`uv run pytest`（ROM が要るものは自動 skip） |

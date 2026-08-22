@@ -17,8 +17,8 @@
 --
 -- ## ⚠ 実装できていないもの（★それらしく作らない）
 --
---   `亀の子` は**防御が未実装**なので、指示が出ても
---   ★いまは「非主力は攻撃を控える」までしか効きません。
+--   `亀の子` の防御は **2026-08-11 に実装済み**（`bridge.lua` `_claim_defend` /
+--   `actor_roles.lua` の defend 候補）。⚠ ここに「未実装」とあったのは古い（2026-08-21 訂正 / RX-0010）。
 --   `呪文攻勢` も、道具への切り替えは Phase 3（済）ですが
 --   ⚠ マヌーサの検出は**味方の状態ビット頼み**です。
 
@@ -146,8 +146,9 @@ plan("turtle", "亀の子", function(a, mission, T)
 end, function(types, a, mission)
   local d = types.battle_directive({ primary_plan = "亀の子" })
   d:why("単体強敵で長期戦。★主力だけ攻め、非主力は無駄撃ちを避ける")
-  -- ⚠⚠ **防御は未実装**（Phase 6）。いまは「無駄撃ちを避ける」まで。
-  d:note_unknown("防御が未実装のため、非主力は待機までしかできません")
+  -- ★非主力は「ぼうぎょ」を押す（`_claim_defend` / actor_roles の defend 候補。2026-08-11 実装）。
+  --   ⚠ 以前ここは note_unknown("防御が未実装…") で、検査もその文言を固定していた（2026-08-21 訂正 / RX-0010）。
+  d:why("非主力は防御して被害と回復コストを減らす（_claim_defend）")
   d.resource_policy = "preserve_mp"
   return d
 end)

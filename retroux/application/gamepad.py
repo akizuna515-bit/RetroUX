@@ -226,6 +226,72 @@ def should_write_pad(mask: int, last_mask: int, idle_ticks: int,
 
 # --- 純ロジック: 状態 → 立ち上がりの操作 -------------------------------
 
+#: X の長押しで「強制AUTO＋一時ターボ」を始める / 終える（RX-0082 / 2026-08-22）
+EVENT_FORCE_AUTO_BEGIN = "force_auto_begin"
+EVENT_FORCE_AUTO_END = "force_auto_end"
+
+#: 長押しと認める時間（ミリ秒）。★指示書 260822_AHK §6 の初期候補 400〜600ms
+DEFAULT_HOLD_MS = 500.0
+
+
+class HoldRouter:
+    """X の**長押し**を見る（★戦闘中だけ）。⚠ 時計は呼ぶ側から渡す。
+
+    ## なぜ別のクラスか
+
+    `GamepadRouter` は**押した瞬間**しか見ない（⚠ 押しっぱなしで連発すると
+    まんたんがやくそうを使い切る、という実害があったため）。
+    ★長押しは「時間」を見るので、性質が違う。混ぜると両方が読みにくくなる。
+
+    ## 決めたこと（指示書 §6・§9）
+
+    - 戦闘中の X: **短押しは何もしない**、長押しで強制AUTO＋一時ターボ。
+      ⚠ 長押しが成立したら、離しても短押しは**発火させない**。
+    - 非戦闘中の X: **従来どおり**（押した瞬間に「はなす」）。★ここは触らない。
+    - 押したまま戦闘が終わった / パッドが抜けた → **必ず END を出す**。
+      ⚠ 出し忘れると強制AUTOが残る（一番危ない）。
+    """
+
+    def __init__(self, hold_ms: float = DEFAULT_HOLD_MS) -> None:
+        self.hold_ms = float(hold_ms)
+        self._down_at: float | None = None      # X を押した時刻（秒）
+        self._active = False                    # 長押しが成立している
+        self._suppress_talk = False             # ★この押下の「はなす」を止める
+
+    @property
+    def active(self) -> bool:
+        return self._active
+
+    def suppress_talk(self) -> bool:
+        """いまの押下で「はなす」を止めるか（★戦闘中は常に止める）。"""
+        return self._suppress_talk
+
+    def poll(self, state, in_battle: bool, now: float) -> list[str]:
+        """1回ぶん見る。★`now` は秒（`time.monotonic()` を想定）。
+
+        戻り値は `force_auto_begin` / `force_auto_end` の並び。
+        """
+        pressed = bool(state is not None and getattr(state, "connected", False)
+                       and state.pressed(BTN_X))
+        # ⚠ 未接続・戦闘外は「押していない」と同じ扱い（★解除漏れを作らない）
+        if not pressed or not in_battle:
+            self._down_at = None
+            self._suppress_talk = False
+            if self._active:
+                self._active = False
+                return [EVENT_FORCE_AUTO_END]
+            return []
+
+        self._suppress_talk = True              # ★戦闘中の X は短押しを出さない
+        if self._down_at is None:
+            self._down_at = now
+            return []
+        if not self._active and (now - self._down_at) * 1000.0 >= self.hold_ms:
+            self._active = True
+            return [EVENT_FORCE_AUTO_BEGIN]
+        return []
+
+
 class GamepadRouter:
     """パッドの状態を受け取り、**押した瞬間だけ**操作名を返す。
 

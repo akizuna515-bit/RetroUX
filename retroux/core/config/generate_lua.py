@@ -248,6 +248,27 @@ def _apply_user_overrides(data: dict) -> dict:
     return data
 
 
+def _attach_enemy_tables(data: dict) -> dict:
+    """利用者の ROM から敵の5表を読んで `memory_map` に足す（読めなければ足さない）。"""
+    from .. import enemy_tables
+    from . import user_config as user_config_mod
+
+    try:
+        user_cfg, _ = user_config_mod.load()
+        rom_path = user_cfg.path("rom")
+        if not rom_path.is_absolute():
+            rom_path = PROJECT_ROOT / rom_path
+    except Exception as exc:                          # noqa: BLE001
+        print(f"⚠ user_config を読めないため ROM の場所を既定にします: {exc}")
+        rom_path = PROJECT_ROOT / "work" / "rom" / "DQ2_J.nes"
+    tables, why = enemy_tables.resolve(rom_path, data, OUT_DIR / enemy_tables.CACHE_NAME)
+    print(why)
+    if tables is not None:
+        for key in enemy_tables.ENEMY_KEYS:
+            data[key] = tables[key]
+    return data
+
+
 def main() -> int:
     try:
         written = []
@@ -257,6 +278,10 @@ def main() -> int:
             if name == "config":
                 data = _merge_mantan(data)
                 data = _apply_user_overrides(data)
+            if name == "memory_map":
+                # ★敵の表は ROM から（RX-0090）。Lua の dq2.lua / bridge.lua /
+                #   battle_assessment.lua が monster_stats 等を見るので、ここで足す。
+                data = _attach_enemy_tables(data)
             written.append(write_lua_module(name, data, OUT_DIR, src))
         # ★キーバインドも Lua へ渡す（2026-08-01 の指示書 §15.1）。
         #   ⚠ Lua に `if key == "A"` を散らさないため。

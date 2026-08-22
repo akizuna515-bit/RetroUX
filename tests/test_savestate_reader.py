@@ -19,9 +19,60 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 STATES = PROJECT_ROOT / "tools" / "fceux" / "fcs"
 ROM = PROJECT_ROOT / "work" / "rom" / "DQ2_J.nes"
 
-_any = sorted(STATES.glob("DQ2_J.fc[0-9]")) if STATES.exists() else []
-needs_state = pytest.mark.skipif(not _any, reason="セーブステートが無い")
+_found = sorted(STATES.glob("DQ2_J*.fc[0-9]")) if STATES.exists() else []
+
+
+def _readable(paths):
+    """★**読めたものだけ**返す。⚠ 「ファイルがある」と「読める」は別。
+
+    2026-08-22（RX-0100）: 利用者の環境には非圧縮のセーブステートしか無く、
+    ⚠ 見張りは「1本でもあれば走らせる」だったので、**0件のまま本文へ進んで**
+    「★0 件しか確かめていない」で落ちていた。★材料の数で止める。
+    """
+    got = []
+    for p in paths:
+        try:
+            load(p)
+        except Exception:                 # noqa: BLE001  ★読めないものは数えない
+            continue
+        got.append(p)
+    return got
+
+
+_any = _readable(_found)
+needs_state = pytest.mark.skipif(not _any, reason="読めるセーブステートが無い")
+#: ⚠ 突き合わせ物は**3本以上**ないと意味が無い（1本だと偶然と区別できない）
+needs_states3 = pytest.mark.skipif(
+    len(_any) < 3, reason=f"読めるセーブステートが {len(_any)} 本（3本必要）")
 needs_rom = pytest.mark.skipif(not ROM.exists(), reason="ROM が無い")
+
+
+def _on_a_map(paths, allow=(0x00, 0x01)):
+    """★**中身まで見て**、突き合わせに使える物だけ返す（RX-0100）。
+
+    ⚠ 読めるセーブステートでも、世界地図（$00/$01）や未読込だと
+      ヘッダの突き合わせができない。★「何本あるか」ではなく
+      **「何本使えるか」**で見張らないと、本文で 0〜2 件になって落ちる。
+    """
+    got = []
+    for p in paths:
+        map_id = load(p).byte(0x31)
+        if map_id is not None and map_id not in allow:
+            got.append(p)
+    return got
+
+
+#: 突き合わせに使える物（マップ上のもの）
+_ON_MAP = _on_a_map(_any)
+#: 種別の突き合わせは世界地図でも効く（$00 だけ除く）
+_HAS_KIND = _on_a_map(_any, allow=(0x00,))
+#: ⚠ 3本未満だと偶然と区別できないので走らせない
+needs_maps3 = pytest.mark.skipif(
+    len(_ON_MAP) < 3,
+    reason=f"マップ上のセーブステートが {len(_ON_MAP)} 本（3本必要）")
+needs_kind3 = pytest.mark.skipif(
+    len(_HAS_KIND) < 3,
+    reason=f"種別を確かめられるセーブステートが {len(_HAS_KIND)} 本（3本必要）")
 
 
 @needs_state
@@ -64,9 +115,56 @@ def test_展開できなければ断る(tmp_path):
         load(bad)
 
 
+def _fake_state(chunks: dict) -> bytes:
+    """チャンクを並べて中身だけ作る（頭は付けない）。"""
+    body = b""
+    for name, data in chunks.items():
+        body += (name.encode().ljust(4, bytes(1))      # ★名前は4バイト（後ろは 0 埋め）
+                 + len(data).to_bytes(4, "little") + data)
+    return body
+
+
+def test_圧縮していないセーブステートも読める(tmp_path):
+    """★★ **FCEUX は縮まないとき「そのまま」書きます**（RX-0100 / 2026-08-22）★★
+
+    ⚠ 12 バイト目の「圧縮後の大きさ」に `0xFFFFFFFF`（-1）が入り、
+      後ろは zlib ではなく**生のチャンク列**になります。
+    ★ここに気づくまで、利用者の `.fc1` が丸ごと読めていませんでした
+      （「展開できません」で 3 本中 2 本が捨てられ、突き合わせが 0 件に）。
+    """
+    body = _fake_state({"RAM": bytes(range(256)) * 8, "PRAM": bytes(32)})
+    head = (b"FCSX" + len(body).to_bytes(4, "little")
+            + (20606).to_bytes(4, "little")
+            + bytes([0xFF] * 4))          # ⚠ -1 = 圧縮していない
+    path = tmp_path / "raw.fc1"
+    path.write_bytes(head + body)
+
+    st = load(path)
+    assert len(st.ram) == 2048
+    assert st.byte(0x31) == 0x31            # ★中身がそのまま取れている
+
+
+def test_圧縮の長さぶんだけ展開する(tmp_path):
+    """⚠ 圧縮の後ろにゴミが付いていても読めること。
+
+    ★`comprlen` で切ってから展開するようにした（RX-0100）。
+      切らずに末尾まで渡していると、FCEUX が足す物で落ちる余地が残る。
+    """
+    import zlib
+    body = _fake_state({"RAM": bytes(2048)})
+    comp = zlib.compress(body)
+    head = (b"FCSX" + len(body).to_bytes(4, "little")
+            + (20606).to_bytes(4, "little")
+            + len(comp).to_bytes(4, "little"))
+    path = tmp_path / "z.fc0"
+    path.write_bytes(head + comp + b"\x00\x01\x02")   # ★末尾にゴミ
+
+    assert len(load(path).ram) == 2048
+
+
 # --- ★★ ここが Stop 1' の収穫 ★★ ------------------------------------
 
-@needs_state
+@needs_maps3
 @needs_rom
 def test_RAMの20から27はマップヘッダそのもの():
     """★★ **これで「仮定」が消えました**（2026-08-02）。
@@ -86,14 +184,9 @@ def test_RAMの20から27はマップヘッダそのもの():
 
     prg = load_prg(ROM)
     checked = 0
-    for path in _any:
-        try:
-            st = load(path)
-        except NotASaveState:
-            continue
+    for path in _ON_MAP:                 # ★使える物は先に数えてある
+        st = load(path)
         map_id = st.byte(0x31)
-        if map_id is None or map_id in (0x00, 0x01):
-            continue                     # ★世界地図・未読込は飛ばす
         off = MAP_HEADER + map_id * MAP_HEADER_SIZE
         assert bytes(st.ram[0x20:0x28]) == prg[off:off + 8], (
             f"{path.name}: map ${map_id:02X}")
@@ -102,27 +195,22 @@ def test_RAMの20から27はマップヘッダそのもの():
         assert (h.width, h.height) == (st.byte(0x21), st.byte(0x22))
         assert h.pointer == st.word(0x25)
         checked += 1
-    assert checked >= 3, f"★{checked} 件しか確かめていない"
+    assert checked == len(_ON_MAP), f"★{checked} 件しか確かめていない"
 
 
-@needs_state
+@needs_kind3
 @needs_rom
 def test_マップ種別もRAMと一致する():
     """★`map_kind()`（`$E20A` の写し）が `$1F` と合うか。"""
     from retroux.core.bgmap.rom_map import map_kind
 
     checked = 0
-    for path in _any:
-        try:
-            st = load(path)
-        except NotASaveState:
-            continue
+    for path in _HAS_KIND:
+        st = load(path)
         map_id, kind = st.byte(0x31), st.byte(0x1F)
-        if map_id is None or map_id == 0x00:
-            continue
         assert map_kind(map_id) == kind, f"{path.name}: map ${map_id:02X}"
         checked += 1
-    assert checked >= 3
+    assert checked == len(_HAS_KIND)
 
 
 @needs_state

@@ -70,6 +70,30 @@ RUNNABLE: list[tuple[str, str, int]] = [
     ("map_observe_gate_test.lua", "NG 0 件", 20),
     ("spellrow_test.lua", "不一致・食い違い: 0", 0),
     ("tile_scroll_test.lua", "すべて通りました", 0),
+    # ★RX-0097: パッド入力を開きっぱなしで読む（開き直さない・残りを拾わない）
+    ("gamepad_keepopen_test.lua", "すべて通りました", 15),
+    # ★RX-0082: 画面（X 長押し）からの強制AUTO を Lua が受け取る
+    ("force_auto_command_test.lua", "すべて通りました", 12),
+    # ★RX-0080: スロット0 → savestate.object(10) の読み替えと範囲ガード
+    ("savestate_slot_test.lua", "すべて通りました", 19),
+    # ★RX-0011: 字面だけの検査に挙動を併設（まんたんの開始ログ・選択理由）
+    ("mantan_log_lines_test.lua", "すべて通りました", 15),
+    # ★RX-0011: bridge の字面検査4件の挙動（杖の見積もり / 知らない条件 /
+    #   効かない敵を飛ばす寄せ / 戦術指示のターン固定）
+    ("rx0011_bridge_behavior_test.lua", "NG 0 件", 16),
+    # ★RX-0011: map_capture_probe.lua の約束（連射しない / トレース無しでも採る / Q で終わる / 札）
+    ("map_capture_probe_test.lua", "すべて通りました", 11),
+    # ★RX-0011: fake_ram.lua が status を既定で立て、active_party() が空にならない
+    ("fake_ram_status_test.lua", "すべて通りました", 13),
+    # ★RX-0011: state.json の battle_engine が設定どおりに入る（字面 add(...) の挙動）
+    ("state_engine_wiring_test.lua", "すべて通りました", 7),
+    # ★RX-0011: scripts/replay_check.lua（記録側）を台本で9フレーム回す
+    #   （戦闘終了 / 押したキー / ターン前後の snapshot）
+    ("replay_check_record_test.lua", "すべて通りました", 20),
+    # ★RX-0011: research.capture の門が設定を読んで効く
+    ("research_capture_gate_test.lua", "すべて通りました", 9),
+    # ★RX-0011: 却下が battle_veto イベントとして1人1ターン1回出る
+    ("veto_event_test.lua", "すべて通りました", 12),
 ]
 
 #: ⚠ FCEUX の中でしか動かないもの（`emu` / `savestate` の本物が要る）。

@@ -45,6 +45,32 @@ PLAN = PROJECT_ROOT / "retroux" / "emulator" / "fceux" / "attack_plan.lua"
 BRIDGE = PROJECT_ROOT / "retroux" / "emulator" / "fceux" / "bridge.lua"
 
 
+# --- ★RX-0011: 字面の検査に挙動を併設 --------------------------------------
+#
+# ⚠ 下の `bridge.lua` の文字列検査は、分岐が死んでいても緑のままです。
+#   ★`rx0011_bridge_behavior_test.lua` は偽RAMで本物の bridge を動かします。
+
+BEHAVIOR = (PROJECT_ROOT / "research" / "probes" / "active"
+            / "rx0011_bridge_behavior_test.lua")
+
+
+@pytest.fixture(scope="module")
+def behavior():
+    if not (RUNNER.exists() and BEHAVIOR.exists()):
+        pytest.skip("Lua のハーネスが無い")
+    done = subprocess.run(
+        [sys.executable, str(RUNNER), str(BEHAVIOR)],
+        cwd=str(PROJECT_ROOT), capture_output=True, timeout=120,
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    out = (done.stdout or b"").decode("utf-8", "replace")
+    err = (done.stderr or b"").decode("utf-8", "replace")
+    if "SKIP:" in out:
+        pytest.skip(out.strip())
+    if done.returncode != 0 and "lua5.1" in err:
+        pytest.skip("Lua を動かせない環境")
+    return out + err
+
+
 @pytest.fixture(scope="module")
 def result():
     if not (RUNNER.exists() and HARNESS.exists()):
@@ -146,6 +172,22 @@ def test_効かない敵を飛ばす():
         "⚠ 狙い先の判定で使っていません")
 
 
+def test_効かない敵を飛ばす_の挙動(behavior):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    偽RAMで `_claim_target_selection()` を呼ぶ。行0＝耐性7（効かない）、
+    行1＝耐性0（効く）。★呪文の番（`ba_avoid_immune` が自分の印）なら
+    **下へ寄せる入力が返り**、物理の番や他人の印なら行0で決める（nil）。
+    ⚠ 全部効かなければ何も主張せず、耐性が読めない敵は避けない。
+    """
+    assert "NG 0 件" in behavior, behavior
+    assert _ok(behavior, "★★★ 呪文の番: 行0の効かない敵を飛ばし、下へ寄せる"), behavior
+    assert _ok(behavior, "★物理の番: 行0のままでよい"), behavior
+    assert _ok(behavior, "★別の人の印では飛ばさない"), behavior
+    assert _ok(behavior, "★全部効かないなら寄せ先が無く、何も主張しない"), behavior
+    assert _ok(behavior, "★耐性が読めない行0の敵は避けず"), behavior
+
+
 def test_印を必ず消している():
     """⚠⚠ **印が残ると、次の人の物理攻撃まで巻き添え**になります。
 
@@ -154,6 +196,18 @@ def test_印を必ず消している():
     source = BRIDGE.read_bytes().decode("utf-8")
     assert source.count("self.ba_avoid_immune = false") >= 2, (
         "⚠ 消す場所が足りません（★戦闘の初期化と、人と人の境目）")
+
+
+def test_印を必ず消している_の挙動(wiring):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    ★2か所そのものを `spell_target_wiring_test.lua` が動かしている:
+      人と人の境目（コマンドメニューへ戻る）と、戦闘の初期化
+      （`_reset_battle_attack`）で、立てた印が実際に false に戻る。
+    ⚠ 新しいハーネスは作らない（★同じ検査を2本持たない）。
+    """
+    assert _ok(wiring, "★★★ コマンドメニューへ戻ったら印が消える"), wiring
+    assert _ok(wiring, "★戦闘の初期化で印が下りている"), wiring
 
 
 # --- ★ 前提が変わったら気づけるように ---------------------------------

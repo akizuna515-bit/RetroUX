@@ -54,8 +54,8 @@ function Assessment.from_safety(types, safety, party)
   end
   if s.first_encounter == true then
     a:tag("unknown_enemy", "初めて見る相手")
-    -- ⚠ 初遭遇は耐性も分からない。★「効かない」と混ぜない
-    a:note_unknown("初遭遇の敵の耐性が分からない")
+    -- ★耐性は初遭遇でも ROM の表から読む（B案 / 2026-08-22 / RX-0096）。
+    --   ⚠ 以前ここに note_unknown("初遭遇の敵の耐性が分からない") があったのは方針の写し
   end
   if s.danger == true then
     a:tag("party_at_risk", tostring(s.danger_reason or "危険状態"))
@@ -67,7 +67,8 @@ function Assessment.from_safety(types, safety, party)
     if who.alive and (who.max_hp or 0) > 0 then
       local p = types.protection_value({ actor_id = who.name })
       p.death_risk = 1 - ((who.hp or 0) / who.max_hp)
-      p:note_unknown("失ったときの戦力低下は未実装（Phase 4）")
+      -- ★戦力低下は estimate() の loss_impact が入れる（RX-0010 訂正）。ここは役割が無い段階
+      p:note_unknown("失ったときの戦力低下は役割が決まるまで分からない")
       a.protections[who.name] = p
     end
   end

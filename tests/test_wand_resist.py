@@ -31,6 +31,32 @@ COND = (PROJECT_ROOT / "retroux" / "emulator" / "fceux"
 BRIDGE = PROJECT_ROOT / "retroux" / "emulator" / "fceux" / "bridge.lua"
 
 
+# --- ★RX-0011: 字面の検査に挙動を併設 --------------------------------------
+#
+# ⚠ 下の `bridge.lua` の文字列検査は、分岐が死んでいても緑のままです。
+#   ★`rx0011_bridge_behavior_test.lua` は偽RAMで本物の bridge を動かします。
+
+BEHAVIOR = (PROJECT_ROOT / "research" / "probes" / "active"
+            / "rx0011_bridge_behavior_test.lua")
+
+
+@pytest.fixture(scope="module")
+def behavior():
+    if not (RUNNER.exists() and BEHAVIOR.exists()):
+        pytest.skip("Lua のハーネスが無い")
+    done = subprocess.run(
+        [sys.executable, str(RUNNER), str(BEHAVIOR)],
+        cwd=str(PROJECT_ROOT), capture_output=True, timeout=120,
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    out = (done.stdout or b"").decode("utf-8", "replace")
+    err = (done.stderr or b"").decode("utf-8", "replace")
+    if "SKIP:" in out:
+        pytest.skip(out.strip())
+    if done.returncode != 0 and "lua5.1" in err:
+        pytest.skip("Lua を動かせない環境")
+    return out + err
+
+
 @pytest.fixture(scope="module")
 def result():
     if not (RUNNER.exists() and HARNESS.exists()):
@@ -119,6 +145,19 @@ def test_本物の見積もりを差している():
         "⚠⚠ 道具に呪文と同じ規則を差していません")
 
 
+def test_本物の見積もりを差している_の挙動(behavior):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    本物の `Bridge.new` を通したあと、`item_conditions._damage` が
+    `bridge.damage_estimate` **そのもの**（同じテーブル）であること。
+    ★加えて `use()` に偽物を差すと答えが変わる＝差し替えが実際に効く。
+    """
+    assert "NG 0 件" in behavior, behavior
+    assert _ok(behavior,
+               "★★ item_conditions が bridge の damage_estimate そのものを使う"), behavior
+    assert _ok(behavior, "★use() で差した見積もりが実際に使われる"), behavior
+
+
 def test_設定に条件がある(result):
     # ⚠ 2026-08-08 に文言が変わりました（★ へ移したため）。
     #   中身（呪文が効かない敵には使わない）は同じです。
@@ -131,3 +170,15 @@ def test_知らない条件を黙って通さない():
     """⚠ 綴り違いで**毎ターン使い続ける**ほうが困ります。"""
     source = COND.read_bytes().decode("utf-8")
     assert "知らない条件です" in source
+
+
+def test_知らない条件を黙って通さない_の挙動(behavior):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    `Conditions.allow()` に綴り違い（`spell_may_damge`）を渡すと
+    ★効く敵が居ても false になり、理由に「知らない条件です」と
+    綴りそのものが入る。⚠ 正しい綴りなら同じ敵で true（封じすぎではない）。
+    """
+    assert _ok(behavior, "★★ 綴り違いの条件では使わない"), behavior
+    assert _ok(behavior, "★理由に「知らない条件です」と綴りそのものが入る"), behavior
+    assert _ok(behavior, "★正しい綴りなら使える"), behavior

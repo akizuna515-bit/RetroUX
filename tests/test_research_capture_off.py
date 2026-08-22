@@ -109,6 +109,40 @@ def test_設定をLuaが読んでいる():
     assert "self.research = self.config.research or {}" in src
 
 
+def test_設定をLuaが読んでいるの挙動():
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    ★本物の `Bridge.new` で `research.capture` が config.lua と同じ値になり、
+      既定（false）では `_arm_monster_art` が予約を作らず、
+      `capture = true` に変えると**同じ呼び出し**で予約が作られることを見ます。
+    """
+    import os
+    import subprocess
+
+    runner = PROJECT_ROOT / "research" / "probes" / "reusable" / "lua_run.py"
+    harness = (PROJECT_ROOT / "research" / "probes" / "active"
+               / "research_capture_gate_test.lua")
+    if not (runner.exists() and harness.exists()):
+        pytest.skip("Lua のハーネスが無い")
+    done = subprocess.run(
+        [sys.executable, str(runner), str(harness)],
+        cwd=str(PROJECT_ROOT), capture_output=True, timeout=180,
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    out = ((done.stdout or b"").decode("utf-8", "replace")
+           + (done.stderr or b"").decode("utf-8", "replace"))
+    if "SKIP:" in out or ("lua5.1" in out and done.returncode != 0):
+        pytest.skip("Lua を動かせない環境")
+    assert done.returncode == 0, out
+    assert "NG 0 件" in out, out
+
+    def _ok(label: str) -> bool:
+        return any(l.startswith("OK") and label in l for l in out.splitlines())
+
+    assert _ok("research.capture は config.lua と同じ値"), out
+    assert _ok("予約が作られない"), out
+    assert _ok("予約が作られる（⚠ 門は設定を見ている）"), out
+
+
 # --- ⚠ 利用者が要求する採取は別（tile_shot）------------------------------
 
 def test_利用者が頼む採取は残っている():

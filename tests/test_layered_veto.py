@@ -37,6 +37,32 @@ HARNESS = (PROJECT_ROOT / "research" / "probes" / "active"
 BRIDGE = PROJECT_ROOT / "retroux" / "emulator" / "fceux" / "bridge.lua"
 
 
+# --- ★RX-0011: 字面の検査に挙動を併設 --------------------------------------
+#
+# ⚠ 下の `bridge.lua` の文字列検査は、分岐が死んでいても緑のままです。
+#   ★`rx0011_bridge_behavior_test.lua` は偽RAMで本物の bridge を動かします。
+
+BEHAVIOR = (PROJECT_ROOT / "research" / "probes" / "active"
+            / "rx0011_bridge_behavior_test.lua")
+
+
+@pytest.fixture(scope="module")
+def behavior():
+    if not (RUNNER.exists() and BEHAVIOR.exists()):
+        pytest.skip("Lua のハーネスが無い")
+    done = subprocess.run(
+        [sys.executable, str(RUNNER), str(BEHAVIOR)],
+        cwd=str(PROJECT_ROOT), capture_output=True, timeout=120,
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    out = (done.stdout or b"").decode("utf-8", "replace")
+    err = (done.stderr or b"").decode("utf-8", "replace")
+    if "SKIP:" in out:
+        pytest.skip(out.strip())
+    if done.returncode != 0 and "lua5.1" in err:
+        pytest.skip("Lua を動かせない環境")
+    return out + err
+
+
 @pytest.fixture(scope="module")
 def result():
     if not (RUNNER.exists() and HARNESS.exists()):
@@ -158,6 +184,20 @@ def test_ターン単位で固定している():
         "⚠ ターン単位で固定していません")
 
 
+def test_ターン単位で固定している_の挙動(behavior):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    `tactics_selector.choose` を差し替えて `_log_assessment()` を呼ぶ。
+    ★同じ `turn_no` のまま別の指示を返しても `turn_directive` は最初のまま。
+    ★`turn_no` を進めると新しい指示に替わり、`_on_battle_end()` で捨てる。
+    """
+    assert "NG 0 件" in behavior, behavior
+    assert _ok(behavior, "★最初の見立てで指示が入る"), behavior
+    assert _ok(behavior, "★★★ 同じターン中は別の指示で上書きしない"), behavior
+    assert _ok(behavior, "★★ ターンが進めば新しい指示に替わる"), behavior
+    assert _ok(behavior, "★戦闘が終われば指示とターン番号を捨てる"), behavior
+
+
 def test_呼ばれているかだけで満足していない():
     """⚠⚠ **相談回答の指摘そのもの**。
 
@@ -168,3 +208,16 @@ def test_呼ばれているかだけで満足していない():
     mine = pathlib.Path(__file__).read_bytes().decode("utf-8")
     assert "test_4_実入力_何も主張しない" in mine
     assert "入力を主張しない" in mine
+
+
+def test_呼ばれているかだけで満足していない_の挙動(result):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    ★上は「このファイルに test_4 が**書いてある**か」しか見ない。
+      書いてあっても、ハーネス側の行が消えれば test_4 は赤くなるが、
+      この検査は緑のまま。ここでは**実入力まで見た OK 行が実際に出た**
+      ことを見る（＝`layered_veto_test.lua` が入力を主張しない所まで通った）。
+    ⚠ 新しいハーネスは作らない（★test_4 と同じ行を見る）。
+    """
+    assert _ok(result, "★★★ 入力を主張しない"), result
+    assert _ok(result, "★★★ 攻撃呪文の計画を作らない"), result

@@ -259,6 +259,83 @@ def test_the_save_is_verified_against_the_file_not_just_the_ack():
     assert "if written():" in text
 
 
+def _window_for_savestate(tmp_path):
+    """★実物の `MainWindow`（offscreen）。保存の道だけ差し替えて呼ぶ。"""
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    pytest.importorskip("PySide6", reason="PySide6 が無い環境")
+    from PySide6.QtWidgets import QApplication
+
+    from retroux.ui.main_window import MainWindow
+    from retroux.ui.view_model import ViewModel
+
+    assert QApplication.instance() or QApplication([])
+    recorder, _events, db = _recorder(tmp_path)
+    vm = ViewModel(recorder, db, "HASH", {1: "スライム"})
+    vm._mission_path = tmp_path / "mission.yaml"
+    return MainWindow(vm, interval_ms=10 ** 6, log_path=tmp_path / "r.log")
+
+
+def _run_request(tmp_path, *, touch_file: bool):
+    """Lua の返事は必ず ok で返す。★ファイルを書くかどうかだけ変える。"""
+    import logging
+    import types
+
+    win = _window_for_savestate(tmp_path)
+    try:
+        target = tmp_path / "DQ2_J.fc1"
+        target.write_bytes(b"old")
+        # ★過去の時刻にしておく（★「進んだ」を見分けられるように）
+        old = target.stat().st_mtime - 100
+        os.utime(target, (old, old))
+        win._savestate_file = lambda cfg, slot: target
+
+        class FakeCommands:
+            asked = []
+
+            def save_state(self, slot):
+                self.asked.append(slot)
+                # ★Lua が「呼べた」と言う（⚠ 書いたかどうかは別）
+                win.vm.recorder.stats.savestate_saved = {"ok": True, "slot": slot}
+                if touch_file:
+                    target.write_bytes(b"new")
+                return None
+
+        win.commands = FakeCommands()
+        cfg = types.SimpleNamespace(
+            shutdown=types.SimpleNamespace(save_slot=1, save_timeout_seconds=0.6))
+        log = logging.getLogger("test.savestate")
+        records = []
+
+        class Catch(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        log.addHandler(Catch())
+        log.setLevel(logging.DEBUG)
+        got = win._request_savestate(cfg, log)
+        return got, FakeCommands.asked, [r.getMessage() for r in records]
+    finally:
+        win.close()
+
+
+def test_the_save_is_verified_against_the_file_not_just_the_ack_の挙動(tmp_path):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    Lua が `ok=true` と返しても**ファイルが変わらなければ False**、
+    ファイルが新しくなれば True。★返事だけを信じない、を実際に通す。
+    """
+    got, asked, messages = _run_request(tmp_path, touch_file=False)
+    assert asked == [1], "⚠ 頼んだスロットが違う"
+    assert got is False, "⚠⚠ 返事だけで「保存した」と言っています（2026-07-31 の嘘）"
+    assert any("ファイルが変わっていません" in m for m in messages), messages
+
+    got, asked, messages = _run_request(tmp_path, touch_file=True)
+    assert got is True, "⚠ ファイルが新しくなったのに合格にならない"
+    assert any("保存しました" in m for m in messages), messages
+
+
 def test_startup_does_not_execute_a_stale_action():
     """★起動時に残っていた要求を**実行しない**（読んだことにするだけ）。
 

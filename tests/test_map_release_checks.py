@@ -190,6 +190,9 @@ def test_世界地図では黄色い注意を出さない():
         if not keys:
             pytest.skip("★世界地図の記録がまだありません")
         win._list.setCurrentRow(win._keys.index(keys[0]))
+        # ★RX-0094（2026-08-21）: 既定 walked は街と同じ描き方。この検査が見るのは
+        #   「世界地図ルート（固定×2）で嘘の注意が出ない」ことなので full にする
+        vm.overworld_view = "full"
         win.resize(360, 520)
         win.show()
         app.processEvents()

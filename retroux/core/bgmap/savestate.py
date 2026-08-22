@@ -24,8 +24,10 @@
 | `SPRA` | 256 | ★OAM（スプライト。主人公の画面位置） |
 | `CHRR` | 8192 | ★CHR-RAM |
 
-⚠ `savestate.persist()` は FCEUX をハングさせるので使えませんが、
-  **人が `File > Save State` で保存したものを読む**のは安全です。
+★**人が `File > Save State` で保存したもの**（または RetroUX の「保存して終了」が
+  `save`+`persist` で書いたもの）を読む。⚠ 2026-08-21 訂正（RX-0010）: 以前ここに
+  「`persist()` は FCEUX をハングさせる」とあったが、現行の `_save_state` は persist で
+  正常に書けている（playbook #3 の注記参照）。
 """
 
 from __future__ import annotations
@@ -36,6 +38,10 @@ import zlib
 
 #: zlib のデータが始まる位置（先頭は "FCSX" と大きさ）
 COMPRESSED_FROM = 16
+#: 圧縮後の大きさが書いてある位置（先頭から12バイト目・4バイト・下位から）
+COMPRLEN_AT = 12
+#: ⚠ ここが `0xFFFFFFFF`（-1）なら **圧縮していない**。★FCEUX の書き方。
+UNCOMPRESSED = 0xFFFFFFFF
 #: 署名
 MAGIC = b"FCS"
 
@@ -115,10 +121,17 @@ def load(path) -> SaveState:
     raw = path.read_bytes()
     if raw[:3] != MAGIC:
         raise NotASaveState(f"FCEUX のセーブステートではありません: {path}")
-    try:
-        body = zlib.decompress(raw[COMPRESSED_FROM:])
-    except zlib.error as exc:            # noqa: PERF203
-        raise NotASaveState(f"展開できません: {path}") from exc
+    comprlen = int.from_bytes(
+        raw[COMPRLEN_AT:COMPRLEN_AT + 4], "little")
+    if comprlen == UNCOMPRESSED:
+        # ★圧縮しても縮まないとき、FCEUX は**そのまま**書き、ここに -1 を置く。
+        #   ⚠ 2026-08-22 まで見落としていて、`.fc1` が丸ごと読めていなかった。
+        body = raw[COMPRESSED_FROM:]
+    else:
+        try:
+            body = zlib.decompress(raw[COMPRESSED_FROM:COMPRESSED_FROM + comprlen])
+        except zlib.error as exc:            # noqa: PERF203
+            raise NotASaveState(f"展開できません: {path}") from exc
 
     chunks: dict = {}
     pos = 0

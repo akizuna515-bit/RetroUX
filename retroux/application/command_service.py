@@ -89,6 +89,15 @@ class CommandService:
         """
         return self._write("高速化", turbo_enabled=bool(enabled))
 
+    def set_force_auto(self, enabled: bool):
+        """強制AUTO（安全判定を無視して押し切る）を入り切りする。
+
+        ★★ **押している間だけ**の一時的な操作として使う（RX-0082 / パッドの X 長押し）★★
+          ⚠ AUTO そのもの（`auto_enabled`）にも速度にも触らない。
+            混ぜると「AUTO を切ったのに安全機構だけ潰れている」状態が作れてしまう。
+        """
+        return self._write("強制AUTO", force_auto=bool(enabled))
+
     def set_tactics_revision(self, revision: int):
         return self._write("戦術プロフィール",
                            tactics_revision=int(revision))

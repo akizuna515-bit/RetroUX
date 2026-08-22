@@ -240,7 +240,7 @@ class MainWindow(QWidget):
                  #   ⚠ テストでは既定で出さない（窓が増えると計測が濁る）。
                  show_map: bool = False) -> None:
         super().__init__()
-        # ★名前は設定から。ゲーム内の名前は RAM から読めていない（panels.py 参照）
+        # ★名前は RAM $0113 から読む（ViewModel.party_names）。設定の names はその上書き（RX-0010 訂正）
         self._names_config = names_config
         self.vm = view_model
         # 記録プロセスの二重起動を防ぐための心拍。更新のたびに叩く。
@@ -909,10 +909,14 @@ class MainWindow(QWidget):
         #   ★押せるが失敗する、が一番たちが悪い。押せなくして理由を書く。
         read_only = bool(getattr(self.vm, "read_only", False))
         if read_only:
+            # ★誰が記録役かを出す（RX-0064）。⚠ 分からなければ書かない
+            who = getattr(self.vm, "read_only_reason", None)
+            detail = f"<br>記録役: <code>{who}</code>" if who else ""
             box.setInformativeText(
                 "⚠ <b>いまは閲覧専用</b>なので、セーブステートを保存できません。<br>"
                 "別の RetroUX が記録役になっています"
-                "（そちらで保存するか、先に終了してください）。<br>"
+                "（そちらで保存するか、先に終了してください）。"
+                f"{detail}<br>"
                 "この画面は「保存せずに終了」で閉じられます。"
             )
         else:
@@ -928,7 +932,10 @@ class MainWindow(QWidget):
         cancel_btn = box.addButton("やめる", QMessageBox.ButtonRole.RejectRole)
         if read_only:
             save_btn.setEnabled(False)
-            save_btn.setToolTip("閲覧専用なので保存できません")
+            save_btn.setToolTip(
+                "閲覧専用なので保存できません"
+                + (f"（記録役: {getattr(self.vm, 'read_only_reason', None)}）"
+                   if getattr(self.vm, "read_only_reason", None) else ""))
         box.setDefaultButton(cancel_btn)      # ★既定は「やめる」
         box.exec()
 
@@ -1003,6 +1010,12 @@ class MainWindow(QWidget):
         if getattr(self, "_gamepad_reader", None) is not None:
             # ★スレッド停止後に「全部離す」を1回書く（bridge に押しっぱなしを残さない）
             self._write_gamepad_nes(0)
+            # ⚠⚠ **強制AUTO を残さない**（RX-0082 / 指示書 §18）。
+            #   ★X を押したまま終了しても、ここで必ず解除する。
+            if self._turbo_before_hold is not None:
+                self._end_force_auto()
+            # ★閉じる（⚠ 開いたままだとファイルを消せない / RX-0097）
+            self._close_gamepad_out()
 
         # ⚠ import は関数の中（★この計画の作法）。
         #   ⚠⚠ ここを忘れて `NameError` を作った（2026-08-18 / 検査が捕まえた）。
@@ -1718,7 +1731,9 @@ class MainWindow(QWidget):
 
         from PySide6.QtCore import QTimer
 
-        from ..application.gamepad import GamepadRouter, XInputReader
+        from ..application.gamepad import (
+            GamepadRouter, HoldRouter, XInputReader,
+        )
         from ..core.config import user_config as user_config_mod
 
         self._gamepad_reader = None
@@ -1772,6 +1787,17 @@ class MainWindow(QWidget):
         # ★アイドル中でも生存を示すハートビート（0.5秒ごと）。bridge の生存判定と
         #   世代の整合のため、書き込みを完全には止めない。
         self._GAMEPAD_IDLE_HEARTBEAT = 30
+        #: ★1行の長さ（★固定長。理由は `_write_gamepad_nes` の説明）
+        self._GAMEPAD_LINE_WIDTH = 24
+        #: 開いたままの書き込みハンドル（RX-0097）
+        self._gamepad_out = None
+        #: ★X 長押し（強制AUTO＋一時ターボ / RX-0082）
+        self._gamepad_hold = HoldRouter(
+            hold_ms=float(getattr(cfg.gamepad, "force_auto_hold_ms", 500.0)))
+        #: 長押しを始める前の Turbo。⚠ 離したら**ここへ戻す**（OFF 固定にしない）
+        self._turbo_before_hold: bool | None = None
+        #: ★画面更新のたびに `_render` が入れる（パッドのスレッドが読む）
+        self._in_battle_now = False
         # ★独自機能のイベントを 別スレッド→メインスレッド へ渡す待ち行列。
         #   deque の append/popleft はスレッド安全（GIL 下で1操作）。
         self._gamepad_events: "collections.deque[str]" = collections.deque()
@@ -1839,8 +1865,20 @@ class MainWindow(QWidget):
                 if write:
                     self._write_gamepad_nes(mask)
                 self._gamepad_last_mask = mask
+                # ★★ X の長押し（強制AUTO＋一時ターボ / RX-0082）★★
+                #   ⚠ ここは待ち行列へ入れるだけ。実際の切り替えは Qt 側。
+                #   ★戦闘中かどうかは `ViewModel` が持つ値を読むだけ
+                #     （Qt ウィジェットにも CommandService にも触らない）。
+                in_battle = bool(getattr(self, "_in_battle_now", False))
+                for event in self._gamepad_hold.poll(
+                        state, in_battle, time.monotonic()):
+                    self._gamepad_events.append(event)
                 # 独自機能（立ち上がり）→ メインスレッドへ渡す
                 for event in router.poll(state):
+                    # ⚠ 戦闘中の X は「はなす」を出さない（★長押しに使うため）。
+                    #   短押しで何かが起きると、長押しのたびに巻き添えになる。
+                    if (event == "talk" and self._gamepad_hold.suppress_talk()):
+                        continue
                     self._gamepad_events.append(event)
                 # ★右スティック＝マウス（RX-0084）。Win32 直叩きなのでこの
                 #   スレッドで完結する（Qt に触らない）。
@@ -1874,22 +1912,53 @@ class MainWindow(QWidget):
             self._on_gamepad_event(event)
 
     def _write_gamepad_nes(self, mask: int) -> None:
-        """`<seq> <mask>` を1行で書く（bridge が毎フレーム読む）。
+        """`<seq> <mask>` を1行で書く（bridge が読む）。
 
         ⚠ 原子置換（temp→os.replace）は使わない。60Hz で bridge が読んでいる
           最中に置換すると Windows では「使用中」で失敗しうる。★小さな1行なので
           インプレースで書き、bridge 側は半端読みを弾いて次フレームで読み直す。
+
+        ## ★★ 開いたまま書く（2026-08-22 / RX-0097）★★
+
+          ⚠ 以前は毎回 `write_text`（開く→切り詰める→書く→閉じる）だった。
+            **実測 1,098 µs/回**（`work/` 配下・16ms 間隔）。開き直す代金が
+            ほとんどで、押している間ずっと 1 コアの 9.7% を使っていた。
+          ★ハンドルを持ち回して `seek(0)` で書くと **64 µs**（17 分の 1）。
+
+          ⚠⚠ **長さを固定する**（`GAMEPAD_LINE_WIDTH`）。切り詰めないので、
+            短い行を書くと**前の行の残りが後ろに残る**（`123 24` の上に `4 0` を
+            書くと `4 024`）。★空白で埋めて長さを揃える。読み手の
+            `(%d+)%s+(%d+)` は後ろの空白を無視する。
         """
         path = getattr(self, "_gamepad_input_path", None)
         if path is None:
             return
         self._gamepad_seq = (self._gamepad_seq + 1) & 0x7FFFFFFF
+        line = f"{self._gamepad_seq} {int(mask)}".ljust(
+            self._GAMEPAD_LINE_WIDTH - 1)[:self._GAMEPAD_LINE_WIDTH - 1] + "\n"
         try:
-            path.write_text(f"{self._gamepad_seq} {int(mask)}\n",
-                            encoding="ascii")
+            handle = self._gamepad_out
+            if handle is None or handle.closed:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                # ★`r+b` は既存を保つ。無ければ作る（`w+b` は毎回切り詰めるので使わない）
+                handle = open(path, "r+b" if path.exists() else "w+b",
+                              buffering=0)
+                self._gamepad_out = handle
+            handle.seek(0)
+            handle.write(line.encode("ascii"))
         except OSError:
-            # ⚠ 書けなくても止めない（次の tick で書ければよい）。
-            pass
+            # ⚠ 書けなくても止めない（次の tick で開き直す）。
+            self._close_gamepad_out()
+
+    def _close_gamepad_out(self) -> None:
+        """書き込みハンドルを閉じる。⚠ 閉じ忘れるとファイルを消せなくなる。"""
+        handle = getattr(self, "_gamepad_out", None)
+        self._gamepad_out = None
+        if handle is not None:
+            try:
+                handle.close()
+            except OSError:
+                pass
 
     def _gamepad_move_mouse(self, vel: tuple[float, float]) -> None:
         """カーソルを相対移動する（★別スレッドから呼ぶ / RX-0084）。
@@ -1923,6 +1992,7 @@ class MainWindow(QWidget):
           CommandService）。⚠ ここに独自処理を書かない（§6.2）。
         """
         from ..application.gamepad import (
+            EVENT_FORCE_AUTO_BEGIN, EVENT_FORCE_AUTO_END,
             EVENT_LOAD, EVENT_MANTAN, EVENT_SAVE, EVENT_TALK,
             EVENT_TOGGLE_AUTO, EVENT_TOGGLE_TURBO,
         )
@@ -1949,6 +2019,36 @@ class MainWindow(QWidget):
         elif event == EVENT_LOAD:
             self._gamepad_command(f"ロード（スロット{slot}）",
                                   self.commands.load_state, slot)
+        elif event == EVENT_FORCE_AUTO_BEGIN:
+            self._begin_force_auto()
+        elif event == EVENT_FORCE_AUTO_END:
+            self._end_force_auto()
+
+    # --- X 長押し: 強制AUTO ＋ 一時ターボ（RX-0082 / 2026-08-22）------------
+    #
+    # ★★ **押している間だけ**（トグルではない / 指示書 260822_AHK §6）★★
+    #   ⚠ 離したときに Turbo を **OFF 固定にしない**。押す前が ON だったなら
+    #     ON へ戻す（§7 のケース2）。★「勝手に設定が変わった」を作らないため。
+    #   ⚠ AUTO そのもの（`auto_enabled`）には触らない（§8 の独立性）。
+
+    def _begin_force_auto(self) -> None:
+        if self._turbo_before_hold is not None:
+            return                                  # ★もう入っている（二重には入らない）
+        self._turbo_before_hold = bool(self._turbo_button.isChecked())
+        self._gamepad_command("強制AUTO（X 長押し）",
+                              self.commands.set_force_auto, True)
+        if not self._turbo_before_hold:
+            # ★一時ターボ。⚠ 画面のボタンも合わせる（見た目と実体を割らない）
+            self._turbo_button.setChecked(True)
+
+    def _end_force_auto(self) -> None:
+        before = self._turbo_before_hold
+        self._turbo_before_hold = None
+        self._gamepad_command("強制AUTO 解除（X を離した）",
+                              self.commands.set_force_auto, False)
+        if before is not None and self._turbo_button.isChecked() != before:
+            # ⚠ **押す前の状態へ戻す**（OFF 固定にしない）
+            self._turbo_button.setChecked(before)
 
     def _gamepad_command(self, label: str, func, *args) -> None:
         """CommandService 経由の1操作を頼み、結果を画面に出す。
@@ -3200,6 +3300,10 @@ class MainWindow(QWidget):
             self.resize(self.width(), want)
 
     def _render(self, state: UiState) -> None:
+        # ★★ パッドのスレッドが読む「いま戦闘中か」（RX-0082）★★
+        #   ⚠ bool の代入1つ。パッド側は読むだけなので取り合いにならない。
+        #     ★スレッドから `vm.poll()` を呼ばせないためにここへ置く。
+        self._in_battle_now = bool(state.in_battle)
         self._state_value.setText(state.state_label)
         # 危険状態は倍速が解除される局面。色で区別できるようにする。
         # ★赤くするのは**本当に危ないときだけ**。

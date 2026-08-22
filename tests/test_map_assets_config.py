@@ -1,6 +1,6 @@
 """地図の素材の置き場所が、設定から**実際に**引かれること（2026-08-12）。
 
-バックログ P0-01（`docs/project/RETROUX_BACKLOG.md`）:
+バックログ P0-01（`docs/history/RETROUX_BACKLOG.md`）:
 
     retroux/gui.py:126               → map.assets_dir を読む
     retroux/plugins/dq2/config.yaml  → map.rendering.assets_path にある

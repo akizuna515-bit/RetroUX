@@ -108,6 +108,24 @@ def tile_color(packed):
 #: ★旧名。`map_window.py` を経由して呼ぶものが居るので残す
 _tile_color = tile_color
 
+#: `tile_color` の結果を ARGB の整数で覚える（RX-0095 / 2026-08-21）。
+#: ★色の種類は数十しか無いのに、世界地図 52,153 マスぶん毎回 QColor を作っていた
+#:   （1回の描画で 0.42 秒）。⚠ None（読めない）も覚える。
+_RGB_MEMO: dict[str, int | None] = {}
+
+
+def tile_rgb(packed) -> int | None:
+    """`tile_color` と同じ判断で、`QImage.setPixel` に渡せる 0xAARRGGBB を返す。"""
+    if not packed:
+        return None
+    hit = _RGB_MEMO.get(packed, _RGB_MEMO)
+    if hit is not _RGB_MEMO:
+        return hit
+    color = tile_color(packed)
+    value = None if color is None else (0xFF000000 | color.rgb() & 0xFFFFFF)
+    _RGB_MEMO[packed] = value
+    return value
+
 
 class TrailView(QWidget):
     """見た範囲を**ピクセルマップ**として描く枠（2026-07-30 に作り直し）。
@@ -253,8 +271,8 @@ class TrailView(QWidget):
               map $3E  ROM 17×19  ->  実際 32/37
               map $3F  ROM 19×23  ->  実際 33/42
             ⚠ おおむね**2倍**ですが、`$39` の高さだけ合いません。
-              **ROM の正しい読み方は未解明**です（`docs/rom-analysis-notes.md`）。
-              ★分からないので「×2」と決めつけません。
+              ★（2026-08-21 訂正 / RX-0010）: 読み方は解明済み（`bgmap/dungeon_map.screen_size`:
+              種別 2 以上は 1 論理セル = 画面 2×2 マス）。それでもここでは枠を切らず、
               代わりに**見えている事実に合わせて枠を広げます**。
 
           ⚠ 広げたことは黙りません。`beyond_rom` で画面に出します。
@@ -338,6 +356,10 @@ class TrailView(QWidget):
 
         heaviest = max((n for _x, _y, n, _c in self.tiles), default=1)
         outside = 0
+        # ★★ 速さのために `setPixel(x, y, 0xAARRGGBB)` と色のメモ化を使う（RX-0095）★★
+        #   ⚠ 見た目は以前の `setPixelColor(QColor)` と同じ。世界地図 52,153 マスで
+        #     0.7 秒 → 数十 ms。⚠ 色が読めないマスだけ従来の計算（回数で濃さ）。
+        set_pixel = image.setPixel
         for x, y, visits, packed in self.tiles:
             if not (0 <= x < cols and 0 <= y < rows):
                 # ⚠ 枠の外は描かない（大きさが違うと分かるように）。
@@ -345,8 +367,8 @@ class TrailView(QWidget):
                 #     数えないと記録のずれに気づけない。
                 outside += 1
                 continue
-            color = tile_color(packed)
-            if color is None:
+            rgb = tile_rgb(packed)
+            if rgb is None:
                 # ★色が分からないマスは「見た」ことだけ出す（回数で濃さを変える）
                 ratio = min(1.0, visits / max(heaviest, 1))
                 color = QColor(
@@ -356,7 +378,8 @@ class TrailView(QWidget):
                         + (TRAIL_HEAVY.green() - TRAIL_LIGHT.green()) * ratio),
                     int(TRAIL_LIGHT.blue()
                         + (TRAIL_HEAVY.blue() - TRAIL_LIGHT.blue()) * ratio))
-            image.setPixelColor(x, y, color)
+                rgb = 0xFF000000 | (color.rgb() & 0xFFFFFF)
+            set_pixel(x, y, rgb)
 
         # ★現在地は**最後に**置く（見た色に上書きされないように）
         if self.here is not None:

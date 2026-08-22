@@ -240,13 +240,12 @@ class EmulatorConfig:
 class NamesConfig:
     """画面に出すキャラの名前。
 
-    ★**ゲーム内の名前は RAM から読めていない。**
-      置き場所は分かった（$0113〜。逆アセンブルに `Name first half` とある）が、
-      **かなの文字コード表が未確定**なので、推測で文字を当てて出すことはしない
-      （items の日本語名と同じ方針）。
-
-      分かるまでは、ここに書いた名前を使う。書かなければ内部名
-      （lorasia / samaltria / moonbrooke）がそのまま出る。
+    ★2026-08-21 訂正（RX-0010）: 以前「ゲーム内の名前は RAM から読めていない
+      （文字コード表が未確定）」とあったが、2026-07-29 に文字コード表を解読し、
+      **いまは `$0113` の名前を `memory_map.yaml` の `text:` で読んで出している**
+      （`ViewModel.party_names`）。ここに書いた名前は**その上書き**。
+      読めない文字が混ざるときと、RAM から取れないときだけ内部名
+      （lorasia / samaltria / moonbrooke）が出る。
     """
 
     lorasia: str = ""
@@ -261,8 +260,9 @@ class NamesConfig:
 class ShutdownConfig:
     """「終了」ボタンの動き（MVP2 Phase 1 / 依頼者の要望）。"""
 
-    # セーブステートの保存先スロット（1〜9）。
-    # ⚠ スロット0は使えない（savestate.object(0) は FCEUX をハングさせる）。
+    # セーブステートの保存先スロット（0〜9）。
+    # ★0 も使える（2026-08-21 / RX-0080）。⚠ 以前「0 は FCEUX をハングさせる」と
+    #   書いてあったのは根拠の付け違い。Lua 側が savestate.object(10) に読み替える。
     # ⚠ **上書きされる。** 直前の内容は世代バックアップに残るので戻せるが、
     #   押す前に必ず確認を出すこと（GUI 側で確認ダイアログを出している）。
     save_slot: int = 1
@@ -329,6 +329,22 @@ class GamepadConfig:
     mouse: bool = True
     # マウス移動の最高速度（px/秒。いっぱいに倒したとき）。
     mouse_speed: float = 900.0
+    # ★戦闘中に X を長押しして「強制AUTO＋一時ターボ」に入るまでの時間（ミリ秒）。
+    #   ⚠ 短すぎると、つい押しただけで入る。長すぎると押した気にならない。
+    #   ★指示書 260822_AHK §6 の初期候補は 400〜600ms。
+    force_auto_hold_ms: float = 500.0
+
+
+@dataclass
+class MapConfig:
+    """地図ウィンドウの見せ方（RX-0094 / 2026-08-21）。"""
+
+    # 世界地図の見せ方。
+    #   walked … **歩いた範囲**を枠に収める（既定。v1.0.2 までの公開版と同じ見え方）
+    #   full   … 256×256 の全体を倍率2で固定し、自分中心にスクロール
+    # ★依頼者「公開版の見え方（walked）のほうが見やすい。切り替えたい」
+    #   ⚠ どちらでも**見せるのは歩いたマスだけ**。ROM の地形は開かない。
+    overworld_view: str = "walked"
 
 
 @dataclass
@@ -345,6 +361,8 @@ class UserConfig:
     battle: BattleConfig = field(default_factory=BattleConfig)
     # ★ゲームパッド（RX-0076 / 検証モード RX-0078）
     gamepad: GamepadConfig = field(default_factory=GamepadConfig)
+    # ★地図の見せ方（RX-0094）
+    map: MapConfig = field(default_factory=MapConfig)
     # 読み込んだファイル（無ければ None）。GUI に出して迷わせないため。
     source: Path | None = None
 
@@ -399,6 +417,8 @@ def load(path: Path | str | None = None) -> tuple[UserConfig, list[str]]:
         "shutdown": ShutdownConfig, "names": NamesConfig,
         # ★ゲームパッド（RX-0076 / 検証モード RX-0078）
         "gamepad": GamepadConfig,
+        # ★地図の見せ方（RX-0094）
+        "map": MapConfig,
         # ⚠ `generate_lua.py` が読む項目。★ここに無いと
         #   「知らない項目」と**嘘の警告**が出ます（2026-08-08）。
         "battle": BattleConfig,

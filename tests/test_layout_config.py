@@ -221,99 +221,13 @@ def test_the_lua_window_is_declared_as_minimized():
     assert spec.get("behavior") == "minimize"
 
 
-# --- 3. 保存と復元（指示書 §5・§6）------------------------------------
+# --- 3. 保存と復元 -------------------------------------------------------
+#
+# ★2026-08-21（RX-0056）: `layout.save` / `load_saved` / `clear` は撤去した。
+#   ⚠ その層（`config/layout.yaml`）は一度も動いていなかった。配置の記憶は
+#   `retroux/ui/window_state.py` が担い、検査は tests/test_window_recovery.py にある。
 
-def _save(tmp_path, **windows):
-    placements = {k: layout.Placement(*v) for k, v in windows.items()}
-    ok, why = layout.save(placements, AREA, path=tmp_path / "layout.yaml")
-    assert ok, why
-    return tmp_path / "layout.yaml"
-
-
-def test_a_saved_layout_comes_back(tmp_path):
-    path = _save(tmp_path, main=(100, 200, 700, 300))
-    made, notes = layout.load_saved(AREA, path=path)
-    assert made["main"].as_tuple() == (100, 200, 700, 300)
-    assert notes == []
-
-
-def test_no_saved_file_is_not_a_problem(tmp_path):
-    made, notes = layout.load_saved(AREA, path=tmp_path / "none.yaml")
-    assert made is None and notes == []
-
-
-def test_a_broken_file_falls_back_to_the_standard(tmp_path):
-    """⚠ 壊れていても起動する（指示書 §6.2）。**ただし黙らない。**"""
-    path = tmp_path / "layout.yaml"
-    path.write_text("windows: [", encoding="utf-8")
-    made, notes = layout.load_saved(AREA, path=path)
-    assert made is None
-    assert notes, "黙って標準へ落ちている"
-
-
-def test_a_wrong_schema_version_falls_back(tmp_path):
-    path = tmp_path / "layout.yaml"
-    path.write_text("schema_version: 99\nlayout_version: 1\nwindows: {}\n",
-                    encoding="utf-8")
-    made, notes = layout.load_saved(AREA, path=path)
-    assert made is None
-    assert any("schema_version" in n for n in notes)
-
-
-def test_a_window_slightly_off_screen_is_pulled_back(tmp_path):
-    """★★ **軽微なはみ出しは戻して収める**（指示書 §6.3）★★
-
-    ⚠ いきなり標準へ戻すと、「ちょっと右にはみ出した」だけで
-      利用者が整えた配置が全部消える。
-    """
-    path = _save(tmp_path, main=(1900, 200, 700, 300))
-    made, notes = layout.load_saved(AREA, path=path)
-    assert made is not None, "戻せるはみ出しで標準へ落ちている"
-    assert made["main"].x + made["main"].width <= AREA[2]
-    assert any("はみ出して" in n for n in notes), "黙って動かしている"
-
-
-def test_a_tiny_saved_size_is_rejected(tmp_path):
-    """⚠ 掴めないほど小さい窓を復元しない（指示書 §6.2）。"""
-    path = _save(tmp_path, main=(100, 100, 10, 10))
-    made, notes = layout.load_saved(AREA, path=path)
-    assert made is None or "main" not in made
-    assert any("小さすぎ" in n for n in notes)
-
-
-def test_a_very_different_monitor_falls_back_to_the_standard(tmp_path):
-    """★★ モニタ構成が大きく変われば標準へ（指示書 §6.2）★★
-
-    ⚠ 前のモニタ向けの座標をそのまま使うと、見えない場所に開く。
-    """
-    path = _save(tmp_path, main=(100, 200, 700, 300))
-    made, notes = layout.load_saved((0, 0, 1280, 720), path=path)
-    assert made is None
-    assert any("大きく違います" in n for n in notes)
-
-
-def test_a_slightly_different_monitor_is_still_used(tmp_path):
-    """⚠ タスクバーを自動的に隠す設定などで数十pxは普通に変わる。
-
-    ★そのたびに配置が消えるのは煩わしい。**大きく違うときだけ**戻す。
-    """
-    path = _save(tmp_path, main=(100, 200, 700, 300))
-    made, _ = layout.load_saved((0, 0, 1920, 1080), path=path)
-    assert made is not None, "少しの違いで標準へ落ちている"
-
-
-def test_saving_is_atomic(tmp_path):
-    """★一時ファイル経由。途中で落ちても元が残る。"""
-    path = tmp_path / "layout.yaml"
-    _save(tmp_path, main=(1, 2, 300, 400))
-    assert path.exists()
-    assert not (tmp_path / "layout.yaml.tmp").exists(), "一時ファイルが残った"
-
-
-def test_clearing_removes_the_saved_layout(tmp_path):
-    """★「標準レイアウトに戻す」で捨てる（指示書 §7.1）。"""
-    path = _save(tmp_path, main=(1, 2, 300, 400))
-    assert layout.clear(path=path) is True
-    assert not path.exists()
-    # ⚠ 二度押しても落ちない
-    assert layout.clear(path=path) is True
+def test_layoutには保存と復元が無い():
+    """⚠ 二重管理に戻さない（記憶は window_state だけ）。"""
+    for name in ("save", "load_saved", "clear", "USER_PATH"):
+        assert not hasattr(layout, name), name

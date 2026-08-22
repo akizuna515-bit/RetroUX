@@ -376,11 +376,17 @@ def select(win, map_id):
     win._list.setCurrentRow([k[0] for k in win._keys].index(map_id))
 
 
-def test_the_window_says_the_floor_came_from_the_rom(map_window):
+def test_the_window_does_not_say_the_floor_came_from_the_rom(map_window):
+    """★2026-08-19 依頼者: ROM 由来（確か）の根拠文言は**出さない**（タイトルと被る）。
+
+    ⚠ 以前は「ROM 由来」と出す検査で、仕様変更後も赤のまま残っていた（RX-0085）。
+      ★階層そのものは捨てない（編集ダイアログが `.text()` を読む）。
+    """
     win, _vm, _repo = map_window
     select(win, MIDENHALL_B1)
     assert "階層: B1" in win._floor_note.text()
-    assert "ROM 由来" in win._floor_note.text()
+    assert "ROM 由来" not in win._floor_note.text()
+    assert not win._floor_note.isVisible(), "★食い違い(warn)のときだけ見せる"
 
 
 def test_the_window_says_when_the_floor_is_unknown(map_window):

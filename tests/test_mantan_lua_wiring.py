@@ -20,8 +20,11 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 import re
+import subprocess
+import sys
 
 import pytest
 import yaml
@@ -32,6 +35,53 @@ from retroux.core.mantan import MantanSettings
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 MANTAN_LUA = PROJECT_ROOT / "retroux" / "plugins" / "dq2" / "mantan.lua"
 PLUGIN_CONFIG = PROJECT_ROOT / "retroux" / "plugins" / "dq2" / "config.yaml"
+RUNNER = PROJECT_ROOT / "research" / "probes" / "reusable" / "lua_run.py"
+SETTINGS_HARNESS = (PROJECT_ROOT / "research" / "probes" / "active"
+                    / "mantan_settings_test.lua")
+LOG_LINES_HARNESS = (PROJECT_ROOT / "research" / "probes" / "active"
+                     / "mantan_log_lines_test.lua")
+
+
+def _run_lua(harness: pathlib.Path) -> str:
+    """★RX-0011: 本物の `mantan.lua` を実 Lua で動かした出力を返す。"""
+    if not (RUNNER.exists() and harness.exists()):
+        pytest.skip("Lua のハーネスが無い")
+    done = subprocess.run(
+        [sys.executable, str(RUNNER), str(harness)],
+        cwd=str(PROJECT_ROOT), capture_output=True, timeout=120,
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    out = (done.stdout or b"").decode("utf-8", "replace")
+    err = (done.stderr or b"").decode("utf-8", "replace")
+    if "SKIP:" in out:
+        pytest.skip(out.strip())
+    if done.returncode != 0 and "lua5.1" in err:
+        pytest.skip("Lua を動かせない環境")
+    return out + err
+
+
+def _section(result: str, header: str) -> str:
+    """`== N. ... ==` の見出しから次の見出しまでを切り出す。
+
+    ⚠ `mantan_settings_test.lua` は同じ名前（やくそう 等）を複数の節で
+      出すので、節を切らないと**別の節の OK を拾って**しまう。
+    """
+    lines = result.splitlines()
+    starts = [i for i, ln in enumerate(lines) if ln.startswith("== ")]
+    for n, i in enumerate(starts):
+        if header in lines[i]:
+            end = starts[n + 1] if n + 1 < len(starts) else len(lines)
+            return "\n".join(lines[i:end])
+    raise AssertionError(f"節が見つからない: {header}\n{result}")
+
+
+@pytest.fixture(scope="module")
+def settings_result() -> str:
+    return _run_lua(SETTINGS_HARNESS)
+
+
+@pytest.fixture(scope="module")
+def log_lines_result() -> str:
+    return _run_lua(LOG_LINES_HARNESS)
 
 
 @pytest.fixture(scope="module")
@@ -103,6 +153,19 @@ def test_知らないpolicyはLua側でも安全側へ倒れる(lua_source):
     assert '"remaining_ratio_balance"' in lua_source
 
 
+def test_知らないpolicyはLua側でも安全側へ倒れる_の挙動(settings_result):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    `mantan_settings_test.lua` §4 は本物の `Mantan.new` に
+    でたらめな値（`herb_policy = "ぜんぶ使う"`, `mp_policy = 7`）を渡す。
+    ★ここでは**その節の OK 行**を見る（⚠ 同じ名前が §1 にも出るので節で切る）。
+    """
+    sec = _section(settings_result, "== 4.")
+    assert "OK   やくそう = after_spells" in sec, sec
+    assert "OK   MP配分 = remaining_ratio_balance" in sec, sec
+    assert "★NG" not in sec, sec
+
+
 def test_既定がONの項目はnilでもONになる(lua_source):
     """⚠⚠ `mcfg.x or true` と書くと **false を true に戻してしまう**。
 
@@ -120,12 +183,32 @@ def test_割合の指定はmodeより優先される(lua_source):
     assert "percent / 100" in lua_source
 
 
+def test_割合の指定はmodeより優先される_の挙動(settings_result):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    §6: `target_hp_percent = 60` だけ渡すと `target_ratio` が 0.6 になる
+    （★設定ファイルの mode 既定 ratio90 より割合が勝つ）。
+    """
+    sec = _section(settings_result, "== 6.")
+    assert "OK   mode 指定が無ければ割合 = 0.6" in sec, sec
+
+
 def test_その場のmode指定は設定より優先される(lua_source):
     """⚠ `--mode full` と言われているのに 90% で上書きしたら指示を無視している。
 
     ★`opts.mode` が明示されたときは mode を勝たせる。
     """
     assert "opts.mode == nil" in lua_source
+
+
+def test_その場のmode指定は設定より優先される_の挙動(settings_result):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    §6: `target_hp_percent = 90` を設定しつつ `opts.mode = "full"` を渡すと
+    `target_ratio` が 1.0（★その場の指示が勝つ）。
+    """
+    sec = _section(settings_result, "== 6.")
+    assert "OK   mode が勝つ = 1" in sec, sec
 
 
 def test_既存のmodeは消していない(lua_source):
@@ -156,10 +239,38 @@ def test_実行開始時に方針の概要を出す(lua_source):
     assert "settings_problems" in lua_source
 
 
+def test_実行開始時に方針の概要を出す_の挙動(log_lines_result):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    `mantan_log_lines_test.lua` が本物の `Mantan.new` で作った入れ物から
+    `_settings_summary()` を呼び、★設定した目標%・MP配分の説明・
+    `settings_problems` の文言が**行として返る**ことを見る。
+    """
+    r = log_lines_result
+    assert "すべて通りました" in r, r
+    assert "OK   ★★ 1行目に設定した目標%が入る" in r, r
+    assert "OK   ★★ MP配分の方針が日本語の説明で出る" in r, r
+    assert "OK   ★★ settings_problems の文言が概要の行に入る" in r, r
+
+
 def test_選んだ理由を出す(lua_source):
     """指示書 §11.2。"""
     assert "_healing_reason" in lua_source
     assert "推定総消費MP" in lua_source
+
+
+def test_選んだ理由を出す_の挙動(log_lines_result):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    `_healing_reason(entry, missing)` を実際に呼び、★手段名・不足HP・
+    推定回数・推定総消費MP が数字つきで1文に入ること、
+    ⚠ 補正が効いたときだけ補正後の値が足されることを見る。
+    """
+    r = log_lines_result
+    assert "すべて通りました" in r, r
+    assert "OK   ★★ 推定総消費MPが数字つきで入る" in r, r
+    assert "OK   ★★ 補正が効いたら補正後の値と唱える人を書く" in r, r
+    assert "OK   ★期待回復量が未確認なら「比較の対象外」と言う" in r, r
 
 
 def test_既定ONの判定はnilを偽にしない(lua_source):

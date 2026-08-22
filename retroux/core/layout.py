@@ -1,12 +1,17 @@
-"""画面レイアウトの計算・保存・復元（2026-08-01 の指示書 §3〜§6）。
+"""画面レイアウトの**計算**（2026-08-01 の指示書 §3〜§4）。
 
-★★ **3層**（指示書 §2）★★
+★★ **2層**（★2026-08-21 / RX-0056 に実態へ直した）★★
 
     retroux/config/default_layout.yaml   標準（同梱・編集させない）
-      ↓ 利用者が動かしたら
-    config/layout.yaml                   実座標
-      ↓
+      ↓ ここで作業領域・FCEUX の実寸から座標を計算
     実行時の配置
+
+⚠ 以前ここには「利用者が動かしたら `config/layout.yaml` に実座標を保存する」
+  という**3層目**が書いてあり、`save()` / `load_saved()` / `clear()` も置いてあった。
+  ★だがその層は**一度も動いていなかった**（2026-08-18 実測: ファイルは存在せず、
+  製品コードから `save` / `load_saved` は呼ばれていない）。
+  ★実際に配置を覚えているのは `retroux/ui/window_state.py`（`work/window-state.json`）。
+  二重管理にしないため、ここには**計算だけ**を残す（指示書の §5〜§6 は window_state が担う）。
 
 ## ⚠⚠ **固定座標を使わない**（指示書 §3.1）
 
@@ -29,23 +34,18 @@
 from __future__ import annotations
 
 import dataclasses
-import datetime
 import pathlib
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEFAULT_PATH = PROJECT_ROOT / "retroux" / "config" / "default_layout.yaml"
-USER_PATH = PROJECT_ROOT / "config" / "layout.yaml"
 
+#: 窓の最小の大きさ（計算の下限。★掴めないほど小さい窓を作らない）。
+#: 同梱 YAML の版（`default_layout.yaml` の `schema_version` / `layout_version`）。
 SCHEMA_VERSION = 1
 LAYOUT_VERSION = 1
 
-#: 保存された大きさが小さすぎたら信じない（指示書 §6.2「幅または高さが異常」）。
-#  ★掴めないほど小さい窓が復元されると、利用者は直しようがない。
 MIN_WIDTH = 240
 MIN_HEIGHT = 160
-
-#: 画面内に残っていなければならない量（px）。⚠ タイトルバーを掴める幅。
-VISIBLE_MARGIN = 80
 
 #: 保存・復元の対象（指示書 §5.1）。
 #: ★`log` は 2026-08-09 に足した下段（戦闘ログ／出会ったモンスター）。
@@ -418,143 +418,3 @@ def _compute_two_row(work_area, emulator_size, config=None) -> dict:
         "main": Placement(main_x + int(main_spec.get("offset_x", 0)),
                           main_y, main_w, main_h),
     }
-
-
-# --- 保存した配置（指示書 §5・§6）-------------------------------------
-
-def _monitor_signature(work_area) -> dict:
-    x, y, w, h = work_area
-    return {"x": int(x), "y": int(y), "width": int(w), "height": int(h)}
-
-
-def save(placements: dict, work_area, path=None) -> tuple[bool, str | None]:
-    """いまの配置を保存する。戻り値: `(できたか, 失敗の理由)`。
-
-    ★★ **一時ファイル経由で置き換える。** ★★
-      途中で落ちても元のファイルが残る（戦術プロフィールと同じ作法）。
-    """
-    import yaml
-
-    target = pathlib.Path(path or USER_PATH)
-    body = {
-        "schema_version": SCHEMA_VERSION,
-        "layout_version": LAYOUT_VERSION,
-        "saved_at": datetime.datetime.now().astimezone().isoformat(
-            timespec="seconds"),
-        "monitor": {"work_area": _monitor_signature(work_area)},
-        "windows": {
-            key: {"x": int(p.x), "y": int(p.y),
-                  "width": int(p.width or 0), "height": int(p.height or 0),
-                  "state": "normal"}
-            for key, p in placements.items() if key in WINDOW_KEYS
-        },
-    }
-    tmp = target.with_suffix(target.suffix + ".tmp")
-    try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        tmp.write_text(
-            yaml.safe_dump(body, allow_unicode=True, sort_keys=False),
-            encoding="utf-8")
-        tmp.replace(target)
-        return True, None
-    except OSError as exc:
-        try:
-            tmp.unlink(missing_ok=True)
-        except OSError:
-            pass
-        return False, f"画面配置を保存できませんでした: {exc}"
-
-
-def _fit_into(p: Placement, work_area) -> tuple[Placement, bool]:
-    """画面内へ収める（指示書 §6.3）。戻り値: `(直した配置, 直したか)`。
-
-    ★★ **軽微なはみ出しは戻して収める。** ★★
-      いきなり標準レイアウトへ戻すと、⚠ 利用者が整えた配置が
-      「ちょっと右にはみ出した」だけで全部消える。
-    """
-    area_x, area_y, area_w, area_h = work_area
-    w = p.width or MIN_WIDTH
-    h = p.height or MIN_HEIGHT
-    x, y = p.x, p.y
-
-    # ★大きすぎるものは画面に収まる大きさへ
-    w = min(w, area_w)
-    h = min(h, area_h)
-    x = max(area_x, min(x, area_x + area_w - w))
-    y = max(area_y, min(y, area_y + area_h - h))
-
-    changed = (x, y, w, h) != (p.x, p.y, p.width, p.height)
-    return Placement(x, y, p.width and w, p.height and h), changed
-
-
-def load_saved(work_area, path=None):
-    """保存した配置を読む。戻り値: `({key: Placement} | None, [理由])`。
-
-    ★`None` を返したら**標準レイアウトを使う**（指示書 §6.1）。
-
-    ⚠ 理由は捨てない。「なぜ位置が戻ったのか」が分からないと直せない。
-    """
-    target = pathlib.Path(path or USER_PATH)
-    data, why = _read_yaml(target)
-    notes: list = []
-    if why is not None:
-        return None, [f"{why}（標準レイアウトを使います）"]
-    if data is None:
-        return None, []                     # ★まだ保存していないだけ
-    if not data:
-        return None, []
-
-    if data.get("schema_version") != SCHEMA_VERSION:
-        return None, [f"保存した配置の schema_version が違います"
-                      f"（{data.get('schema_version')!r}／標準へ戻します）"]
-    if data.get("layout_version") != LAYOUT_VERSION:
-        return None, [f"保存した配置の layout_version が違います"
-                      f"（{data.get('layout_version')!r}／標準へ戻します）"]
-
-    windows = data.get("windows")
-    if not isinstance(windows, dict) or not windows:
-        return None, ["保存した配置に windows がありません（標準へ戻します）"]
-
-    # ★★ モニタ構成が大きく変わったら標準へ（指示書 §6.2）★★
-    #   ⚠ 前のモニタ向けの座標をそのまま使うと、見えない場所に開く。
-    saved_area = ((data.get("monitor") or {}).get("work_area") or {})
-    if saved_area:
-        now = _monitor_signature(work_area)
-        if (abs(int(saved_area.get("width", 0)) - now["width"]) > 200
-                or abs(int(saved_area.get("height", 0)) - now["height"]) > 200):
-            return None, ["画面の大きさが前回と大きく違います（標準へ戻します）"]
-
-    made: dict = {}
-    for key in WINDOW_KEYS:
-        spec = windows.get(key)
-        if not isinstance(spec, dict):
-            continue
-        try:
-            x, y = int(spec["x"]), int(spec["y"])
-            w = int(spec.get("width") or 0) or None
-            h = int(spec.get("height") or 0) or None
-        except (KeyError, TypeError, ValueError):
-            notes.append(f"保存した {key} の座標を読めません（標準の位置にします）")
-            continue
-        if w is not None and (w < MIN_WIDTH or h is None or h < MIN_HEIGHT):
-            notes.append(f"保存した {key} の大きさが小さすぎます"
-                         "（標準の大きさにします）")
-            continue
-        fixed, changed = _fit_into(Placement(x, y, w, h), work_area)
-        if changed:
-            notes.append(f"{key} が画面の外にはみ出していたので戻しました")
-        made[key] = fixed
-
-    if not made:
-        return None, notes + ["保存した配置を1つも使えませんでした（標準へ戻します）"]
-    return made, notes
-
-
-def clear(path=None) -> bool:
-    """保存した配置を捨てる（「標準レイアウトに戻す」用 / 指示書 §7.1）。"""
-    target = pathlib.Path(path or USER_PATH)
-    try:
-        target.unlink(missing_ok=True)
-        return True
-    except OSError:
-        return False

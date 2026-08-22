@@ -282,17 +282,28 @@ def test_missing_palette_skips_instead_of_guessing(tmp_path):
     assert got.confidence is Confidence.TENTATIVE
 
 
-def test_confidence_drops_when_palettes_are_ambiguous(tmp_path):
+def test_placement_picks_its_palette_by_head_bits(tmp_path):
+    """★2026-08-22（RX-0051）: 複数パレットは置き方の bit4-5 で選ぶ。
+
+    ⚠ 以前は「どれを使うか未解明」として先頭を当て、確度を PROBABLE に落としていた。
+      いまは根拠（bit4-5 が複数パレットの体でだけ立ち、値はパレット数未満）があるので
+      確度は落とさず、注記だけ残す。宣言より大きい番号は描かない（推測しない）。
+    """
     tile = bytes([0xFF] + [0] * 15)
-    data = block_bytes([bytes([0xC0, 0x00])], None, None, tile)
+    # 2 枚: bit4-5 = 0 と 1（head 0x40 | 0x10 = 0x50）
+    data = block_bytes([bytes([0x40, 0x00]), bytes([0xD0, 0x01])], None, None, tile)
     prg = fake_prg({BANK1_PRG_BASE: data})
     blocks = decode_monster(prg, 0x8000, 1)
+    assert [p.palette for p in blocks[0].placements] == [0, 1]
     nes = load_nes_palette(pal_file(tmp_path))
-    single = render(blocks, MonsterPalettes(0x10, (), ((1, 2, 3),)), nes)
-    assert single.confidence is Confidence.CONFIRMED
     many = render(blocks, MonsterPalettes(0x20, (), ((1, 2, 3), (4, 5, 6))), nes)
-    assert many.confidence is Confidence.PROBABLE
-    assert any("パレット" in n for n in many.notes)
+    assert many.confidence is Confidence.CONFIRMED
+    assert any("bit4-5" in n for n in many.notes)
+    # ★1 枚目はパレット 1（色 1..3）、2 枚目はパレット 2（色 4..6）で描かれている
+    assert many.rows[0][0] != many.rows[0][8]
+    # ⚠ 宣言が 1 本しか無いのに番号 1 を指すタイルは描かない（推測で先頭へ丸めない）
+    single = render(blocks, MonsterPalettes(0x10, (), ((1, 2, 3),)), nes)
+    assert single.skipped == 1 and single.confidence is Confidence.TENTATIVE
 
 
 # --- 5. パレット表 -----------------------------------------------------
@@ -405,6 +416,12 @@ def test_cells_with_extra_colors_are_skipped_and_counted():
 ROM_PATH = os.environ.get("DQ2_ROM_PATH") or "work/rom/DQ2_J.nes"
 PAL_PATH = pathlib.Path("tools/fceux/palettes/FCEUX.pal")
 CAPTURES = pathlib.Path("work/monster-art")
+#: ⚠ **フォルダの有無で見張らないこと**（RX-0100 / 2026-08-22）。
+#:   遊ぶと `work/monster-art/raw/` だけが先に作られるので、
+#:   `CAPTURES.exists()` は真になるのに**絵は0枚**という状態が起きる。
+#:   ★開発機には83枚あるので、この穴は一度も表に出なかった。
+_SHOTS = sorted(CAPTURES.glob("*.png")) if CAPTURES.exists() else []
+needs_shots = pytest.mark.skipif(not _SHOTS, reason="撮影した絵が1枚も無い")
 
 needs_rom = pytest.mark.skipif(
     not pathlib.Path(ROM_PATH).exists(),
@@ -531,7 +548,7 @@ def test_real_pixel_layer_lands_where_the_capture_shows_it(real, mid, raw, expec
 
 
 @needs_rom
-@pytest.mark.skipif(not CAPTURES.exists(), reason="撮影した絵が無い")
+@needs_shots
 def test_real_matches_the_captures(validated):
     """★★ 実機で撮った絵と、隠れていないマスが**全部**一致すること。
 
@@ -583,7 +600,7 @@ def test_real_matches_the_captures(validated):
 
 
 @needs_rom
-@pytest.mark.skipif(not CAPTURES.exists(), reason="撮影した絵が無い")
+@needs_shots
 def test_形は撮影と1画素も違わない(validated):
     """★★★ **展開が正しいことの決定的な裏取り**（2026-08-14）★★★
 
@@ -601,9 +618,7 @@ def test_形は撮影と1画素も違わない(validated):
 
     ## 実測（2026-08-14 / 79 枚）
 
-        ★形が完全一致  76 枚
-        ⚠ 合わない      3 枚（ID 30 / 4B / 4E）
-                        ★どれも撮影側の問題（隣の敵が写り込んでいる等）
+        ★形が完全一致  76 枚 / 残り 3 枚（30 / 4B / 4E）は検査器の限界（下の注記。★別の検査で色まで一致）
 
     ⚠ **合わない枚数が増えたら赤くする。** ★減るぶんには構わない。
     """
@@ -615,15 +630,20 @@ def test_形は撮影と1画素も違わない(validated):
         print(f"  ⚠ ID {c.monster_id:02X}: {c.shape_matched}/{c.shape_total}"
               f"（{100 * c.shape_rate:.1f}%）"
               f" 撮影 {c.shot_size} / ROM {c.expected_size}")
-    # ★★ ⚠ **既知の3枚**（撮影側の問題）。これ以上増えたら赤 ★★
+    # ★★ 2026-08-22（RX-0052）: 既知の 3 枚（30 / 4B / 4E）は、この検査器（validator）の
+    #   **モデルの限界**で合わない: 黒を透明とみなす（体の中の黒い画素を形から外す）・
+    #   色は 7 種まで（4E はパレット 3 本で 9 色）。★生の画面に ROM の絵を当てはめる
+    #   色込みの突き合わせ（下の test_既知3枚は生画面と色まで完全一致する）では 3 体とも
+    #   **1 画素も違わない**。ここでは件数の歯止めだけ残す。
     known = {0x30, 0x4B, 0x4E}
     surprise = [c for c in off if c.monster_id not in known]
     assert not surprise, [f"{c.monster_id:02X}" for c in surprise]
-    # ⚠ 既知のぶんも「合っている」ことにしない。★件数で歯止めを掛ける
     assert len(off) <= len(known), [f"{c.monster_id:02X}" for c in off]
 
 
 @needs_rom
+@pytest.mark.skipif(not (CAPTURES / "52.png").exists(),
+                    reason="シドーの撮影が無い")
 def test_形の突き合わせは重なりに強い(real):
     """⚠⚠ ★上の逃がし方が**広すぎない**ことを確かめる。
 
@@ -646,7 +666,7 @@ def test_形の突き合わせは重なりに強い(real):
 
 
 @needs_rom
-@pytest.mark.skipif(not CAPTURES.exists(), reason="撮影した絵が無い")
+@needs_shots
 def test_most_captures_can_actually_be_judged(validated):
     """⚠ 「材料不足」が増えすぎたら、それ自体が異常。
 
@@ -662,7 +682,7 @@ def test_most_captures_can_actually_be_judged(validated):
 
 
 @needs_rom
-@pytest.mark.skipif(not CAPTURES.exists(), reason="撮影した絵が無い")
+@needs_shots
 def test_a_full_match_is_never_called_insufficient(validated):
     """★★ **成功は成功。失敗したときだけ材料の量を問う。** ★★
 
@@ -677,3 +697,132 @@ def test_a_full_match_is_never_called_insufficient(validated):
     wrong = [c for c in got if c.ok and c.verdict != "match"]
     assert not wrong, [
         (f"{c.monster_id:02X}", c.matched, c.judged, c.verdict) for c in wrong]
+
+
+# --- 色まで含めた突き合わせ（RX-0051 / 2026-08-22）----------------------------
+#
+# ★形は 1 画素も違わなかったが、シドーは **色が 448 画素（7.4%）入れ替わっていた**。
+#   原因: パレットを複数持つ体（6 体）で、置き方の先頭バイト bit4-5 がどのパレットを
+#   使うかを指しているのに、renderer は先頭のパレットを全タイルに当てていた。
+#   ★bit4-5 が 0 以外になるのはその 6 体だけで、値は常にパレット数未満（根拠）。
+
+def _placement_palette_bits_only_for_multi_palette_monsters(rom, entries):
+    from dq2rom.monsters import decoder as dec
+    from dq2rom.monsters.palette import read_monster_palettes
+    out = {}
+    for e in entries:
+        if e.monster_id == 0 or not e.in_range:
+            continue
+        try:
+            pal = read_monster_palettes(rom.prg, e.palette_addr)
+            blocks = dec.decode_monster(rom.prg, e.graphics_addr, e.count)
+        except Exception:                               # noqa: BLE001
+            continue
+        used = {p.palette for b in blocks for p in b.placements}
+        out[e.monster_id] = (max(len(pal.low), len(pal.high)), used)
+    return out
+
+
+@needs_rom
+def test_パレット番号ビットは複数パレットの体だけが使う(real):
+    """★bit4-5 をパレット番号と読む根拠。⚠ 1 体でも外れたら読み方が怪しい。"""
+    rom, entries = real
+    got = _placement_palette_bits_only_for_multi_palette_monsters(rom, entries)
+    assert len(got) >= 80
+    for mid, (n_pal, used) in got.items():
+        assert max(used) < max(n_pal, 1), f"0x{mid:02X}: パレット {n_pal} 本なのに番号 {used}"
+        if n_pal <= 1:
+            assert used == {0}, f"0x{mid:02X}: パレット 1 本なのに番号 {used}"
+    assert any(max(used) > 0 for _n, used in got.values()), "★番号を使う体が 1 体も無い"
+
+
+def _capture_pixels(path: pathlib.Path) -> dict:
+    from PySide6.QtGui import QImage
+    im = QImage(str(path))
+    out = {}
+    for y in range(im.height()):
+        for x in range(im.width()):
+            p = im.pixel(x, y)
+            if p & 0xFFFFFF:
+                out[(x, y)] = (p >> 16 & 255, p >> 8 & 255, p & 255)
+    return out
+
+
+def _near(a, b, tol=2) -> bool:
+    return all(abs(i - j) <= tol for i, j in zip(a, b))
+
+
+@pytest.mark.skipif(not (CAPTURES / "52.png").exists(), reason="シドーの撮影が無い")
+@needs_rom
+def test_シドーは色まで撮影と一致する(real):
+    """★★ 色まで含めた突き合わせ（RX-0051 の受け入れ）★★
+
+    ⚠ 撮影は FCEUX の画面（色を 255/252 倍）で、体の下 1/3 が切れている。
+      位置合わせは総当たり、色は ±2 の丸め誤差を許す。★以前は 92.6% だった。
+    """
+    from dq2rom.monsters import decoder as dec
+    from dq2rom.monsters.palette import load_nes_palette, read_monster_palettes
+
+    rom, entries = real
+    e = next(x for x in entries if x.monster_id == 0x52)
+    nes = load_nes_palette(PAL_PATH).as_screenshot()
+    blocks = dec.decode_monster(rom.prg, e.graphics_addr, e.count)
+    made = render(blocks, read_monster_palettes(rom.prg, e.palette_addr), nes)
+    rendered = {(x, y): px[:3] for y, row in enumerate(made.rows)
+                for x, px in enumerate(row) if px[3]}
+    captured = _capture_pixels(CAPTURES / "52.png")
+    best = (0, 0, 0)
+    for dx in range(-6, 7):
+        for dy in range(0, 40):
+            agree = sum(1 for (x, y), c in captured.items()
+                        if (x + dx, y + dy) in rendered and _near(rendered[(x + dx, y + dy)], c))
+            if agree > best[0]:
+                best = (agree, dx, dy)
+    rate = best[0] / len(captured)
+    assert rate >= 0.99, f"色の一致 {rate:.1%}（位置 {best[1:]}）。★桃色と鮭色が入れ替わっていないか"
+
+
+RAW = CAPTURES / "raw"
+RAW_FOR = {0x30: "30.png", 0x4B: "4B-4B-4C.png", 0x4E: "4E.png"}
+
+
+@needs_rom
+@pytest.mark.skipif(
+    not (RAW.exists() and any(RAW.glob("*.png"))),
+    reason="生の画面（raw/）が無い")
+@pytest.mark.parametrize("mid", sorted(RAW_FOR), ids=lambda m: f"{m:02X}")
+def test_既知3枚は生画面と色まで完全一致する(real, mid):
+    """★★ RX-0052 の決着（2026-08-22）★★
+
+    切り出した撮影が合わなかった 3 体を、**生の画面（256×224）に ROM の絵をそのまま
+    当てはめて**探す。⚠ 位置は総当たり、色は ±2 の丸め誤差だけ許す。
+    ★3 体とも 1 画素残らず一致する位置が 1 つある（隣の敵が写り込んでいたのは
+      切り出し側の問題で、ROM の展開は正しかった）。
+    ★同時に、画素指定タイル（スプライト）を**格子の前**に描く順の裏取りでもある
+      （逆順だと 4B / 4E は 1953/2048 になる）。
+    """
+    from dq2rom.monsters import decoder as dec
+    from dq2rom.monsters.palette import load_nes_palette, read_monster_palettes
+
+    rom, entries = real
+    e = next(x for x in entries if x.monster_id == mid)
+    nes = load_nes_palette(PAL_PATH).as_screenshot()
+    blocks = dec.decode_monster(rom.prg, e.graphics_addr, e.count)
+    made = render(blocks, read_monster_palettes(rom.prg, e.palette_addr), nes)
+    rendered = {(x, y): px[:3] for y, row in enumerate(made.rows)
+                for x, px in enumerate(row) if px[3]}
+    from PySide6.QtGui import QImage
+    im = QImage(str(RAW / RAW_FOR[mid]))
+    screen = {(x, y): (im.pixel(x, y) >> 16 & 255, im.pixel(x, y) >> 8 & 255, im.pixel(x, y) & 255)
+              for y in range(im.height()) for x in range(im.width())}
+    best = 0
+    for oy in range(0, im.height() - made.height + 1):
+        for ox in range(0, im.width() - made.width + 1):
+            agree = sum(1 for (x, y), c in rendered.items()
+                        if _near(screen.get((x + ox, y + oy), (0, 0, 0)), c))
+            best = max(best, agree)
+            if best == len(rendered):
+                break
+        if best == len(rendered):
+            break
+    assert best == len(rendered), f"0x{mid:02X}: {best}/{len(rendered)} 画素しか合わない"

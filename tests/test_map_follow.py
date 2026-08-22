@@ -47,7 +47,8 @@ def app():
 
 @pytest.fixture(scope="module")
 def mm() -> dict:
-    return yaml.safe_load(MAP_PATH.read_text(encoding="utf-8"))
+    from conftest import load_memory_map_with_enemies  # ★敵の表は ROM 由来（RX-0090）
+    return load_memory_map_with_enemies()
 
 
 META = {

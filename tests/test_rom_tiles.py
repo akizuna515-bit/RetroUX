@@ -534,3 +534,41 @@ def test_街の飾りもROMに入っている():
     bad = [t for t in deco
            if built[t * 16:(t + 1) * 16] != cap.chr_data[t * 16:(t + 1) * 16]]
     assert not bad, " ".join(f"${t:02X}" for t in bad)
+
+
+# --- 洞窟の order はビット表のままが正しい（RX-0075 / 2026-08-22）-----------------
+#
+# ★RX-0072 で塔を [3,4] に直したあと「洞窟も [2,4] に統一するか」が残っていた。
+#   湖の洞窟（map $2C / セーブステート fc3）の実 CHR-RAM と比べると、
+#   ビット表の order [2,8] は画面に出ている地形タイル 0x90〜0x9F を**全部**再現し、
+#   [2,4] は**全部外す**。⚠ 統一は安全ではない。現状維持を固定する。
+#   ⚠ 0x00〜0x7F（文字・窓）は地図の CHR に含めない前提なので比べない。
+
+CAVE_STATE = PROJECT_ROOT / "tools" / "fceux" / "fcs" / "DQ2_J.fc3"
+
+
+@needs_rom
+@pytest.mark.skipif(not CAVE_STATE.exists(), reason="洞窟のセーブステートが無い")
+def test_洞窟のorderはビット表のままが実CHRと一致する():
+    from retroux.core.bgmap import savestate
+    from retroux.core.bgmap.dungeon_map import map_kind
+    from retroux.core.bgmap.rom_tiles import order_for_map
+
+    st = savestate.load(CAVE_STATE)
+    mid = st.byte(0x31)
+    if mid is None or map_kind(mid) != 2:
+        pytest.skip(f"fc3 は洞窟ではない（map ${mid:02X}）")
+    prg = load_prg(ROM)
+    entries = read_table(prg)
+    real = st.chr_data
+    used = sorted({b for b in st.nametable[:960] if b >= 0x80})
+    assert len(used) >= 16, "★画面に地形タイルが出ていない"
+
+    def matched(order):
+        made = build_chr(prg, entries, order)
+        return [t for t in used if made[t * 16:t * 16 + 16] == real[t * 16:t * 16 + 16]]
+
+    current = order_for_map(prg, mid)
+    assert current[0] == 2 and current != [2, 4]
+    assert len(matched(current)) == len(used), "★ビット表の order で地形タイルが全部一致するはず"
+    assert len(matched([2, 4])) < len(used), "⚠ [2,4] でも一致するなら、この歯止めは要らない"

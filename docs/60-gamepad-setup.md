@@ -100,6 +100,7 @@ gamepad:
 | --- | --- | --- |
 | 十字 / 左アナログ・A・B・Start・Back | NES 標準入力 | NES用（`inject_nes_input` で RetroUX 注入 / FCEUX 本体 を切替） |
 | LB / RB / LT / RT / X / Y | ロード/セーブ/Auto/Turbo/どうぐや/まんたん | RetroUX 専用（常に有効） |
+| X 長押し（戦闘中） | 強制オート ＋ 一時ターボ（RX-0082） | ★押している間だけ。⚠ 短押しは戦闘中は何もしない |
 | 右スティック / R3 押し込み | **マウス移動 / 左クリック**（押したままでドラッグ） | RetroUX 専用（`gamepad.mouse` 既定 ON / RX-0084） |
 | 左スティック押し込み（L3）・Guide | — | 未使用 |
 

@@ -159,6 +159,7 @@ function BattleController:auto_input_allowed_now(context)
   if ai.disable_when_boss and ctx.is_boss then return false, "ボス戦" end
   -- ★逃げた相手には自動で殴りかからない。自動入力は「たたかう」しか
   --   押せず逃げる選択ができないため、勝てなかった相手に押し付けない。
+  --   ★（2026-08-21 訂正 / RX-0010）: 「たたかうしか押せず」は古い（呪文・道具・防御も押す）。「にげる」を押さない方針、が正しい。
   if ai.disable_when_caution ~= false and ctx.is_caution then
     return false, "警戒中の相手（前に逃げた/負けた）"
   end

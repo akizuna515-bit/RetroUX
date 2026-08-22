@@ -235,8 +235,8 @@ def test_観測だけの地図では鳴らさない(app, tmp_path):
     vm = ViewModel(
         Recorder(db, "HASH", tmp_path / "events.jsonl",
                  tmp_path / "command.json"), db, "HASH",
-        monsters={int(k): str(v) for k, v in mm["monsters"].items()},
-        monster_stats={int(k): v for k, v in mm["monster_stats"].items()},
+        monsters={int(k): str(v) for k, v in (mm.get("monsters") or {}).items()},
+        monster_stats={int(k): v for k, v in (mm.get("monster_stats") or {}).items()},
         map_meta={0x59: {"map_id": 0x59, "type": "dungeon_b",
                          "width": 60, "height": 60, "border_tile": 0x24,
                          "palette": 0x5B, "data_pointer": "0xA48B"}},
@@ -307,8 +307,8 @@ def _big_map_window(app, tmp_path, cols=44, rows=44):
     vm = ViewModel(
         Recorder(db, "HASH", tmp_path / "events.jsonl",
                  tmp_path / "command.json"), db, "HASH",
-        monsters={int(k): str(v) for k, v in mm["monsters"].items()},
-        monster_stats={int(k): v for k, v in mm["monster_stats"].items()},
+        monsters={int(k): str(v) for k, v in (mm.get("monsters") or {}).items()},
+        monster_stats={int(k): v for k, v in (mm.get("monster_stats") or {}).items()},
         map_meta={0x59: {"map_id": 0x59, "type": "dungeon_b",
                          "width": cols, "height": rows, "border_tile": 0x24,
                          "palette": 0x5B, "data_pointer": "0xA48B"}},

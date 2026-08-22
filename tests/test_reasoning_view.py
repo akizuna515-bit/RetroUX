@@ -52,6 +52,33 @@ def _vm(**kw) -> _VM:
     return _VM(GameState(**kw))
 
 
+def _run_lua_harness(name: str) -> str:
+    """★実 Lua（同梱 lua5.1.dll）でハーネスを走らせ、出力を返す（RX-0011）。"""
+    import os
+    import subprocess
+    import sys
+
+    runner = PROJECT_ROOT / "research" / "probes" / "reusable" / "lua_run.py"
+    harness = PROJECT_ROOT / "research" / "probes" / "active" / name
+    if not (runner.exists() and harness.exists()):
+        pytest.skip("Lua のハーネスが無い")
+    done = subprocess.run(
+        [sys.executable, str(runner), str(harness)],
+        cwd=str(PROJECT_ROOT), capture_output=True, timeout=180,
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    out = ((done.stdout or b"").decode("utf-8", "replace")
+           + (done.stderr or b"").decode("utf-8", "replace"))
+    if "SKIP:" in out or ("lua5.1" in out and done.returncode != 0):
+        pytest.skip("Lua を動かせない環境")
+    assert done.returncode == 0, out
+    return out
+
+
+def _lua_ok(out: str, label: str) -> bool:
+    return any(line.startswith("OK") and label in line
+               for line in out.splitlines())
+
+
 # --- ★ 観点1: 4段が1画面で追える -------------------------------------
 
 def test_戦況と戦術が同じ行に出る():
@@ -131,6 +158,22 @@ def test_engineをLuaが画面へ渡している():
     source = BRIDGE.read_bytes().decode("utf-8")
     assert 'add("battle_engine"' in source, (
         "⚠⚠ Lua が engine を state.json へ書いていません")
+
+
+def test_engineをLuaが画面へ渡しているの挙動():
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    ⚠ `add("battle_engine"` の行があっても、`self.battle_engine` が nil なら
+      画面には null（「届いていない」）が届きます。★本物の `Bridge.new` →
+      `_write_state` を実 Lua で回し、state.json に **設定どおりの値**が
+      入ること、値を差し替えれば出力も変わることを見ます。
+    """
+    out = _run_lua_harness("state_engine_wiring_test.lua")
+    assert "NG 0 件" in out, out
+    assert _lua_ok(out, "battle_engine が null ではない"), out
+    assert _lua_ok(out, "設定の engine と同じ値"), out
+    assert _lua_ok(out, "差し替えた値がそのまま出る"), out
+    assert _lua_ok(out, "それでも battle_engine は null にならない"), out
 
 
 # --- ⚠ 観点4: 僅差かどうかが見える ------------------------------------
@@ -368,6 +411,29 @@ def test_毎回の描き直しで呼ばれている():
     source = MAIN_WINDOW.read_bytes().decode("utf-8")
     assert source.count("self._update_reasoning(") >= 1, (
         "⚠⚠ _update_reasoning を呼んでいる場所がありません")
+
+
+def test_毎回の描き直しで呼ばれているの挙動(window, monkeypatch):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    ⚠ 呼び出しの字面があっても、死んだ分岐の中なら画面は更新されません。
+    ★本物の `refresh()`（タイマーが毎回呼ぶ入口）を1回回して、
+      `_update_reasoning` が **その回の state.game で**呼ばれることを見ます。
+    """
+    calls = []
+    real = window._update_reasoning
+    monkeypatch.setattr(window, "_update_reasoning",
+                        lambda game: (calls.append(game), real(game)))
+    polled = []
+    real_poll = window.vm.poll
+    monkeypatch.setattr(window.vm, "poll",
+                        lambda: (polled.append(real_poll()), polled[-1])[1])
+
+    window.refresh()
+
+    assert len(polled) == 1, "⚠ refresh が state を読んでいません"
+    assert len(calls) == 1, f"⚠⚠ refresh 1回で _update_reasoning が {len(calls)} 回"
+    assert calls[0] is polled[0].game, "⚠ 読んだ state と別の game で描いています"
 
 
 def test_入りきらない行は末尾が点々になる(window):

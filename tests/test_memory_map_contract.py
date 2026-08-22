@@ -7,6 +7,10 @@
   → **公開データとの照合結果そのものを、ここで memory_map の値に対して固定化する。**
     以後、値が変わればテストが落ちる。
 
+★2026-08-21（RX-0090）: 敵の表は memory_map.yaml から消え、**利用者の ROM から起こす**
+  ようになった。耐性・行動の検査は `em`（ROM 由来の表）に対して行い、
+  ROM もキャッシュも無い環境ではスキップする（⚠ 空で通さない）。
+
 守りたい契約:
   1. 耐性は 0..7 で、全83体に6種そろっている（欠けを 0 で埋めていない）
   2. 公開データ（極限攻略 FC版）と一致する
@@ -62,15 +66,22 @@ def mm() -> dict:
     return yaml.safe_load(MAP_PATH.read_text(encoding="utf-8"))
 
 
+@pytest.fixture(scope="module")
+def em() -> dict:
+    """敵の表つき（ROM 由来）。無ければスキップ。"""
+    from conftest import load_memory_map_with_enemies
+    return load_memory_map_with_enemies()
+
+
 # --- 耐性 --------------------------------------------------------------
 
 
-def test_all_monsters_have_full_resist_set(mm):
+def test_all_monsters_have_full_resist_set(mm, em):
     """全83体に6種そろっていること。**欠けを 0 で埋めていない**ことの担保。
 
     「分からないものは列を作らない」の裏返しで、列を作ったなら全員分そろっている。
     """
-    stats = mm["monster_stats"]
+    stats = em["monster_stats"]
     assert len(stats) == 83, f"敵の数が {len(stats)} 体になっている"
     for mid, s in stats.items():
         assert "resist" in s, f"0x{mid:02X} に resist が無い"
@@ -79,53 +90,53 @@ def test_all_monsters_have_full_resist_set(mm):
         )
 
 
-def test_resist_values_are_three_bit(mm):
+def test_resist_values_are_three_bit(mm, em):
     """耐性は 3ビット（0..7）。成功率 = (7 - 値) / 7 なので 8 以上は意味を持たない。"""
-    for mid, s in mm["monster_stats"].items():
+    for mid, s in em["monster_stats"].items():
         for name, value in s["resist"].items():
             assert isinstance(value, int), f"0x{mid:02X}.{name} が整数でない"
             assert 0 <= value <= 7, f"0x{mid:02X}.{name}={value} が 0..7 の外"
 
 
-def test_evade_is_four_bit(mm):
+def test_evade_is_four_bit(mm, em):
     """回避率は 4ビット（0..15）。判定は rand(0..63) < evade。"""
-    for mid, s in mm["monster_stats"].items():
+    for mid, s in em["monster_stats"].items():
         assert "evade" in s, f"0x{mid:02X} に evade が無い"
         assert 0 <= s["evade"] <= 15, f"0x{mid:02X}.evade={s['evade']} が 0..15 の外"
 
 
 @pytest.mark.parametrize("mid", sorted(PUBLISHED), ids=lambda m: f"0x{m:02X}")
-def test_resist_matches_published_data(mm, mid):
+def test_resist_matches_published_data(mm, em, mid):
     """公開データと一致すること（探索に使っていないデータでの裏取り）。
 
     ★一致の中で決定的なもの:
       メタルスライム / はぐれメタル … 全項目 7（何も効かないという有名な事実）
       バズズ … sleep が 3（ラリホーが効くという定番の戦法）
     """
-    got = tuple(mm["monster_stats"][mid]["resist"][k] for k in RESIST_KEYS)
+    got = tuple(em["monster_stats"][mid]["resist"][k] for k in RESIST_KEYS)
     assert got == PUBLISHED[mid], (
         f"0x{mid:02X}: memory_map {got} が公開データ {PUBLISHED[mid]} と違う"
         f"（{'/'.join(RESIST_KEYS)}）"
     )
 
 
-def test_metal_slime_is_immune_to_everything(mm):
+def test_metal_slime_is_immune_to_everything(mm, em):
     """メタルスライム(0x30) は全耐性 7 = 完全耐性。
 
     ★これは「耐性7 を候補から外す」機能（依頼者の項目11「効かない攻撃はしない」）が
       意味を持つための前提。全員が 7 未満なら、その機能は一度も働かない。
     """
-    resist = mm["monster_stats"][0x30]["resist"]
+    resist = em["monster_stats"][0x30]["resist"]
     assert all(v == 7 for v in resist.values()), resist
 
 
-def test_some_monsters_have_zero_resist(mm):
+def test_some_monsters_have_zero_resist(mm, em):
     """耐性 0（必ず効く）の敵が居ること。
 
     ★「弱点を突く」（項目10）が意味を持つための前提。
       全員が 7 なら、表の位置がずれている疑いでもある。
     """
-    weak = [mid for mid, s in mm["monster_stats"].items()
+    weak = [mid for mid, s in em["monster_stats"].items()
             if any(v == 0 for v in s["resist"].values())]
     assert len(weak) > 20, f"耐性0 の敵が {len(weak)} 体しかいない（表の位置を疑う）"
 
@@ -216,34 +227,34 @@ def test_reroll_action_is_marked(mm):
     assert mm["monster_actions"][0x1E] == "選び直し"
 
 
-def test_action_rates_have_eight_slots(mm):
+def test_action_rates_have_eight_slots(mm, em):
     """賢さ4種 × **8枠**の確率がそろい、合計100%になること。
 
     ⚠ 枠は8つ。7と数えて外した（乱数がどの閾値も超えたときの
       「8番目」が既定の行動になる / bank4.asm:8078）。
     """
-    rates = mm["action_rates"]
+    rates = em["action_rates"]
     assert set(rates) == {0, 1, 2, 3}, rates.keys()
     for wisdom, probs in rates.items():
         assert len(probs) == 8, f"賢さ{wisdom} の枠が {len(probs)} 個"
         assert abs(sum(probs) - 100.0) < 0.05, f"賢さ{wisdom} の合計 {sum(probs)}"
 
 
-def test_wiser_monsters_favor_the_first_slot(mm):
+def test_wiser_monsters_favor_the_first_slot(mm, em):
     """賢さが高いほど枠0に寄ること。
 
     ★「賢さ」という名前と挙動が一致していることの確認。
       逆になっていたら確率表の読み方が反転している。
     """
-    first = [mm["action_rates"][w][0] for w in (0, 1, 2, 3)]
+    first = [em["action_rates"][w][0] for w in (0, 1, 2, 3)]
     assert first == sorted(first), f"枠0の確率が賢さ順に増えていない: {first}"
     assert first[0] == pytest.approx(12.5, abs=0.05), "賢さ0 は均等のはず"
     assert first[3] > 35, f"賢さ3 の枠0 が {first[3]}%（もっと高いはず）"
 
 
-def test_every_monster_has_eight_actions(mm):
+def test_every_monster_has_eight_actions(mm, em):
     """全83体に賢さと8枠の行動があること。"""
-    behavior = mm["monster_behavior"]
+    behavior = em["monster_behavior"]
     assert len(behavior) == 83
     actions = mm["monster_actions"]
     for mid, b in behavior.items():
@@ -253,13 +264,13 @@ def test_every_monster_has_eight_actions(mm):
             assert aid in actions, f"0x{mid:02X} に未知の行動 0x{aid:02X}"
 
 
-def test_healer_casts_heal_and_atlas_attacks_twice(mm):
+def test_healer_casts_heal_and_atlas_attacks_twice(mm, em):
     """ROM の中身が「名前どおり」であることの抜き取り検査。
 
     ★ホイミスライムがホイミを、アトラスが２回攻撃を持っていなければ
       枠の読み方（偶数=上位ニブル / 代替ビットの合成）が違う。
     """
-    behavior = mm["monster_behavior"]
+    behavior = em["monster_behavior"]
     actions = mm["monster_actions"]
 
     healer = [actions[a] for a in behavior[0x06]["actions"]]

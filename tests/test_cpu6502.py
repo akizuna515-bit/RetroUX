@@ -14,15 +14,49 @@ import pathlib
 
 import pytest
 
+from retroux.core.bgmap import savestate
 from retroux.core.bgmap.cpu6502 import Cpu, UnknownOpcode
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 ROM = PROJECT_ROOT / "work" / "rom" / "DQ2_J.nes"
 STATES = PROJECT_ROOT / "tools" / "fceux" / "fcs"
-_states = sorted(STATES.glob("DQ2_J.fc[0-9]")) if STATES.exists() else []
+_found = sorted(STATES.glob("DQ2_J*.fc[0-9]")) if STATES.exists() else []
+
+
+def _readable(paths):
+    """★**読めたものだけ**返す（RX-0100）。⚠ 「ある」と「読める」は別。"""
+    got = []
+    for p in paths:
+        try:
+            savestate.load(p)
+        except Exception:                 # noqa: BLE001
+            continue
+        got.append(p)
+    return got
+
+
+_states = _readable(_found)
 
 needs_rom = pytest.mark.skipif(not ROM.exists(), reason="ROM が無い")
-needs_state = pytest.mark.skipif(not _states, reason="セーブステートが無い")
+needs_state = pytest.mark.skipif(
+    not _states, reason="読めるセーブステートが無い")
+
+
+def _on_a_map(paths):
+    """★マップ上のものだけ（RX-0100）。⚠ 世界地図・未読込は突き合わせられない。"""
+    got = []
+    for p in paths:
+        map_id = savestate.load(p).byte(0x31)
+        if map_id is not None and map_id not in (0x00, 0x01):
+            got.append(p)
+    return got
+
+
+_ON_MAP = _on_a_map(_states)
+#: ⚠ 1本あたり 49 か所しか試さないので、3本ないと 100 か所に届かない
+needs_maps3 = pytest.mark.skipif(
+    len(_ON_MAP) < 3,
+    reason=f"マップ上のセーブステートが {len(_ON_MAP)} 本（3本必要）")
 
 
 def _prg(code: bytes, at: int = 0xC000) -> bytes:
@@ -89,7 +123,7 @@ def test_JSRを横取りできる():
 # --- ★★ 本物と写しが一致するか ★★ ------------------------------------
 
 @needs_rom
-@needs_state
+@needs_maps3
 def test_写したデコーダは本物と同じ答えを返す():
     """★★ **これで「写し間違い」の疑いが消えました**（2026-08-02）。
 
@@ -115,15 +149,9 @@ def test_写したデコーダは本物と同じ答えを返す():
 
     prg = load_prg(ROM)
     checked = 0
-    for path in _states:
-        try:
-            st = load(path)
-        except NotASaveState:
-            continue          # ⚠ 空のスロットは飛ばす（黙って落ちない）
-        map_id = st.byte(0x31)
-        if map_id is None or map_id in (0x00, 0x01):
-            continue
-        header = read_header(prg, map_id)
+    for path in _ON_MAP:      # ★使える物は先に数えてある
+        st = load(path)
+        header = read_header(prg, st.byte(0x31))
         for y in range(0, 20, 3):
             for x in range(0, 20, 3):
                 cpu = _MapCpu(prg, st.ram, bank=2)

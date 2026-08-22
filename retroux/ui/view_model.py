@@ -95,6 +95,8 @@ class UiState:
     average_speed: float = 0.0
     read_only: bool = False
     """閲覧専用（別の取り込みプロセスが動いている / 指示書 6.3）。"""
+    read_only_reason: str | None = None
+    """★誰が記録役かの1行（RX-0064）。⚠ 分からなければ None（推測で埋めない）。"""
     danger_reason: str | None = None
     """危険と判断した理由。「読めていない」と本当の危険を区別するために出す。"""
     game: GameState = field(default_factory=GameState)
@@ -195,7 +197,8 @@ class UiState:
 
         ⚠ 区別できないと、直せる問題を直せない問題だと思ってしまう。
         """
-        return ("閲覧専用（別プロセスが記録中）" if self.read_only
+        return ((f"閲覧専用（{self.read_only_reason}）" if self.read_only_reason
+                 else "閲覧専用（別プロセスが記録中）") if self.read_only
                 else "このGUIが記録中")
 
     @property
@@ -221,6 +224,7 @@ class ViewModel:
     def __init__(self, recorder: Recorder, db: Database, rom_hash: str,
                  monsters: Mapping[int, str] | None = None,
                  *, log_limit: int = 50, read_only: bool = False,
+                 read_only_reason: str | None = None,
                  state_path=None, monster_stats: Mapping[int, dict] | None = None,
                  monster_behavior: Mapping[int, dict] | None = None,
                  monster_actions: Mapping[int, str] | None = None,
@@ -228,7 +232,7 @@ class ViewModel:
                  items: Mapping[int, str] | None = None,
                  art_dir=None, art_raw_dir=None, art_rom_dir=None,
                  map_meta=None, view_radius: int = 7,
-                 overworld_size=None, map_zoom=None,
+                 overworld_size=None, map_zoom=None, overworld_view="walked",
                  charset=None, name_length: int = 4, name_overrides=None,
                  navigation=None, location_resolver=None,
                  floor_estimator=None, tactics=None,
@@ -273,9 +277,12 @@ class ViewModel:
         #   ⚠ 実機で測った値ではない。ずれていたら設定で直せる
         #     （`config.yaml` の `map.view_radius`）。
         self.view_radius = max(0, int(view_radius))
-        # ★ワールドマップの大きさ（ROM のヘッダ表では $FF,$FF で読めない）。
+        # ★ワールドマップの大きさ（ヘッダの $FF は 255+1 = 256。bgmap/world_art.header_size）。
+        #   ⚠「読めない」は古い（2026-08-21 訂正 / RX-0010）。maps.json には未補正で入らないので設定で補う。
         #   実測で 256×256（`config.yaml` の `map.overworld_*`）。
         self.overworld_size = tuple(overworld_size) if overworld_size else None
+        # ★世界地図の見せ方 walked / full（RX-0094）。⚠ 記録には影響しない（描き方だけ）
+        self.overworld_view = overworld_view if overworld_view in ("walked", "full") else "walked"
         # ★地図の拡大倍率 (通常, ワールドマップ)。**整数倍だけ**。
         #   0 は「枠に収まる最大の整数倍」（`config.yaml` の `map.zoom`）。
         self.map_zoom = tuple(map_zoom) if map_zoom else None
@@ -311,6 +318,8 @@ class ViewModel:
         #   すべての戦闘が二重に記録される（single_instance.py の説明を参照）。
         #   DB を読んで表示することだけは安全なので、それは続ける。
         self.read_only = read_only
+        #: ★なぜ閲覧専用なのか（誰が記録役かの1行 / RX-0064）。⚠ 分からなければ None
+        self.read_only_reason = read_only_reason
         # ★ユーザー指定戦略（custom_1）が有効か（2026-08-11 / Phase 4）。
         #   ⚠ 目的から導けないので覚えておく。None なら通常のAI／手動。
         self._active_strategy = None
@@ -438,7 +447,8 @@ class ViewModel:
           記録（`note_position`）と描画（地図の窓）が別々に判断すると、
           ワールドマップだけ食い違って**座標がずれた地図**になる。
 
-        ⚠ ワールドマップは ROM のヘッダ表で `$FF,$FF` になっていて読めない。
+        ⚠ ワールドマップはヘッダ表が `$FF,$FF`（= 255+1 で 256×256。`world_art.header_size`）。
+          `maps.json` には未補正のまま入るので、そこだけ設定から補う（2026-08-21 訂正 / RX-0010）。
           そこだけ設定から補う（実測 256×256 / `config.yaml` の `map.overworld_*`）。
         """
         meta = self.map_meta.get(map_id) or {}
@@ -1731,4 +1741,6 @@ class ViewModel:
             saved_seconds_total=float(summary["saved_ms"]) / 1000.0,
             average_speed=float(summary["avg_speed"]),
             read_only=self.read_only,
+            # ★誰が記録役か（RX-0064）。画面の役割表示と終了ダイアログが使う
+            read_only_reason=self.read_only_reason,
         )

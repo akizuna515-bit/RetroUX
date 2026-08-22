@@ -25,6 +25,7 @@ from pathlib import Path
 
 import yaml
 
+from .core import enemy_tables
 from .core import rom as rom_mod
 from .core import text as text_mod
 from .core.config import user_config as user_config_mod
@@ -304,9 +305,29 @@ def _build_tactics(config: dict, user_cfg):
         return None
 
 
+def read_only_because(lock, read_only: bool) -> str | None:
+    """閲覧専用なら「誰が記録役か」の1行。⚠ 分からなければ None（RX-0064）。
+
+    ★★ **決めたのが誰であれ調べる**（2026-08-22）★★
+      ⚠ 閲覧専用にするか決めているのは `start-retroux.ps1` のほうで、GUI には
+        最初から `--read-only` が渡ってくる。★ロックの取得に失敗した経路
+        （`AlreadyRunningError`）だけを見ていたので、実機では**1行も出なかった**。
+    ⚠ ロックが空（誰も握っていない）なら None。`--read-only` を人が明示した
+      ときに、居ない相手のせいにしない。
+    """
+    if not read_only:
+        return None
+    holder = lock.holder()
+    if not (holder.pid or holder.session):
+        return None
+    return holder.describe()
+
+
 def build_view_model(rom_arg: str | None = None, *,
                      user_cfg: user_config_mod.UserConfig | None = None,
-                     read_only: bool = False) -> tuple[ViewModel, Database]:
+                     read_only: bool = False,
+                     read_only_reason: str | None = None,
+                     ) -> tuple[ViewModel, Database]:
     user_cfg = user_cfg or user_config_mod.UserConfig()
     config = _load_yaml(PLUGIN_DIR / "config.yaml")
     memory_map = _load_yaml(PLUGIN_DIR / "memory_map.yaml")
@@ -326,6 +347,9 @@ def build_view_model(rom_arg: str | None = None, *,
     #     「動いているように見えて、全部が嘘」になる。
     #     ⚠ AUTO と倍速が**見当違いのタイミングでキーを押す**のが一番危ない。
     rom_mod.check_expected(info, rom_meta)
+    # ★敵の表（名前・ステータス・行動・経験値）は ROM から起こす（RX-0090）。
+    #   memory_map.yaml には入っていない。読めなければ足さない（図鑑は空欄表示）。
+    enemy_tables.attach(memory_map, rom_path, PROJECT_ROOT / "work" / "generated" / enemy_tables.CACHE_NAME)
     db = Database(user_cfg.path("db"))
     db.register_rom(
         rom_hash=info.prg_sha256,
@@ -403,10 +427,12 @@ def build_view_model(rom_arg: str | None = None, *,
         map_meta=_load_map_meta(config),
         # ★地図に記録する「画面に映る範囲」の半径（マス）
         view_radius=int((config.get('map') or {}).get('view_radius', 7)),
-        # ★ワールドマップの大きさ（ROM から読めないので設定から。実測 256×256）
+        # ★ワールドマップの大きさ（ROM 解読で 256×256 と確定。設定は上書き用 / RX-0010 訂正）
         overworld_size=(
             int((config.get('map') or {}).get('overworld_width', 256)),
             int((config.get('map') or {}).get('overworld_height', 256))),
+        # ★世界地図の見せ方（user_config `map.overworld_view` / RX-0094）
+        overworld_view=str(user_cfg.map.overworld_view),
         # ★地図の拡大倍率（整数倍だけ。0 で「収まる最大」）
         map_zoom=(int((config.get('map') or {}).get('zoom', 4)),
                   int((config.get('map') or {}).get('overworld_zoom', 1))),
@@ -419,6 +445,8 @@ def build_view_model(rom_arg: str | None = None, *,
                         vars(getattr(user_cfg, 'names', None) or object()).items()
                         if isinstance(v, str) and v.strip()},
         read_only=read_only,
+        # ★閲覧専用の理由（誰が記録役か）。画面の見出しと終了ダイアログが使う（RX-0064）
+        read_only_reason=read_only_reason,
         # ★閲覧専用でも状態は読む（記録しないだけで、表示は止めない）
         state_path=user_cfg.path("state"),
         # ★移動知識ログ（`config.yaml` の `navigation:`）。
@@ -487,7 +515,20 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         read_only = args.read_only
+        read_only_reason = None
         lock = RecorderLock(user_cfg.path("lock"))
+
+        # ★★ ⚠⚠ **`--read-only` で来たときも理由を調べる**（2026-08-22 / RX-0064）★★
+        #
+        #   ⚠ 実機で「何も変わらない」と報告された。原因は、閲覧専用にするか決めて
+        #     いるのが **起動スクリプト（`start-retroux.ps1`）** のほうで、
+        #     GUI には最初から `--read-only` が渡ってくること。
+        #     ★下の `except AlreadyRunningError` は**通らない**ので、
+        #       せっかくの「記録役は誰か」がどこにも出なかった。
+        #   ★決めたのが誰であれ、閲覧専用なら**ロックを見て理由を作る**。
+        read_only_reason = read_only_because(lock, read_only)
+        if read_only_reason:
+            log.warning("記録役: %s", read_only_reason)
 
         # 閲覧専用が指定されていなければ、取り込み役を取りにいく。
         if not read_only:
@@ -497,16 +538,23 @@ def main(argv: list[str] | None = None) -> int:
                 # ★ここで落とさない。閲覧専用へ落として**画面は出す**。
                 #   記録は既に別プロセスが取っているので、失うものは無い。
                 log.warning("%s", exc)
+                # ★★ **誰が握っているのかを言う**（2026-08-19 の実機 / RX-0064）★★
+                #   ⚠ 「閲覧専用で起動します」だけだと、利用者は何を閉じれば
+                #     直るのか分からない。★PID と実行ファイル名を出す。
+                read_only_reason = lock.holder().describe()
+                log.warning("記録役: %s", read_only_reason)
                 # ⚠ `pythonw.exe` では `sys.stderr` が使えないことがある。
                 #   `print` を直に呼ぶと AttributeError で落ち、
                 #   利用者から見て「何も起きない」になる（仕様書 5.1）。
                 say(BUSY_MESSAGE, logger=log, level="warning")
-                say("閲覧専用で起動します。", logger=log, level="warning")
+                say(f"閲覧専用で起動します（記録役: {read_only_reason}）。",
+                    logger=log, level="warning")
                 read_only = True
 
         try:
             view_model, db = build_view_model(args.rom, user_cfg=user_cfg,
-                                              read_only=read_only)
+                                              read_only=read_only,
+                                              read_only_reason=read_only_reason)
         except (FileNotFoundError, rom_mod.InvalidRomError) as exc:
             log.error("起動に失敗しました: %s", exc)
             say(f"起動に失敗しました: {exc}", logger=log, level="error")

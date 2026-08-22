@@ -75,9 +75,20 @@ class MetatileRenderer:
         """
         if not cells:
             return False
+        # ★同じ cells に対しては答えを覚える（RX-0095）。paintEvent のたびに
+        #   呼ばれ、世界地図では 52,153 マスぶん辞書を引いていた（0.77 秒/回）。
+        #   ⚠ 「無い」が TTL で「有る」に変わりうるので、短い時間だけ覚える。
+        import time
+        sig = (id(cells), len(cells))
+        hit = getattr(self, "_can_draw_cache", None)
+        now = time.monotonic()
+        if hit is not None and hit[0] == sig and now - hit[2] < 5.0:
+            return hit[1]
         found = sum(1 for c in cells
                     if self.store.image_path(c[2], "1x") is not None)
-        return found * 2 >= len(cells)
+        ok = found * 2 >= len(cells)
+        self._can_draw_cache = (sig, ok, now)
+        return ok
 
     def draw(self, painter: QPainter, cells, origin, scale: str,
              cell_pixels: int) -> tuple[int, int]:

@@ -212,3 +212,48 @@ def test_起動時に設定を読んでViewModelへ渡している():
     # ★読んだ内容と、効かない項目をログに出すこと
     assert "got.summary()" in source
     assert "unsupported_changes()" in source
+
+
+def test_起動時に設定を読んでViewModelへ渡しているの挙動(caplog, tmp_path):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    `_build_map_render` を実際に呼び、設定が `MapRenderSettings` に
+    載ること・効かない項目が WARNING で出ることを見ます。
+    """
+    import logging
+
+    from retroux.gui import _build_map_render
+
+    config = {"map": {"rom_master": {
+        "reveal_mode": "all",      # ★効く項目
+        "show_regions": True,      # ⚠ まだ効かない項目
+        "renderer": "typo",        # ⚠ 使えない値 → 既定へ直す
+    }}}
+    with caplog.at_level(logging.DEBUG, logger="retroux.gui"):
+        got = _build_map_render(config)
+
+    assert isinstance(got, S.MapRenderSettings)
+    assert got.reveals_everything, "★読んだ設定が載っていない"
+    assert got.uses_rom_master, "★使えない値は既定へ落ちること"
+    warnings = [r.getMessage() for r in caplog.records
+                if r.levelno == logging.WARNING]
+    assert any("show_regions" in w for w in warnings), (
+        "⚠ 効かない設定を黙って受け取っています")
+    assert any("renderer" in w for w in warnings), (
+        "⚠ 直した点を黙っています")
+    # ★要約は DEBUG で1回
+    assert any(r.levelno == logging.DEBUG and "地図の描き方" in r.getMessage()
+               for r in caplog.records)
+    # ★ViewModel は渡された値をそのまま持つ（gui.py と同じキーワードで渡す）
+    from retroux.ui.view_model import ViewModel
+
+    from retroux.core.db.database import Database
+    from retroux.core.recorder import Recorder
+
+    db = Database(tmp_path / "t.sqlite3")
+    db.register_rom("HASH", "テストROM", "JP", mapper=2)
+    events = tmp_path / "events.jsonl"
+    events.write_bytes(b"")
+    vm = ViewModel(Recorder(db, "HASH", events, tmp_path / "command.json"),
+                   db, "HASH", map_render=got)
+    assert vm.map_render is got

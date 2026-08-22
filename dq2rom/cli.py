@@ -397,12 +397,12 @@ def cmd_monsters_validate(args) -> int:
 def cmd_maps_export(args) -> int:
     """マップの大きさなどを RetroUX が読める JSON にする。
 
-    ★★ 出せるのは「大きさ・境界タイル・パレット・データ位置」まで ★★
-      **中身（地形）は日本版では未解読**（`docs/rom-analysis-notes.md` 4章）。
-      それでも大きさが分かるだけで、
-      「自分が歩いた所だけの地図」を**正しい縮尺で**描ける。
-
-    ⚠ 分かっていないものを埋めない。`tiles` は入れない。
+    ★★ 出すのは「大きさ・境界タイル・パレット・データ位置」まで ★★
+      ⚠ 2026-08-21 訂正（RX-0010）: 以前「地形は日本版では未解読」が理由だったが、
+      いまは解読済み（`retroux/core/bgmap/`、2026-08-09 / 08-11）。それでも
+      **地形をここに入れない**のは方針: 見せるのは歩いたマスだけ（§2.2）で、
+      地形は実行時に ROM から読むので、書き出す必要が無い。
+      大きさが分かるだけで「自分が歩いた所だけの地図」を**正しい縮尺で**描ける。
     """
     rom, _profile, status = _load_rom(args)
     if status != EXIT_OK and not args.force:
@@ -460,14 +460,14 @@ def cmd_maps_export(args) -> int:
         "table": located.to_json(),
         "confidence": "probable",
         "note": "大きさ・境界タイル・パレット・データ位置まで。"
-                "地形そのものは日本版では未解読",
+                "地形は入れない（方針: 実行時に ROM から読む）",
         "maps": maps,
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     live = [m for m in maps if not m["empty"] and m["type"] != "overworld"]
     _out(f"書き出した: {path}")
     _out(f"  マップ {len(maps)}（うち中身のあるもの {len(live)}）")
-    _out(f"  ⚠ 地形は入れていません（日本版では未解読）")
+    _out(f"  ★地形は入れていません（実行時に ROM から読む方針）")
     return EXIT_OK
 
 

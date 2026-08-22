@@ -22,6 +22,7 @@ from pathlib import Path
 
 import yaml
 
+from .core import enemy_tables
 from .core import rom as rom_mod
 from .core.config import user_config as user_config_mod
 from .core.db.database import Database
@@ -53,6 +54,8 @@ def _build(args: argparse.Namespace,
     if expected and expected != info.prg_crc32:
         print(f"警告: ROM が memory_map.yaml と一致しません "
               f"(期待 {expected} / 実際 {info.prg_crc32})", file=sys.stderr)
+    enemy_tables.attach(memory_map, rom_path,
+                        PROJECT_ROOT / "work" / "generated" / enemy_tables.CACHE_NAME)
     if info.has_dirty_header:
         print("警告: iNES ヘッダのパディングにゴミがあります。"
               "FCEUX がマッパーを誤認して起動しない可能性があります。", file=sys.stderr)

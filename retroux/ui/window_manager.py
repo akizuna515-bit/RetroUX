@@ -95,7 +95,9 @@ class WindowManager:
 
         @param forget_window_state 画面側が持つ記憶を捨てる処理（あれば）
         """
-        layout.clear()
+        # ★`layout.clear()` は 2026-08-21（RX-0056）に撤去。消していた
+        #   `config/layout.yaml` は**一度も書かれないファイル**だった。
+        #   記憶は window_state（`work/window-state.json`）だけで、下で捨てる。
         if forget_window_state is not None:
             forget_window_state()
         return self.arrange(force=True)

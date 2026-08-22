@@ -104,6 +104,17 @@ class MapWindow(QWidget):
         top.addWidget(self._follow)
         root.addLayout(top)
 
+        # ★★ 「いまの部屋」（RX-0053 / 2026-08-21 / 依頼者: 見出しの下に1行）★★
+        #   ⚠ 区画データが無いマップ（街の多く・世界地図）では行ごと消える。
+        self._room_note = QLabel("")
+        self._room_note.setStyleSheet(_MUTED)
+        self._room_note.setVisible(False)
+        self._room_note.setToolTip(
+            "DQ2 のダンジョンは「入った部屋（区画）だけ見える」作りです。\n"
+            "★ROM の区画表から、いま立っているマスの部屋番号を出しています。\n"
+            "⚠ 番号は 0〜7 しか無く、離れた部屋で使い回されます。")
+        root.addWidget(self._room_note)
+
         # ⚠ 一覧は**画面に出しません**（「地図を選ぶ」から使います）。
         #   ★オブジェクトは残します。更新の経路がこれを読んでいます。
         self._list = QListWidget()
@@ -540,8 +551,15 @@ class MapWindow(QWidget):
         #     勝手に黒で埋めない（「黒い地形」と「未探索」は別のこと）。
         if hasattr(self._view, "set_metatiles"):
             self._view.set_metatiles(detail.metatiles)
-        self._view.set_data(detail.tiles, detail.width, detail.height,
-                            here, detail.kind)
+        # ★★ 世界地図の見せ方（RX-0094 / 2026-08-21）★★
+        #   walked（既定）: 大きさと種別を渡さず、**歩いた範囲**を枠に収める
+        #     （maps.json が無かった v1.0.2 公開版の見え方。依頼者「こちらが見やすい」）。
+        #   full: 256×256 を倍率2で固定・自分中心（`_apply_map_view` の世界地図ルート）。
+        #   ⚠ 変えるのは**描き方だけ**。記録（`map_size`）には触らない。
+        width, height, kind = detail.width, detail.height, detail.kind
+        if kind == "overworld" and getattr(self.vm, "overworld_view", "walked") == "walked":
+            width, height, kind = None, None, None
+        self._view.set_data(detail.tiles, width, height, here, kind)
         # ★倍率と枠外の数は**描く枠に聞かないと分からない**（画面の大きさ次第）。
         cols, rows = self._view.bounds()
         # ★★ 2026-08-11: 世界地図はスクロール枠で大きく＋自分中心。街・ダンジョンは
@@ -592,6 +610,10 @@ class MapWindow(QWidget):
         #   ⚠ 情報は捨てない。編集ダイアログは `.text()` を読むので中身は残す。
         self._name_note.setText(self.presenter.name_source_text(map_id))
         self._name_note.setVisible(False)
+        # ★いまの部屋（RX-0053）。出せないときは行ごと消す
+        room = self.presenter.room_text(map_id, map_ptr, here)
+        self._room_note.setText(room)
+        self._room_note.setVisible(bool(room))
         # ★★ 色を決めるのは**画面**。presenter は「目立たせるか」だけ返す ★★
         floor = self.presenter.floor_text(map_id, map_ptr)
         self._floor_note.setStyleSheet(_WARN if floor.warn else _MUTED)

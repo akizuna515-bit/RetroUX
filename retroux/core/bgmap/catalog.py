@@ -27,6 +27,7 @@ import dataclasses
 import hashlib
 import json
 import pathlib
+import time
 
 from .characters import SCALES, Character, Metatile, scale_nearest, write_png
 
@@ -50,7 +51,7 @@ def resolve_assets_dir(config, project_root) -> pathlib.Path:
       `gui.py` は `map.assets_dir` を読んでいたのに、`config.yaml` に
       あるのは `map.rendering.assets_path` です。★落ちはしませんが、
       **書いた値が黙って無視されて**既定へ落ちていました
-      （`docs/project/RETROUX_BACKLOG.md` の P0-01）。
+      （`docs/history/RETROUX_BACKLOG.md` の P0-01）。
 
     ★鍵の名前をここ1か所に閉じ込めます。読む側が増えても同じ場所を見ます。
 
@@ -96,6 +97,13 @@ class AssetStore:
         self.characters = self.root / "characters"
         self.metatiles = self.root / "metatiles"
         self.reports = self.root / "reports"
+        # ★画像の有無のキャッシュ（RX-0095 / 2026-08-21）。
+        #   ⚠ `image_path()` は描くたびに全マスぶん呼ばれる。世界地図 52,153 マスで
+        #     **1回の描画に os.stat が 52,153 回 = 6.5 秒**掛かっていた（実測）。
+        #   ★有る … 消えないので永久に覚える / 無い … あとから作られうるので
+        #     `MISSING_TTL` 秒だけ覚えて stat し直す（研究モードの撮影で増える）。
+        self._exists: dict[tuple[str, str], float] = {}
+        self._paths: dict[tuple[str, str], pathlib.Path] = {}
 
     def prepare(self) -> None:
         for d in (self.raw_chr, self.palettes, self.characters,
@@ -193,6 +201,8 @@ class AssetStore:
         # ★1倍を正本にして、そこから拡大縮小する（指示書 §10.2）
         for name, factor in SCALES.items():
             write_png(scale_nearest(base, factor), d / f"{name}.png")
+            self._exists[(mt.key, name)] = float("inf")     # ★有無キャッシュへ
+            self._paths[(mt.key, name)] = d / f"{name}.png"
         (d / "meta.json").write_text(json.dumps({
             "metatile_key": mt.key,
             "characters": {
@@ -216,12 +226,36 @@ class AssetStore:
 
     # --- 読み出し -------------------------------------------------------
 
+    #: 「無い」を覚えておく秒数。
+    MISSING_TTL = 10.0
+
     def image_path(self, key: str, scale: str = "1x") -> pathlib.Path | None:
-        """描画に使う PNG。⚠ 無ければ None（作らない）。"""
+        """描画に使う PNG。⚠ 無ければ None（作らない）。
+
+        ★有無は `_exists` に覚える（上の注記）。`float("inf")` が「有る」、
+          それ以外は「無いと分かった時刻」。
+        """
         if scale not in SCALES:
             return None
+        cache_key = (key, scale)
+        seen = self._exists.get(cache_key)
+        now = time.monotonic()
+        if seen is not None:
+            if seen == float("inf"):
+                return self._paths[cache_key]      # ★Path の組み立ても省く
+            if now - seen < self.MISSING_TTL:
+                return None
         path = self.metatile_dir(key) / f"{scale}.png"
-        return path if path.exists() else None
+        if path.exists():
+            self._exists[cache_key] = float("inf")
+            self._paths[cache_key] = path
+            return path
+        self._exists[cache_key] = now
+        return None
+
+    def forget_missing(self) -> None:
+        """「無い」の記憶を捨てる（画像を書き足した直後に呼ぶ）。"""
+        self._exists = {k: v for k, v in self._exists.items() if v == float("inf")}
 
     def read_metatile(self, key: str) -> dict | None:
         path = self.metatile_dir(key) / "meta.json"

@@ -99,10 +99,16 @@ class MonsterPalettes:
         """★どのタイルがどのパレットを使うか決められない状態か。"""
         return len(self.low) > 1 or len(self.high) > 1
 
-    def for_layer(self, on_grid: bool) -> tuple[int, int, int] | None:
-        """そのレイヤーで使うパレット（無ければ None）。"""
+    def for_layer(self, on_grid: bool, index: int = 0) -> tuple[int, int, int] | None:
+        """そのレイヤーの `index` 番目のパレット（無ければ None）。
+
+        ★`index` は置き方の先頭バイト bit4-5（`Placement.palette` / RX-0051）。
+        ⚠ 宣言より大きい番号は**無い**ものとして None（推測で先頭へ丸めない）。
+        """
         group = self.high if on_grid else self.low
-        return group[0] if group else None
+        if 0 <= index < len(group):
+            return group[index]
+        return None
 
     def to_json(self) -> dict:
         return {

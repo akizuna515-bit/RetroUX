@@ -25,7 +25,8 @@ def write_command(path: Path | str, *, encountered: Iterable[int],
                   save_slot: int | None = None,
                   tactics_revision: int | None = None,
                   turbo_enabled: bool | None = None,
-                  auto_enabled: bool | None = None) -> None:
+                  auto_enabled: bool | None = None,
+                  force_auto: bool | None = None) -> None:
     """遭遇済みIDと倍率、単発の操作要求を Lua へ渡す。
 
     書き込みは一時ファイル経由の置換で行う。Lua 側が読んでいる最中に
@@ -68,7 +69,9 @@ def write_command(path: Path | str, *, encountered: Iterable[int],
             "tactics_revision", "action", "request_id", "turbo_enabled",
             # ★AUTO と 高速化 は独立した2軸。片方を書いたときに
             #   もう片方を巻き添えで消さないよう、両方とも残す。
-            "auto_enabled")
+            "auto_enabled",
+            # ★強制AUTO（パッドの X 長押し / RX-0082）。⚠ これも独立した軸。
+            "force_auto")
     payload: dict[str, object] = {}
     try:
         existing = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -105,6 +108,10 @@ def write_command(path: Path | str, *, encountered: Iterable[int],
     if auto_enabled is not None:
         # ★AUTO（誰が操作するか）。⚠ 速度とは別の軸なので別のキーで持つ。
         payload["auto_enabled"] = bool(auto_enabled)
+    if force_auto is not None:
+        # ★強制AUTO（安全判定を無視する一時的なスイッチ / RX-0082）。
+        #   ⚠ AUTO とも速度とも別。混ぜると「解除したのに片方だけ残る」が起きる。
+        payload["force_auto"] = bool(force_auto)
     if action is not None:
         payload["action"] = str(action)
         # Lua 側は '"request_id"%s*:%s*(%d+)' で拾うため整数で書く

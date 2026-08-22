@@ -124,6 +124,29 @@ function Stop-Launcher {
     exit $Code
 }
 
+# --- Python の出力（日本語）を受け取る（2026-08-22 / RX-0064）----------
+#
+# ⚠⚠ **PowerShell 5.1 は native exe の出力を [Console]::OutputEncoding で復号する。**
+#   既定は cp932 なので、Python が UTF-8 で書いた日本語が化ける
+#   （実測: 「最終心拍 0.4 秒前」→「譛邨ょｿ・牛 0.4 遘貞燕」）。
+#   ★これまで捕捉していたのは BUSY / FREE（ASCII）だけだったので露見しなかった。
+# ★UTF-8 に切り替えて捕捉し、必ず元へ戻す。
+#   ⚠ コンソールが無い起動（Quiet）では設定できないことがあるので try で包む。
+function Get-PythonText {
+    param([string]$Python, [string[]]$Arguments, [string]$OutFile)
+    # ★Python 側に `--out <file>` で UTF-8 のファイルを書かせ、こちらは
+    #   **エンコーディングを明示して読む**。⚠ 標準出力を経由しない。
+    #   （[Console]::OutputEncoding の差し替えは、コンソールが無い起動で
+    #     効かないことを実測した / 2026-08-22）
+    if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force }
+    & $Python @Arguments "--out" $OutFile 2>$null | Out-Null
+    if (-not (Test-Path -LiteralPath $OutFile)) { return "" }
+    $text = Get-Content -LiteralPath $OutFile -Encoding UTF8 -Raw
+    Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+    if ($null -eq $text) { return "" }
+    return $text.Trim()
+}
+
 # --- 実行ファイルの選び分け（仕様書 4.1）------------------------------
 
 # GUI と常駐処理をどの exe で起動するか。

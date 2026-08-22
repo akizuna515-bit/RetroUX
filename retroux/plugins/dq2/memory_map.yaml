@@ -709,8 +709,9 @@ addresses:
   #     fc5 (map 0B) -> $92BD / 表も $92BD
   #     fc3 (map 59) -> $A48B / fc4 (map 63) -> $A75F
   #
-  # ⚠ ただし**そのデータを展開する手順は日本版では未解読**
-  #   （`docs/rom-analysis-notes.md` 4章）。位置の確認にだけ使う。
+  # ★2026-08-21 訂正（RX-0010）: 以前「展開する手順は日本版では未解読」とあったが、
+  #   2026-08-09 に街・ダンジョン 108/108、08-11 に世界地図を解読済み
+  #   （`docs/map-decoder-evidence.md`）。ここでは位置の確認に使う。
   map_data_pointer:
     addr: 0x0023
     size: 2
@@ -1163,391 +1164,46 @@ spells:
   0x16: { name: Stepguard, mp_field: 4 }
   0x17: { name: Revive,    mp_field: 15 }
 
-# --- モンスターIDの対応表 ---------------------------------------------
-# 逆アセンブル（work/dq2-disasm の MonsterNames テーブル）から抽出。全83種。
-# 敵ID = テーブルindex + 1。実測との照合で確認済み:
-#   $01 = "Slime"    = スライム
-#   $02 = "Big Slug" = おおナメクジ
-# 名前は北米版のため英語。日本語名は実測で確認できたものとボスのみ。
-# ★ボス($4E-$52)は config.yaml の boss_monster_ids に登録済み（DEV-8）。
-monsters:
-  0x01: スライム
-  0x02: おおナメクジ
-  0x03: アイアンアント
-  0x04: ドラキー
-  0x05: やまねずみ
-  0x06: ホイミスライム
-  0x07: ゆうれい
-  0x08: バブルスライム
-  0x09: ぐんたいアり
-  0x0A: まじゅつし
-  0x0B: おおねずみ
-  0x0C: キングコブラ
-  0x0D: ラりホーアント
-  0x0E: タホドラキー
-  0x0F: よろいムカデ
-  0x10: しびれくらげ
-  0x11: りザードフライ
-  0x12: りビングデッド
-  0x13: スモーク
-  0x14: おばけねずみ
-  0x15: マンドりル
-  0x16: マンイーター
-  0x17: かぶとムカデ
-  0x18: うみうし
-  0x19: メドーサボール
-  0x1A: きとうし
-  0x1B: どろにんぎょう
-  0x1C: バブーン
-  0x1D: しにがみ
-  0x1E: グレムりン
-  0x1F: ポイズンキッス
-  0x20: ミイラおとこ
-  0x21: ゴーゴンへッド
-  0x22: サーべルウルフ
-  0x23: ドラゴンフライ
-  0x24: じんめんじゅ
-  0x25: アンデッドマン
-  0x26: バシりスク
-  0x27: マドハンド
-  0x28: オーク
-  0x29: パぺットマン
-  0x2A: マミー
-  0x2B: ウドラー
-  0x2C: ガスト
-  0x2D: くさったしたい
-  0x2E: ホークマン
-  0x2F: ようじゅつし
-  0x30: メタルスライム
-  0x31: くびかりぞく
-  0x32: あくまのめだま
-  0x33: ヒババンゴ
-  0x34: ブラッドハンド
-  0x35: ゴールドオーク
-  0x36: じごくのつかい
-  0x37: グール
-  0x38: バピラス
-  0x39: スカルナイト
-  0x3A: キラータイガー
-  0x3B: メタルハンター
-  0x3C: べビル
-  0x3D: ダークアイ
-  0x3E: ガーゴイル
-  0x3F: オークキング
-  0x40: メイジバピラス
-  0x41: バーサーカー
-  0x42: はぐれメタル
-  0x43: ハーゴンのきし
-  0x44: サイクロプス
-  0x45: キラーマシーン
-  0x46: ドラゴン
-  0x47: あくましんかん
-  0x48: フレイム
-  0x49: シルバーデビル
-  0x4A: ブりザード
-  0x4B: ギガンテス
-  0x4C: デビルロード
-  0x4D: アークデーモン
-  0x4E: アトラス
-  0x4F: バズズ
-  0x50: べりアル
-  0x51: ハーゴン
-  0x52: シドー
-  0x53: まもののむれ
-
-# --- 敵のステータス（ROM 由来 / 2026-07-26）--------------------------
+# --- 敵の表（名前・ステータス・行動・ドロップ・経験値）--------------------
 #
-# 出典: 日本版ROM の PRG 0x13791 から 15バイト × 83 体。
-# 見つけ方と根拠は research/probes/archived/extract_monster_stats.py の説明を参照。
+# ★★ ここには**入っていない**（RX-0090 / 2026-08-21）★★
 #
-# ★北米版逆アセンブルが示す $04:$B7F5 は**日本版では外れた**。
-#   実測（戦闘開始時のHPは最大HPの75〜100%）で総当たりして特定した。
+#   monsters / monster_stats / monster_behavior / action_rates / exp_to_level は
+#   起動のたびに**利用者の ROM から読んで**この表に足される:
+#     読み方（位置・バイト配置）… dq2rom/enemies.py
+#     足す係・キャッシュ        … retroux/core/enemy_tables.py
+#                                 （work/generated/enemy_tables.json）
+#   ★値はゲームのデータそのものなので、配布物に複製を置かない。
+#     ⚠ 2026-07-26〜27 に抽出した静的表と全項目一致することを確かめてから消した
+#     （tests/test_enemy_tables.py）。
+#   ⚠ ROM が無い環境では足されない。図鑑は「データがありません」、
+#     Lua 側は 未知(0x..) と「効くと決めない」耐性扱いに落ちる（以前からの道）。
 #
-# ⚠ gold は「最大」ゴールド。実際のドロップは乱数で減る。
-# ⚠ exp は3か所に散っている値を合成してある（+3 と +8/+9 の上位2ビット）。
+# 残しているのは**構造の知識**（相互運用情報）だけ:
 #
-# --- 耐性と回避率（2026-07-26 / Phase 6 P4-0 で追加）------------------
+# ・敵ID … 0x01〜0x53 の 83 体。★ボス(0x4E-0x52)は config.yaml の boss_monster_ids（DEV-8）。
 #
-# ★以前ここには「耐性・行動パターン・ドロップ品はまだ解読していない」と
-#   書いてあった。**耐性は解読できた**（行動パターンとドロップ品は未解読のまま）。
+# ・耐性（monster_stats.resist の 6 値。0〜7）… 2026-07-26 / Phase 6 P4-0
+#     効くかどうか … rand(0..6) >= 耐性値 なら成功 → **成功率 = (7 - 耐性値) / 7**
+#     0 = 必ず効く / 7 = **絶対に効かない**（完全耐性）
+#     rand が 0..6 であることは乱数ルーチン B04_A020 で確かめた（マスク7、7以上は引き直し）。
+#     ⚠ 逆アセンブルのコメント「between $03 and A」は**誤り**。0 以上 A 未満。
+#   どの呪文がどの耐性を見るか（bank4.asm:6115-6215 の分岐で裏取り）:
+#     0x02 ラリホー -> sleep / 0x04 ザラキ -> defeat / 0x06 マホトーン -> stopspell
+#     0x07 マヌーサ -> surround / 0x08 ルカニ -> defense_down
+#     0x01 ギラ・0x03 ベギラマ・0x05 イオ・0x0E イオナズン -> spell_damage
+#     ⚠ 0x0C メガンテ は**耐性判定を通らない**（ただし敵ID >= 0x4E のボスには無効）
+#   ★裏取り: 公開データ（極限攻略 FC版）と 11体 × 6耐性 = 66項目すべて一致。
 #
-# 出典: work/dq2-disasm/src/us/prg/bank4.asm:5079 の構造体コメント。
-#   同じ15バイトの表の未使用バイトを読むだけで、新しい仮定を足していない。
-#     +1 上位4bit … 回避率（evade）。命中判定は rand(0..63) < evade で回避
-#     +7 bit3-5 … ラリホー耐性 / bit0-2 … 攻撃呪文（ギラ・イオ系）耐性
-#     +8 bit3-5 … ザラキ耐性   / bit0-2 … マホトーン耐性
-#     +9 bit3-5 … ルカニ耐性   / bit0-2 … マヌーサ耐性
+# ・回避率（evade）… 命中判定は rand(0..63) < evade で回避。
+# ・gold は「最大」ゴールド。実際のドロップは乱数で減る。
+# ・exp_to_level … 「そのレベルに到達するのに必要な**累計**経験値」（ROM は増分、足し込む）。
+#   ⚠ ムーンブルクの LV30 以降は表に無い +65536 がコードで加算される。表どおりの値。
 #
-# ★★ 耐性の意味（bank4.asm:6469 の B04_A74A から確定）★★
-#
-#     効くかどうか … rand(0..6) >= 耐性値 なら成功
-#                    -> **成功率 = (7 - 耐性値) / 7**
-#                    -> 0 = 必ず効く / 7 = **絶対に効かない**（完全耐性）
-#
-#   rand が 0..6 であることは乱数ルーチン B04_A020 を追って確かめた
-#   （マスク7を作り、7以上が出たら引き直す）。
-#   ⚠ 逆アセンブルのコメント「between $03 and A」は**誤り**。0 以上 A 未満。
-#
-# どの呪文がどの耐性を見るかは呪文IDの分岐（bank4.asm:6115-6215）で裏が取れている:
-#   0x02 ラリホー -> sleep / 0x04 ザラキ -> defeat / 0x06 マホトーン -> stopspell
-#   0x07 マヌーサ -> surround / 0x08 ルカニ -> defense_down
-#   0x01 ギラ・0x03 ベギラマ・0x05 イオ・0x0E イオナズン -> spell_damage
-#   ⚠ 0x0C メガンテ は**耐性判定を通らない**（ただし敵ID >= 0x4E のボスには無効）
-#
-# ★裏取り: research/probes/archived/probe_resist.py が公開データ（極限攻略 FC版）と突き合わせ、
-#   **11体 × 6耐性 = 66項目すべて一致**することを検査している。
-#   探索に使っていないデータで確かめてある（playbook）。
-#   決定的だったのは メタルスライム/はぐれメタル が全項目 7、
-#   **バズズ の sleep が 3**（ラリホーが効くという定番の戦法と一致）。
-#
-# ⚠ **AI は初遭遇のモンスターにこの知識を使わない**（Phase 6 の決定 P6-3）。
-#   図鑑に載ってから使う。初見体験に手を入れないため。
-monster_stats:
-  0x01: { max_hp: 6, gold: 2, exp: 1, agility: 3, attack: 8, defense: 5, evade: 1, resist: { spell_damage: 0, sleep: 0, stopspell: 7, defeat: 0, defense_down: 0, surround: 0 }, drop: { item: 0x3C, denominator: 128 } }   # スライム
-  0x02: { max_hp: 8, gold: 3, exp: 1, agility: 4, attack: 11, defense: 6, evade: 0, resist: { spell_damage: 0, sleep: 0, stopspell: 7, defeat: 0, defense_down: 0, surround: 0 }, drop: { item: 0x3C, denominator: 32 } }   # おおナメクジ
-  0x03: { max_hp: 5, gold: 4, exp: 2, agility: 4, attack: 13, defense: 13, evade: 1, resist: { spell_damage: 0, sleep: 0, stopspell: 7, defeat: 0, defense_down: 0, surround: 0 }, drop: { item: 0x3C, denominator: 8 } }   # Iron Ant
-  0x04: { max_hp: 9, gold: 3, exp: 2, agility: 5, attack: 14, defense: 10, evade: 0, resist: { spell_damage: 0, sleep: 0, stopspell: 7, defeat: 0, defense_down: 0, surround: 1 }, drop: { item: 0x05, denominator: 32 } }   # Drakee
-  0x05: { max_hp: 10, gold: 5, exp: 3, agility: 7, attack: 14, defense: 11, evade: 1, resist: { spell_damage: 0, sleep: 0, stopspell: 7, defeat: 0, defense_down: 0, surround: 2 }, drop: { item: 0x3C, denominator: 8 } }   # Wild Mouse
-  0x06: { max_hp: 25, gold: 5, exp: 13, agility: 20, attack: 15, defense: 10, evade: 0, resist: { spell_damage: 3, sleep: 3, stopspell: 7, defeat: 1, defense_down: 0, surround: 0 }, drop: { item: 0x33, denominator: 32 } }   # Healer
-  0x07: { max_hp: 12, gold: 6, exp: 4, agility: 8, attack: 18, defense: 10, evade: 2, resist: { spell_damage: 0, sleep: 0, stopspell: 7, defeat: 0, defense_down: 0, surround: 0 }, drop: { item: 0x11, denominator: 16 } }   # Ghost Mouse
-  0x08: { max_hp: 13, gold: 4, exp: 6, agility: 9, attack: 16, defense: 13, evade: 1, resist: { spell_damage: 0, sleep: 1, stopspell: 7, defeat: 0, defense_down: 0, surround: 0 }, drop: { item: 0x06, denominator: 16 } }   # Babble
-  0x09: { max_hp: 13, gold: 2, exp: 4, agility: 8, attack: 19, defense: 13, evade: 0, resist: { spell_damage: 0, sleep: 2, stopspell: 7, defeat: 1, defense_down: 0, surround: 1 }, drop: { item: 0x3C, denominator: 16 } }   # Army Ant
-  0x0A: { max_hp: 15, gold: 10, exp: 8, agility: 11, attack: 17, defense: 11, evade: 0, resist: { spell_damage: 0, sleep: 0, stopspell: 0, defeat: 1, defense_down: 0, surround: 1 }, drop: { item: 0x01, denominator: 8 } }   # Magician
-  0x0B: { max_hp: 16, gold: 5, exp: 6, agility: 15, attack: 19, defense: 11, evade: 2, resist: { spell_damage: 0, sleep: 0, stopspell: 7, defeat: 1, defense_down: 0, surround: 2 }, drop: { item: 0x35, denominator: 16 } }   # Big Rat
-  0x0C: { max_hp: 14, gold: 9, exp: 7, agility: 11, attack: 24, defense: 10, evade: 1, resist: { spell_damage: 0, sleep: 1, stopspell: 7, defeat: 1, defense_down: 0, surround: 2 }, drop: { item: 0x3B, denominator: 8 } }   # キングコブラ
-  0x0D: { max_hp: 14, gold: 8, exp: 18, agility: 20, attack: 18, defense: 13, evade: 1, resist: { spell_damage: 0, sleep: 2, stopspell: 0, defeat: 0, defense_down: 0, surround: 2 }, drop: { item: 0x33, denominator: 8 } }   # Magic Ant
-  0x0E: { max_hp: 20, gold: 10, exp: 10, agility: 30, attack: 14, defense: 10, evade: 1, resist: { spell_damage: 0, sleep: 2, stopspell: 3, defeat: 0, defense_down: 0, surround: 2 }, drop: { item: 0x05, denominator: 16 } }   # Magidrakee
-  0x0F: { max_hp: 21, gold: 30, exp: 11, agility: 13, attack: 25, defense: 40, evade: 0, resist: { spell_damage: 0, sleep: 1, stopspell: 7, defeat: 1, defense_down: 0, surround: 0 }, drop: { item: 0x15, denominator: 16 } }   # よろいムカデ
-  0x10: { max_hp: 20, gold: 50, exp: 15, agility: 12, attack: 28, defense: 16, evade: 0, resist: { spell_damage: 0, sleep: 1, stopspell: 7, defeat: 0, defense_down: 0, surround: 1 }, drop: { item: 0x35, denominator: 32 } }   # Man O' War
-  0x11: { max_hp: 16, gold: 12, exp: 25, agility: 16, attack: 20, defense: 10, evade: 2, resist: { spell_damage: 0, sleep: 2, stopspell: 3, defeat: 1, defense_down: 0, surround: 1 }, drop: { item: 0x33, denominator: 8 } }   # Lizard Fly
-  0x12: { max_hp: 60, gold: 25, exp: 23, agility: 12, attack: 31, defense: 7, evade: 0, resist: { spell_damage: 0, sleep: 7, stopspell: 7, defeat: 7, defense_down: 0, surround: 1 }, drop: { item: 0x15, denominator: 16 } }   # Zombie
-  0x13: { max_hp: 15, gold: 40, exp: 11, agility: 15, attack: 14, defense: 40, evade: 4, resist: { spell_damage: 1, sleep: 2, stopspell: 2, defeat: 1, defense_down: 2, surround: 1 }, drop: { item: 0x11, denominator: 16 } }   # Smoke
-  0x14: { max_hp: 25, gold: 15, exp: 19, agility: 41, attack: 41, defense: 12, evade: 2, resist: { spell_damage: 0, sleep: 1, stopspell: 7, defeat: 0, defense_down: 0, surround: 3 }, drop: { item: 0x3C, denominator: 8 } }   # Ghost Rat
-  0x15: { max_hp: 40, gold: 45, exp: 18, agility: 20, attack: 48, defense: 12, evade: 2, resist: { spell_damage: 0, sleep: 2, stopspell: 7, defeat: 0, defense_down: 0, surround: 2 }, drop: { item: 0x05, denominator: 16 } }   # Baboon
-  0x16: { max_hp: 32, gold: 16, exp: 27, agility: 12, attack: 32, defense: 11, evade: 0, resist: { spell_damage: 0, sleep: 2, stopspell: 7, defeat: 0, defense_down: 0, surround: 7 }, drop: { item: 0x33, denominator: 16 } }   # Carnivog
-  0x17: { max_hp: 20, gold: 25, exp: 30, agility: 13, attack: 39, defense: 110, evade: 1, resist: { spell_damage: 0, sleep: 1, stopspell: 7, defeat: 0, defense_down: 1, surround: 2 }, drop: { item: 0x1C, denominator: 8 } }   # Megapede
-  0x18: { max_hp: 32, gold: 80, exp: 30, agility: 16, attack: 38, defense: 11, evade: 0, resist: { spell_damage: 2, sleep: 5, stopspell: 7, defeat: 3, defense_down: 1, surround: 2 }, drop: { item: 0x06, denominator: 32 } }   # Sea Slug
-  0x19: { max_hp: 42, gold: 29, exp: 32, agility: 22, attack: 35, defense: 13, evade: 2, resist: { spell_damage: 0, sleep: 0, stopspell: 0, defeat: 1, defense_down: 0, surround: 0 }, drop: { item: 0x3B, denominator: 16 } }   # Medusa Ball
-  0x1A: { max_hp: 40, gold: 30, exp: 34, agility: 25, attack: 36, defense: 14, evade: 1, resist: { spell_damage: 1, sleep: 4, stopspell: 2, defeat: 1, defense_down: 1, surround: 1 }, drop: { item: 0x30, denominator: 16 } }   # Enchanter
-  0x1B: { max_hp: 28, gold: 35, exp: 32, agility: 22, attack: 30, defense: 9, evade: 2, resist: { spell_damage: 1, sleep: 7, stopspell: 7, defeat: 2, defense_down: 2, surround: 3 }, drop: { item: 0x34, denominator: 16 } }   # Mud Man
-  0x1C: { max_hp: 45, gold: 45, exp: 38, agility: 18, attack: 45, defense: 12, evade: 1, resist: { spell_damage: 0, sleep: 2, stopspell: 7, defeat: 1, defense_down: 1, surround: 0 }, drop: { item: 0x3C, denominator: 16 } }   # Magic Baboon
-  0x1D: { max_hp: 48, gold: 50, exp: 42, agility: 31, attack: 51, defense: 16, evade: 1, resist: { spell_damage: 2, sleep: 1, stopspell: 7, defeat: 3, defense_down: 1, surround: 2 }, drop: { item: 0x07, denominator: 16 } }   # Demighost
-  0x1E: { max_hp: 60, gold: 23, exp: 52, agility: 30, attack: 57, defense: 20, evade: 1, resist: { spell_damage: 2, sleep: 3, stopspell: 4, defeat: 3, defense_down: 2, surround: 2 }, drop: { item: 0x35, denominator: 16 } }   # Gremlin
-  0x1F: { max_hp: 46, gold: 25, exp: 31, agility: 23, attack: 45, defense: 18, evade: 0, resist: { spell_damage: 2, sleep: 2, stopspell: 7, defeat: 3, defense_down: 1, surround: 3 }, drop: { item: 0x3B, denominator: 16 } }   # Poison Lily
-  0x20: { max_hp: 46, gold: 40, exp: 44, agility: 1, attack: 58, defense: 2, evade: 0, resist: { spell_damage: 0, sleep: 7, stopspell: 7, defeat: 5, defense_down: 2, surround: 2 }, drop: { item: 0x11, denominator: 8 } }   # Mummy Man
-  0x21: { max_hp: 26, gold: 30, exp: 50, agility: 30, attack: 30, defense: 120, evade: 2, resist: { spell_damage: 6, sleep: 1, stopspell: 4, defeat: 3, defense_down: 0, surround: 4 }, drop: { item: 0x34, denominator: 16 } }   # Gorgon
-  0x22: { max_hp: 25, gold: 55, exp: 40, agility: 48, attack: 70, defense: 20, evade: 5, resist: { spell_damage: 0, sleep: 2, stopspell: 7, defeat: 2, defense_down: 2, surround: 3 }, drop: { item: 0x06, denominator: 16 } }   # Saber Tiger
-  0x23: { max_hp: 40, gold: 43, exp: 59, agility: 35, attack: 51, defense: 21, evade: 1, resist: { spell_damage: 0, sleep: 7, stopspell: 7, defeat: 3, defense_down: 1, surround: 0 }, drop: { item: 0x30, denominator: 16 } }   # Dragon Fly
-  0x24: { max_hp: 51, gold: 80, exp: 50, agility: 30, attack: 58, defense: 19, evade: 0, resist: { spell_damage: 0, sleep: 2, stopspell: 7, defeat: 4, defense_down: 3, surround: 3 }, drop: { item: 0x03, denominator: 32 } }   # Titan Tree
-  0x25: { max_hp: 65, gold: 40, exp: 45, agility: 33, attack: 63, defense: 17, evade: 1, resist: { spell_damage: 0, sleep: 2, stopspell: 7, defeat: 7, defense_down: 2, surround: 3 }, drop: { item: 0x33, denominator: 16 } }   # Undead
-  0x26: { max_hp: 38, gold: 58, exp: 41, agility: 41, attack: 75, defense: 25, evade: 2, resist: { spell_damage: 0, sleep: 2, stopspell: 7, defeat: 3, defense_down: 2, surround: 2 }, drop: { item: 0x34, denominator: 16 } }   # Basilisk
-  0x27: { max_hp: 50, gold: 28, exp: 25, agility: 39, attack: 55, defense: 16, evade: 0, resist: { spell_damage: 0, sleep: 7, stopspell: 7, defeat: 4, defense_down: 0, surround: 7 }, drop: { item: 0x3D, denominator: 128 } }   # Goopi
-  0x28: { max_hp: 60, gold: 50, exp: 61, agility: 36, attack: 75, defense: 23, evade: 1, resist: { spell_damage: 1, sleep: 2, stopspell: 7, defeat: 4, defense_down: 1, surround: 1 }, drop: { item: 0x08, denominator: 16 } }   # Orc
-  0x29: { max_hp: 60, gold: 100, exp: 52, agility: 90, attack: 64, defense: 24, evade: 0, resist: { spell_damage: 3, sleep: 6, stopspell: 7, defeat: 7, defense_down: 6, surround: 6 }, drop: { item: 0x3D, denominator: 128 } }   # Puppet Man
-  0x2A: { max_hp: 75, gold: 60, exp: 62, agility: 42, attack: 70, defense: 26, evade: 1, resist: { spell_damage: 4, sleep: 7, stopspell: 7, defeat: 4, defense_down: 3, surround: 4 }, drop: { item: 0x11, denominator: 32 } }   # Mummy
-  0x2B: { max_hp: 63, gold: 45, exp: 67, agility: 45, attack: 72, defense: 27, evade: 1, resist: { spell_damage: 2, sleep: 3, stopspell: 7, defeat: 4, defense_down: 4, surround: 4 }, drop: { item: 0x34, denominator: 8 } }   # Evil Tree
-  0x2C: { max_hp: 50, gold: 30, exp: 39, agility: 45, attack: 60, defense: 80, evade: 1, resist: { spell_damage: 1, sleep: 7, stopspell: 7, defeat: 3, defense_down: 1, surround: 3 }, drop: { item: 0x12, denominator: 32 } }   # Gas
-  0x2D: { max_hp: 95, gold: 51, exp: 61, agility: 34, attack: 59, defense: 10, evade: 0, resist: { spell_damage: 2, sleep: 5, stopspell: 7, defeat: 7, defense_down: 1, surround: 2 }, drop: { item: 0x3D, denominator: 128 } }   # Hork
-  0x2E: { max_hp: 60, gold: 45, exp: 64, agility: 51, attack: 75, defense: 27, evade: 1, resist: { spell_damage: 1, sleep: 2, stopspell: 1, defeat: 2, defense_down: 1, surround: 1 }, drop: { item: 0x2F, denominator: 32 } }   # Hawk Man
-  0x2F: { max_hp: 55, gold: 40, exp: 72, agility: 43, attack: 61, defense: 28, evade: 1, resist: { spell_damage: 1, sleep: 2, stopspell: 2, defeat: 2, defense_down: 2, surround: 2 }, drop: { item: 0x12, denominator: 16 } }   # Sorcerer
-  0x30: { max_hp: 6, gold: 90, exp: 135, agility: 100, attack: 10, defense: 180, evade: 1, resist: { spell_damage: 7, sleep: 7, stopspell: 7, defeat: 7, defense_down: 7, surround: 7 }, drop: { item: 0x22, denominator: 16 } }   # Metal Slime
-  0x31: { max_hp: 65, gold: 45, exp: 67, agility: 70, attack: 82, defense: 25, evade: 1, resist: { spell_damage: 1, sleep: 3, stopspell: 7, defeat: 2, defense_down: 1, surround: 1 }, drop: { item: 0x08, denominator: 16 } }   # Hunter
-  0x32: { max_hp: 50, gold: 25, exp: 92, agility: 55, attack: 77, defense: 30, evade: 0, resist: { spell_damage: 1, sleep: 2, stopspell: 7, defeat: 3, defense_down: 2, surround: 0 }, drop: { item: 0x19, denominator: 32 } }   # Evil Eye
-  0x33: { max_hp: 60, gold: 83, exp: 81, agility: 52, attack: 74, defense: 29, evade: 2, resist: { spell_damage: 0, sleep: 2, stopspell: 1, defeat: 3, defense_down: 2, surround: 4 }, drop: { item: 0x16, denominator: 8 } }   # Hibabango
-  0x34: { max_hp: 60, gold: 30, exp: 38, agility: 49, attack: 72, defense: 24, evade: 0, resist: { spell_damage: 1, sleep: 4, stopspell: 7, defeat: 2, defense_down: 7, surround: 7 }, drop: { item: 0x06, denominator: 8 } }   # Graboopi
-  0x35: { max_hp: 100, gold: 255, exp: 63, agility: 57, attack: 80, defense: 56, evade: 1, resist: { spell_damage: 2, sleep: 2, stopspell: 2, defeat: 5, defense_down: 1, surround: 4 }, drop: { item: 0x30, denominator: 32 } }   # Gold Orc
-  0x36: { max_hp: 67, gold: 48, exp: 84, agility: 75, attack: 73, defense: 28, evade: 1, resist: { spell_damage: 3, sleep: 2, stopspell: 6, defeat: 3, defense_down: 1, surround: 3 }, drop: { item: 0x03, denominator: 16 } }   # Evil Clown
-  0x37: { max_hp: 80, gold: 100, exp: 61, agility: 41, attack: 120, defense: 19, evade: 3, resist: { spell_damage: 2, sleep: 3, stopspell: 0, defeat: 3, defense_down: 1, surround: 1 }, drop: { item: 0x07, denominator: 8 } }   # Ghoul
-  0x38: { max_hp: 57, gold: 49, exp: 85, agility: 48, attack: 75, defense: 25, evade: 1, resist: { spell_damage: 2, sleep: 2, stopspell: 7, defeat: 2, defense_down: 1, surround: 1 }, drop: { item: 0x35, denominator: 16 } }   # Vampirus
-  0x39: { max_hp: 72, gold: 80, exp: 89, agility: 53, attack: 93, defense: 28, evade: 1, resist: { spell_damage: 2, sleep: 3, stopspell: 3, defeat: 4, defense_down: 1, surround: 3 }, drop: { item: 0x1F, denominator: 128 } }   # Mega Knight
-  0x3A: { max_hp: 80, gold: 55, exp: 81, agility: 71, attack: 95, defense: 76, evade: 1, resist: { spell_damage: 4, sleep: 7, stopspell: 7, defeat: 2, defense_down: 0, surround: 2 }, drop: { item: 0x08, denominator: 16 } }   # Saber Lion
-  0x3B: { max_hp: 70, gold: 150, exp: 82, agility: 61, attack: 55, defense: 80, evade: 1, resist: { spell_damage: 4, sleep: 3, stopspell: 7, defeat: 5, defense_down: 0, surround: 1 }, drop: { item: 0x0A, denominator: 16 } }   # Metal Hunter
-  0x3C: { max_hp: 69, gold: 105, exp: 99, agility: 57, attack: 80, defense: 31, evade: 2, resist: { spell_damage: 3, sleep: 3, stopspell: 3, defeat: 4, defense_down: 3, surround: 3 }, drop: { item: 0x2F, denominator: 16 } }   # Ozwarg
-  0x3D: { max_hp: 67, gold: 81, exp: 63, agility: 55, attack: 74, defense: 22, evade: 0, resist: { spell_damage: 4, sleep: 7, stopspell: 7, defeat: 2, defense_down: 4, surround: 5 }, drop: { item: 0x1F, denominator: 32 } }   # Dark Eye
-  0x3E: { max_hp: 60, gold: 95, exp: 71, agility: 64, attack: 85, defense: 31, evade: 1, resist: { spell_damage: 0, sleep: 1, stopspell: 2, defeat: 3, defense_down: 2, surround: 3 }, drop: { item: 0x22, denominator: 8 } }   # Gargoyle
-  0x3F: { max_hp: 110, gold: 135, exp: 99, agility: 60, attack: 99, defense: 35, evade: 1, resist: { spell_damage: 2, sleep: 2, stopspell: 3, defeat: 4, defense_down: 2, surround: 2 }, drop: { item: 0x33, denominator: 8 } }   # Orc King
-  0x40: { max_hp: 65, gold: 103, exp: 101, agility: 79, attack: 77, defense: 21, evade: 1, resist: { spell_damage: 2, sleep: 5, stopspell: 7, defeat: 3, defense_down: 2, surround: 2 }, drop: { item: 0x21, denominator: 128 } }   # Magic Vampirus
-  0x41: { max_hp: 88, gold: 123, exp: 97, agility: 65, attack: 119, defense: 23, evade: 2, resist: { spell_damage: 0, sleep: 4, stopspell: 7, defeat: 4, defense_down: 2, surround: 2 }, drop: { item: 0x0B, denominator: 16 } }   # Berserker
-  0x42: { max_hp: 35, gold: 255, exp: 1050, agility: 200, attack: 75, defense: 255, evade: 0, resist: { spell_damage: 7, sleep: 7, stopspell: 7, defeat: 7, defense_down: 7, surround: 7 }, drop: { item: 0x31, denominator: 8 } }   # Metal Babble
-  0x43: { max_hp: 80, gold: 135, exp: 121, agility: 71, attack: 125, defense: 36, evade: 8, resist: { spell_damage: 1, sleep: 7, stopspell: 3, defeat: 5, defense_down: 2, surround: 3 }, drop: { item: 0x10, denominator: 128 } }   # Hargon's Knight
-  0x44: { max_hp: 115, gold: 99, exp: 188, agility: 63, attack: 121, defense: 32, evade: 4, resist: { spell_damage: 0, sleep: 3, stopspell: 7, defeat: 2, defense_down: 3, surround: 1 }, drop: { item: 0x30, denominator: 32 } }   # Cyclops
-  0x45: { max_hp: 120, gold: 120, exp: 523, agility: 90, attack: 115, defense: 230, evade: 0, resist: { spell_damage: 7, sleep: 7, stopspell: 7, defeat: 7, defense_down: 0, surround: 2 }, drop: { item: 0x1E, denominator: 16 } }   # Attackbot
-  0x46: { max_hp: 95, gold: 147, exp: 237, agility: 69, attack: 130, defense: 56, evade: 5, resist: { spell_damage: 3, sleep: 7, stopspell: 7, defeat: 6, defense_down: 3, surround: 3 }, drop: { item: 0x0C, denominator: 32 } }   # Green Dragon
-  0x47: { max_hp: 158, gold: 100, exp: 317, agility: 140, attack: 92, defense: 38, evade: 5, resist: { spell_damage: 3, sleep: 7, stopspell: 7, defeat: 7, defense_down: 1, surround: 4 }, drop: { item: 0x04, denominator: 32 } }   # Mace Master
-  0x48: { max_hp: 55, gold: 101, exp: 185, agility: 78, attack: 99, defense: 32, evade: 0, resist: { spell_damage: 7, sleep: 2, stopspell: 7, defeat: 2, defense_down: 2, surround: 5 }, drop: { item: 0x18, denominator: 32 } }   # Flame
-  0x49: { max_hp: 89, gold: 96, exp: 211, agility: 90, attack: 92, defense: 35, evade: 5, resist: { spell_damage: 1, sleep: 7, stopspell: 7, defeat: 4, defense_down: 2, surround: 4 }, drop: { item: 0x0D, denominator: 16 } }   # Silver Batboon
-  0x4A: { max_hp: 90, gold: 113, exp: 253, agility: 85, attack: 111, defense: 33, evade: 4, resist: { spell_damage: 2, sleep: 6, stopspell: 7, defeat: 3, defense_down: 3, surround: 2 }, drop: { item: 0x03, denominator: 16 } }   # Blizzard
-  0x4B: { max_hp: 155, gold: 95, exp: 278, agility: 100, attack: 145, defense: 41, evade: 1, resist: { spell_damage: 2, sleep: 7, stopspell: 7, defeat: 6, defense_down: 2, surround: 2 }, drop: { item: 0x0C, denominator: 8 } }   # Giant
-  0x4C: { max_hp: 112, gold: 100, exp: 315, agility: 110, attack: 108, defense: 39, evade: 6, resist: { spell_damage: 3, sleep: 6, stopspell: 2, defeat: 6, defense_down: 2, surround: 2 }, drop: { item: 0x17, denominator: 32 } }   # Gold Batboon
-  0x4D: { max_hp: 210, gold: 110, exp: 712, agility: 150, attack: 140, defense: 80, evade: 7, resist: { spell_damage: 4, sleep: 4, stopspell: 7, defeat: 6, defense_down: 2, surround: 2 }, drop: { item: 0x3D, denominator: 32 } }   # Bullwong
-  0x4E: { max_hp: 250, gold: 250, exp: 1100, agility: 63, attack: 195, defense: 200, evade: 7, resist: { spell_damage: 7, sleep: 7, stopspell: 7, defeat: 7, defense_down: 2, surround: 2 }, drop: { item: 0x0C, denominator: 128 } }   # アトラス
-  0x4F: { max_hp: 250, gold: 240, exp: 1530, agility: 75, attack: 127, defense: 160, evade: 7, resist: { spell_damage: 4, sleep: 3, stopspell: 7, defeat: 7, defense_down: 4, surround: 6 }, drop: { item: 0x21, denominator: 128 } }   # バズズ
-  0x50: { max_hp: 250, gold: 255, exp: 2200, agility: 120, attack: 200, defense: 220, evade: 0, resist: { spell_damage: 5, sleep: 5, stopspell: 7, defeat: 6, defense_down: 0, surround: 0 }, drop: { item: 0x04, denominator: 16 } }   # ベリアル
-  0x51: { max_hp: 230, gold: 0, exp: 0, agility: 150, attack: 180, defense: 187, evade: 0, resist: { spell_damage: 3, sleep: 7, stopspell: 4, defeat: 7, defense_down: 7, surround: 7 } }   # ハーゴン
-  0x52: { max_hp: 250, gold: 0, exp: 0, agility: 110, attack: 255, defense: 255, evade: 7, resist: { spell_damage: 7, sleep: 7, stopspell: 7, defeat: 7, defense_down: 2, surround: 4 } }   # シドー
-  0x53: { max_hp: 12, gold: 20, exp: 512, agility: 40, attack: 0, defense: 68, evade: 0, resist: { spell_damage: 0, sleep: 0, stopspell: 4, defeat: 1, defense_down: 0, surround: 0 } }   # Enemies
-
-# --- レベルアップに必要な経験値（ROM 由来 / 2026-07-26）--------------
-#
-# 出典: 日本版ROM の PRG 0x13C5F。北米版逆アセンブルの ExpNeeded と
-# **バイト列が完全一致**したので、位置はそれで特定した。
-# 見つけ方は research/probes/archived/extract_exp_table.py の説明を参照。
-#
-# ★値は「そのレベルに到達するのに必要な**累計**経験値」。
-#   ROM の表は増分なので、ここで足し込んである。
-# ⚠ ムーンブルクの LV30 以降は表に無い +65536 が加算される（ROM のコード）。
-#   ここでは表どおりの値を入れてある。LV30 以降を扱うときは注意。
-exp_to_level:
-  lorasia:
-    2: 12
-    3: 32
-    4: 72
-    5: 140
-    6: 280
-    7: 560
-    8: 1000
-    9: 1800
-    10: 2800
-    11: 3900
-    12: 5300
-    13: 7600
-    14: 10000
-    15: 13000
-    16: 17000
-    17: 21000
-    18: 26000
-    19: 32000
-    20: 40000
-    21: 50000
-    22: 62000
-    23: 75000
-    24: 90000
-    25: 107000
-    26: 127000
-    27: 150000
-    28: 175000
-    29: 200000
-    30: 230000
-    31: 260000
-    32: 290000
-    33: 320000
-    34: 350000
-    35: 380000
-    36: 410000
-    37: 440000
-    38: 470000
-    39: 500000
-    40: 530000
-    41: 570000
-    42: 620000
-    43: 670000
-    44: 720000
-    45: 770000
-    46: 820000
-    47: 870000
-    48: 920000
-    49: 970000
-    50: 1000000
-  samaltria:
-    2: 24
-    3: 60
-    4: 110
-    5: 200
-    6: 380
-    7: 700
-    8: 1300
-    9: 2400
-    10: 4000
-    11: 6000
-    12: 8200
-    13: 11000
-    14: 15000
-    15: 19000
-    16: 24000
-    17: 30000
-    18: 37000
-    19: 46000
-    20: 57000
-    21: 70000
-    22: 85000
-    23: 100000
-    24: 116000
-    25: 134000
-    26: 156000
-    27: 182000
-    28: 210000
-    29: 240000
-    30: 280000
-    31: 310000
-    32: 340000
-    33: 380000
-    34: 430000
-    35: 480000
-    36: 520000
-    37: 580000
-    38: 640000
-    39: 700000
-    40: 760000
-    41: 820000
-    42: 840000
-    43: 900000
-    44: 960000
-    45: 1000000
-    46: 1000100
-    47: 1000300
-    48: 1000600
-    49: 1001200
-    50: 1002400
-  moonbrooke:
-    2: 100
-    3: 300
-    4: 600
-    5: 1200
-    6: 2400
-    7: 4200
-    8: 6400
-    9: 9000
-    10: 12000
-    11: 16000
-    12: 20000
-    13: 25000
-    14: 31000
-    15: 39000
-    16: 50000
-    17: 65000
-    18: 83000
-    19: 103000
-    20: 125000
-    21: 150000
-    22: 180000
-    23: 220000
-    24: 270000
-    25: 300000
-    26: 330000
-    27: 360000
-    28: 400000
-    29: 450000
-    30: 474464
-    31: 498928
-    32: 533392
-    33: 557856
-    34: 582320
-    35: 606784
-    36: 607813
-    37: 607841
-    38: 608869
-    39: 610436
-    40: 616070
-    41: 623270
-    42: 660167
-    43: 673994
-    44: 673998
-    45: 686368
-    46: 691522
-    47: 713794
-    48: 746642
-    49: 759460
-    50: 761782
+# ★AI は初遭遇のモンスターにもこの知識を使う（2026-08-22 / RX-0096）。
+#   ⚠ ここには「使わない（P6-3）」と書いてあったが、実装は最初から使っていた。
+#   依頼者の判断で B案（常に使う）に決め、文書を実装に合わせた。初遭遇の戦闘は
+#   そもそも等速＋手動なので、効くのは「2体目以降に初遭遇が混ざる戦闘」だけ。
 
 # --- 敵の行動（2026-07-27 / モンスター図鑑の作り直しで追加）------------
 #
@@ -1608,103 +1264,11 @@ monster_actions:
   0x1E: 選び直し   # ★有効な行動ではない（選び直し）
   0x1F: 不思議な踊り
 
-# 賢さごとの「枠が選ばれる確率」（%）。8枠ぶん。
-# 出典: ROM の28バイト表（PRG 0x1329B / 逆アセンブル bank4.asm:8501 と完全一致）。
-#   表の値は「しきい値」で、確率はそこから導いた:
+# ★action_rates（賢さごとの8枠の確率）も ROM から読む（PRG の 28 バイトのしきい値表）:
 #     P(枠0) = (表[0]+1)/256 / P(枠i) = (表[i]-表[i-1])/256 / P(枠7) = (255-表[6])/256
-# ★賢さが高いほど枠0（いちばん強い手）に寄る。名前と挙動が一致している。
-action_rates:
-  0: [12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5]
-  1: [14.84, 15.23, 12.89, 13.28, 11.72, 11.72, 10.16, 10.16]
-  2: [17.97, 16.41, 14.84, 13.28, 11.72, 10.16, 8.594, 7.031]
-  3: [39.06, 19.53, 10.94, 9.375, 7.422, 5.859, 4.688, 3.125]
-
-# 各敵の「賢さ」と「8枠の行動」（値は monster_actions のキー）。
-# ⚠ 表示する確率は action_rates と組み合わせ、**0x1E を除いて正規化**して出す。
-monster_behavior:
-  0x01: { wisdom: 1, actions: [0x05, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00] }
-  0x02: { wisdom: 0, actions: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] }
-  0x03: { wisdom: 0, actions: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] }
-  0x04: { wisdom: 1, actions: [0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] }
-  0x05: { wisdom: 2, actions: [0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x05] }
-  0x06: { wisdom: 1, actions: [0x0C, 0x0C, 0x0C, 0x0C, 0x00, 0x0C, 0x0C, 0x0C] }
-  0x07: { wisdom: 0, actions: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] }
-  0x08: { wisdom: 0, actions: [0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x1E] }
-  0x09: { wisdom: 1, actions: [0x00, 0x00, 0x1C, 0x00, 0x00, 0x00, 0x1C, 0x1C] }
-  0x0A: { wisdom: 1, actions: [0x05, 0x06, 0x00, 0x06, 0x00, 0x06, 0x00, 0x05] }
-  0x0B: { wisdom: 2, actions: [0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x1E] }
-  0x0C: { wisdom: 1, actions: [0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00] }
-  0x0D: { wisdom: 1, actions: [0x12, 0x12, 0x12, 0x00, 0x00, 0x00, 0x00, 0x1E] }
-  0x0E: { wisdom: 1, actions: [0x10, 0x10, 0x10, 0x10, 0x10, 0x00, 0x00, 0x00] }
-  0x0F: { wisdom: 0, actions: [0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00] }
-  0x10: { wisdom: 0, actions: [0x03, 0x03, 0x03, 0x00, 0x03, 0x00, 0x00, 0x00] }
-  0x11: { wisdom: 1, actions: [0x06, 0x06, 0x00, 0x06, 0x00, 0x00, 0x06, 0x00] }
-  0x12: { wisdom: 1, actions: [0x00, 0x00, 0x14, 0x00, 0x00, 0x04, 0x04, 0x1E] }
-  0x13: { wisdom: 2, actions: [0x13, 0x13, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00] }
-  0x14: { wisdom: 3, actions: [0x05, 0x00, 0x1C, 0x00, 0x1C, 0x00, 0x00, 0x05] }
-  0x15: { wisdom: 2, actions: [0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05] }
-  0x16: { wisdom: 1, actions: [0x1B, 0x00, 0x1B, 0x00, 0x1B, 0x00, 0x00, 0x00] }
-  0x17: { wisdom: 1, actions: [0x00, 0x00, 0x00, 0x02, 0x00, 0x05, 0x01, 0x05] }
-  0x18: { wisdom: 1, actions: [0x1B, 0x00, 0x02, 0x03, 0x1C, 0x05, 0x01, 0x05] }
-  0x19: { wisdom: 0, actions: [0x12, 0x1D, 0x1D, 0x12, 0x00, 0x00, 0x00, 0x00] }
-  0x1A: { wisdom: 2, actions: [0x13, 0x06, 0x06, 0x06, 0x05, 0x00, 0x12, 0x11] }
-  0x1B: { wisdom: 1, actions: [0x00, 0x00, 0x00, 0x00, 0x00, 0x1F, 0x1F, 0x00] }
-  0x1C: { wisdom: 1, actions: [0x05, 0x00, 0x00, 0x00, 0x1C, 0x00, 0x00, 0x1C] }
-  0x1D: { wisdom: 2, actions: [0x00, 0x00, 0x1D, 0x00, 0x00, 0x01, 0x01, 0x00] }
-  0x1E: { wisdom: 2, actions: [0x12, 0x00, 0x09, 0x00, 0x17, 0x00, 0x09, 0x05] }
-  0x1F: { wisdom: 1, actions: [0x1A, 0x02, 0x1A, 0x02, 0x00, 0x02, 0x1A, 0x02] }
-  0x20: { wisdom: 1, actions: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] }
-  0x21: { wisdom: 2, actions: [0x14, 0x00, 0x11, 0x14, 0x11, 0x10, 0x14, 0x12] }
-  0x22: { wisdom: 2, actions: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1D, 0x01] }
-  0x23: { wisdom: 1, actions: [0x17, 0x17, 0x17, 0x17, 0x17, 0x00, 0x00, 0x05] }
-  0x24: { wisdom: 1, actions: [0x00, 0x05, 0x1F, 0x00, 0x00, 0x00, 0x00, 0x05] }
-  0x25: { wisdom: 0, actions: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1E] }
-  0x26: { wisdom: 2, actions: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x05] }
-  0x27: { wisdom: 0, actions: [0x1C, 0x1C, 0x00, 0x1C, 0x00, 0x1C, 0x00, 0x1C] }
-  0x28: { wisdom: 1, actions: [0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05] }
-  0x29: { wisdom: 0, actions: [0x11, 0x11, 0x11, 0x1F, 0x1F, 0x1F, 0x1F, 0x11] }
-  0x2A: { wisdom: 2, actions: [0x05, 0x03, 0x00, 0x03, 0x00, 0x00, 0x00, 0x1E] }
-  0x2B: { wisdom: 2, actions: [0x00, 0x13, 0x00, 0x1F, 0x13, 0x00, 0x1F, 0x05] }
-  0x2C: { wisdom: 2, actions: [0x12, 0x13, 0x00, 0x14, 0x13, 0x12, 0x00, 0x14] }
-  0x2D: { wisdom: 0, actions: [0x02, 0x00, 0x1B, 0x00, 0x02, 0x1B, 0x02, 0x1E] }
-  0x2E: { wisdom: 2, actions: [0x05, 0x00, 0x13, 0x00, 0x00, 0x00, 0x09, 0x05] }
-  0x2F: { wisdom: 2, actions: [0x07, 0x13, 0x07, 0x00, 0x00, 0x07, 0x11, 0x05] }
-  0x30: { wisdom: 1, actions: [0x05, 0x06, 0x06, 0x06, 0x12, 0x05, 0x05, 0x05] }
-  0x31: { wisdom: 1, actions: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05] }
-  0x32: { wisdom: 1, actions: [0x1B, 0x00, 0x1B, 0x00, 0x1F, 0x1F, 0x00, 0x00] }
-  0x33: { wisdom: 2, actions: [0x00, 0x00, 0x14, 0x00, 0x10, 0x00, 0x10, 0x01] }
-  0x34: { wisdom: 2, actions: [0x1C, 0x1C, 0x00, 0x00, 0x00, 0x05, 0x05, 0x1E] }
-  0x35: { wisdom: 2, actions: [0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05] }
-  0x36: { wisdom: 2, actions: [0x0E, 0x07, 0x0E, 0x07, 0x11, 0x00, 0x10, 0x05] }
-  0x37: { wisdom: 2, actions: [0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x00] }
-  0x38: { wisdom: 1, actions: [0x1D, 0x1D, 0x00, 0x1D, 0x00, 0x00, 0x1C, 0x00] }
-  0x39: { wisdom: 2, actions: [0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x10] }
-  0x3A: { wisdom: 0, actions: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1E] }
-  0x3B: { wisdom: 3, actions: [0x1D, 0x1D, 0x1D, 0x01, 0x01, 0x00, 0x00, 0x00] }
-  0x3C: { wisdom: 2, actions: [0x0A, 0x00, 0x07, 0x00, 0x17, 0x13, 0x12, 0x1C] }
-  0x3D: { wisdom: 2, actions: [0x1B, 0x14, 0x14, 0x00, 0x1B, 0x00, 0x1F, 0x1F] }
-  0x3E: { wisdom: 2, actions: [0x13, 0x00, 0x00, 0x00, 0x13, 0x00, 0x13, 0x00] }
-  0x3F: { wisdom: 3, actions: [0x00, 0x0D, 0x0D, 0x0D, 0x0A, 0x0A, 0x00, 0x00] }
-  0x40: { wisdom: 2, actions: [0x10, 0x12, 0x17, 0x10, 0x12, 0x17, 0x10, 0x12] }
-  0x41: { wisdom: 2, actions: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1E] }
-  0x42: { wisdom: 0, actions: [0x07, 0x07, 0x07, 0x14, 0x05, 0x05, 0x05, 0x05] }
-  0x43: { wisdom: 2, actions: [0x0A, 0x1D, 0x00, 0x10, 0x00, 0x10, 0x01, 0x00] }
-  0x44: { wisdom: 1, actions: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x05] }
-  0x45: { wisdom: 3, actions: [0x1D, 0x1D, 0x1D, 0x1D, 0x01, 0x01, 0x1D, 0x01] }
-  0x46: { wisdom: 3, actions: [0x18, 0x18, 0x00, 0x00, 0x18, 0x18, 0x00, 0x17] }
-  0x47: { wisdom: 2, actions: [0x0F, 0x0F, 0x08, 0x0F, 0x10, 0x08, 0x11, 0x15] }
-  0x48: { wisdom: 2, actions: [0x18, 0x18, 0x18, 0x1C, 0x1C, 0x18, 0x1C, 0x18] }
-  0x49: { wisdom: 2, actions: [0x0B, 0x07, 0x07, 0x1B, 0x07, 0x1B, 0x0B, 0x1B] }
-  0x4A: { wisdom: 0, actions: [0x15, 0x10, 0x10, 0x15, 0x10, 0x15, 0x10, 0x15] }
-  0x4B: { wisdom: 0, actions: [0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x01] }
-  0x4C: { wisdom: 2, actions: [0x16, 0x00, 0x07, 0x07, 0x18, 0x1B, 0x00, 0x1B] }
-  0x4D: { wisdom: 1, actions: [0x08, 0x08, 0x18, 0x1D, 0x08, 0x08, 0x18, 0x1D] }
-  0x4E: { wisdom: 0, actions: [0x1D, 0x1D, 0x1D, 0x1D, 0x1D, 0x1D, 0x1D, 0x1E] }
-  0x4F: { wisdom: 2, actions: [0x16, 0x08, 0x15, 0x07, 0x12, 0x15, 0x1D, 0x0B] }
-  0x50: { wisdom: 2, actions: [0x0B, 0x0B, 0x08, 0x08, 0x18, 0x18, 0x1D, 0x11] }
-  0x51: { wisdom: 3, actions: [0x0B, 0x0B, 0x0B, 0x08, 0x08, 0x12, 0x1B, 0x1D] }
-  0x52: { wisdom: 0, actions: [0x19, 0x0B, 0x19, 0x03, 0x0B, 0x03, 0x19, 0x19] }
-  0x53: { wisdom: 0, actions: [0x01, 0x08, 0x00, 0x01, 0x0B, 0x18, 0x00, 0x01] }
+#   賢さが高いほど枠0（いちばん強い手）に寄る。
+# ★monster_behavior（各敵の賢さと8枠の行動）も同様。表示は action_rates と組み合わせ、
+#   **0x1E を除いて正規化**して出す。
 
 # --- 文字コード表（2026-07-29 に解読）----------------------------------
 #

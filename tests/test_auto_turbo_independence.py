@@ -220,3 +220,67 @@ def test_the_next_click_after_a_hotkey_change_still_reaches_lua(app):
     assert stub.written == [("auto", False)]
     stub._auto_button.setChecked(True)
     assert stub.clicks == [("auto", True)]
+
+
+# --- X 長押しの配線: 一時ターボは「押す前」へ戻す（RX-0082 / 2026-08-22）--------
+#
+# ★指示書 260822_AHK §7 のケース1・2。
+# ⚠ 離したときに Turbo を OFF 固定にすると、押す前 ON だった人の設定を壊す。
+
+class _HoldStub:
+    """`_begin_force_auto` / `_end_force_auto` が触るものだけを持つ入れ物。"""
+
+    _begin_force_auto = MainWindow._begin_force_auto
+    _end_force_auto = MainWindow._end_force_auto
+
+    def __init__(self, turbo: bool) -> None:
+        self._turbo_button = QPushButton()
+        self._turbo_button.setCheckable(True)
+        self._turbo_button.setChecked(turbo)
+        self._turbo_before_hold = None
+        self.sent: list = []
+        self.commands = types.SimpleNamespace(
+            set_force_auto=lambda on: self.sent.append(on) or None)
+
+    def _gamepad_command(self, label, func, *args):
+        func(*args)
+
+
+def test_押す前がOFFなら離してOFFへ戻る(app):
+    s = _HoldStub(turbo=False)
+    s._begin_force_auto()
+    assert s.sent == [True]
+    assert s._turbo_button.isChecked() is True, "★一時ターボが入る"
+    s._end_force_auto()
+    assert s.sent == [True, False]
+    assert s._turbo_button.isChecked() is False, "★押す前（OFF）へ戻る"
+
+
+def test_押す前がONなら離してONのまま(app):
+    """⚠⚠ ここが本題。OFF 固定にすると利用者の設定を壊す（§7 ケース2）。"""
+    s = _HoldStub(turbo=True)
+    s._begin_force_auto()
+    assert s._turbo_button.isChecked() is True
+    s._end_force_auto()
+    assert s._turbo_button.isChecked() is True, "★ON のままでなければならない"
+
+
+def test_二重に入らない(app):
+    """★BEGIN が2回来ても、控えた「押す前」を上書きしない。"""
+    s = _HoldStub(turbo=True)
+    s._begin_force_auto()
+    s._turbo_button.setChecked(False)          # ⚠ 途中で誰かが変えた体
+    s._begin_force_auto()                      # ★2回目は無視される
+    assert s.sent == [True]
+    s._end_force_auto()
+    assert s._turbo_button.isChecked() is True, "★最初に控えた ON へ戻る"
+
+
+def test_離した記録が残らない(app):
+    """⚠ END のあとに控えを残すと、次の BEGIN が二重扱いになる。"""
+    s = _HoldStub(turbo=False)
+    s._begin_force_auto()
+    s._end_force_auto()
+    assert s._turbo_before_hold is None
+    s._begin_force_auto()                      # ★もう一度入れる
+    assert s.sent == [True, False, True]

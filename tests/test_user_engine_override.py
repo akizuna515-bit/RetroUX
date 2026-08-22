@@ -101,3 +101,27 @@ def test_生成に組み込まれている():
               / "generate_lua.py").read_bytes().decode("utf-8")
     assert "data = _apply_user_overrides(data)" in source, (
         "⚠⚠ 上書きを生成に組み込んでいません")
+
+
+def test_生成に組み込まれているの挙動(tmp_path, monkeypatch):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    ★`generate_lua.main()` を**そのまま**（出力先だけ tmp に向けて）回し、
+      `user_config.yaml` の `battle.engine` が出来上がった `config.lua` の
+      `auto_input.engine` に入ることを見ます。
+    ⚠ 同梱の既定が layered なので、上書きは **legacy** で試します
+      （既定と同じ値では「効いた」のか「元からそう」なのか分かりません）。
+    """
+    out_dir = tmp_path / "generated"
+    (tmp_path / "user_config.yaml").write_text(
+        "battle:\n  engine: legacy\n", encoding="utf-8")
+    monkeypatch.setattr(generate_lua, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(generate_lua, "OUT_DIR", out_dir)
+
+    assert generate_lua.main() == 0
+
+    body = (out_dir / "config.lua").read_bytes().decode("utf-8")
+    block = body.split("auto_input = {")[1]
+    assert 'engine = "legacy"' in block[:4000], block[:600]
+    assert 'engine = "layered"' not in block[:4000], (
+        "⚠⚠ user_config.yaml の上書きが生成物に届いていません")

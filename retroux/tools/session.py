@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import argparse
+import pathlib
 import sys
 
 from ..core.config import user_config as user_config_mod
@@ -33,13 +34,34 @@ _LOCKS = {
 }
 
 
-def status(config: str | None, what: str = "ingest") -> int:
-    """その役目のプロセスが動いていれば BUSY、いなければ FREE を出す。"""
+def status(config: str | None, what: str = "ingest", who: bool = False,
+           out: str | None = None) -> int:
+    """その役目のプロセスが動いていれば BUSY、いなければ FREE を出す。
+
+    ★`who=True` なら**代わりに**「誰が握っているか」の1行を出す（RX-0064）。
+      ⚠ BUSY/FREE の行に足さない。起動スクリプトが**丸ごと文字列比較**しているので、
+        1文字でも増やすと判定が壊れる（★実際にそういう作りになっている）。
+    """
     cfg, warnings = user_config_mod.load(config)
     for warning in warnings:
         print(f"警告: {warning}", file=sys.stderr)
-    busy = RecorderLock(cfg.path(_LOCKS[what])).is_active()
-    print("BUSY" if busy else "FREE")
+    lock = RecorderLock(cfg.path(_LOCKS[what]))
+    if who:
+        said = lock.holder().describe()
+        if out:
+            # ★★ ⚠⚠ **日本語は標準出力で渡さない**（2026-08-22 実測 / RX-0064）★★
+            #   PowerShell 5.1 は native exe の出力を `[Console]::OutputEncoding`
+            #   （既定 cp932）で復号するので、UTF-8 の日本語が化ける
+            #   （「最終心拍 0.4 秒前」→「譛邨ょｿ・牛 0.4 遘貞燕」）。
+            #   ★`[Console]::OutputEncoding` の差し替えはコンソールが無い起動で
+            #     効かないことがあった（実測）。**ファイル経由が確実**。
+            path = pathlib.Path(out)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(said, encoding="utf-8")
+            return 0
+        print(said)
+        return 0
+    print("BUSY" if lock.is_active() else "FREE")
     return 0
 
 
@@ -79,10 +101,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--what", choices=sorted(_LOCKS), default="ingest",
                         help="status で見る役目（既定: ingest）")
     parser.add_argument("--config", default=None, help="user_config.yaml のパス")
+    # ★誰が握っているか（RX-0064）。⚠ BUSY/FREE とは**別の出力**にする
+    parser.add_argument("--who", action="store_true",
+                        help="BUSY/FREE の代わりに、握っている相手を1行で出す")
+    # ★日本語は標準出力に出さずファイルへ（PowerShell の復号が cp932 のため）
+    parser.add_argument("--out", default=None,
+                        help="--who の結果を UTF-8 でこのファイルへ書く（標準出力に出さない）")
     args = parser.parse_args(argv)
 
     if args.command == "status":
-        return status(args.config, args.what)
+        return status(args.config, args.what, who=args.who, out=args.out)
     return rotate_log(args.config)
 
 

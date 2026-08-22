@@ -29,7 +29,8 @@ import pytest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from retroux.tools.map_passability import (  # noqa: E402
-    SOLID_CLASS, WORLD_MAP_ID, attribute, build, classify)
+    SOLID_FLOOR, SWAMP_BLOCKED_MAPS, SWAMP_CLASS, WATER_CLASS, WORLD_MAP_ID,
+    attribute, build, classify)
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 ROM = PROJECT_ROOT / "work" / "rom" / "DQ2_J.nes"
@@ -50,8 +51,12 @@ def data(prg):
 
 # --- 1. 作りの検査 --------------------------------------------------------
 
-def test_通れない地形は上位ニブルが0xF(data, prg):
-    """★規則どおりに出来ているか。"""
+def test_通れない地形は実コードの規則どおり(data, prg):
+    """★規則どおりに出来ているか（2026-08-21 / RX-0032 で因果を確定した規則）。
+
+    徒歩: 上位ニブル >= 0xB は不可 / 0xA は 3 マップ（湖の洞窟 B1/B2・$40）だけ不可 /
+          0x4 は水（船が要る）/ それ以外は可。★JP $D1CE〜$D211 の写し。
+    """
     from retroux.core.bgmap.dungeon_map import CHEST_TERRAIN, DOOR_TERRAINS
 
     dynamic = set(DOOR_TERRAINS) | {CHEST_TERRAIN}
@@ -63,24 +68,44 @@ def test_通れない地形は上位ニブルが0xF(data, prg):
             attr = attribute(prg, m["map_id"], c["terrain_id"])
             if attr is None:
                 continue
-            solid = (attr & 0xF0) == SOLID_CLASS
-            if solid != (c["terrain_type"] == "blocked"):
+            cls = attr & 0xF0
+            if cls >= SOLID_FLOOR:
+                want = "blocked"
+            elif cls == SWAMP_CLASS:
+                want = "blocked" if m["map_id"] in SWAMP_BLOCKED_MAPS else "walk"
+            elif cls == WATER_CLASS:
+                want = "water"
+            else:
+                want = "walk"
+            if want != c["terrain_type"]:
                 wrong.append((m["map_id"], c["x"], c["y"], hex(attr),
-                              c["terrain_type"]))
+                              c["terrain_type"], want))
     assert wrong == [], wrong[:5]
 
 
-def test_見立てであることが成果物に書いてある(data):
-    """⚠⚠ **相関を因果として売らない。**
+def test_0xFは規則の特別な場合である():
+    """★旧規則「0xF は不可」は新規則（>= 0xB）に含まれる。反例 0 だった観測と矛盾しない。"""
+    assert classify(0x10, 0xF0)[0] == "blocked"
+    assert classify(0x10, 0xB0)[0] == "blocked"
+    assert classify(0x10, 0xA3, map_id=0x2C)[0] == "blocked"
+    assert classify(0x10, 0xA3, map_id=0x07)[0] == "walk"
+    assert classify(0x10, 0x40)[1] == {"foot": False, "ship": True}
+    assert classify(0x10, 0x00)[1] == {"foot": True, "ship": True}
 
-    ★読む人が「どこまで確かか」を成果物から判断できること。
+
+def test_因果の根拠が成果物に書いてある(data):
+    """★★ 2026-08-21（RX-0032）に因果を特定した。
+
+    ⚠ それまでは「相関を因果として売らない」ために `causal_site_located: false`
+      を固定していた。特定したいまは、**根拠（判定コードの場所）が一緒に入っている**
+      ことを固定する。根拠が消えたら赤。
     """
     conf = data["confidence"]
-    assert conf["causal_site_located"] is False, (
-        "因果を特定したと書いてある。★特定できたなら根拠も一緒に入れること")
+    assert conf["causal_site_located"] is True
+    assert "$D176" in conf["disassembly"] and "$D20F" in conf["disassembly"]
+    assert "$D176" in conf["causal_site"]
     assert conf["counterexamples"] == 0
     assert conf["verified_against_observations"] > 1000
-    assert "$E1F9" in conf["disassembly"]
 
 
 # --- 2. ⚠ 反証の検査（実際に歩いた所） ------------------------------------
@@ -129,11 +154,17 @@ def test_扉と宝箱は静的に決めない():
             "扉・宝箱を静的に「通れない」と決めている")
 
 
-def test_船は未判定であってfalseではない(data):
-    """⚠⚠ 「調べていない」と「通れない」は別（指示書 §15）。"""
+def test_船の可否は実コードから入れてある(data):
+    """⚠⚠ 「調べていない」と「通れない」は別（指示書 §15）。
+
+    ★2026-08-21 までは `ship` を全部 None（未判定）にしていた。因果を特定したので
+      船上の分岐（$D18D: 0x4 航行可 / $D198: >= 0xA 不可 / それ以外は下船）を入れた。
+      ⚠ 扉・宝箱（動的）と属性が読めないマスだけ None のまま。
+    """
     ships = {c["passability"]["ship"]
              for m in data["maps"] for c in m["cells"]}
-    assert ships == {None}, f"ship に値が入っている: {ships}"
+    assert ships <= {True, False, None}
+    assert True in ships and False in ships, "★値が入っていない（全部 None に戻っている）"
 
 
 def test_歩ける所はbool_へ潰していない(data):

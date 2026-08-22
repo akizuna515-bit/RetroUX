@@ -362,7 +362,7 @@ class MapPresenter:
     def detail(self, map_id: int, map_ptr: int) -> MapDetail:
         """描くのに要るものをまとめて取る。"""
         meta = self.vm.map_meta.get(map_id) or {}
-        # ★★ 大きさは `map_size`。ワールドマップは ROM で読めないので
+        # ★★ 大きさは `map_size`。ワールドマップのヘッダは $FF（=256）なので
         #   設定から補われる（実測 256×256）。記録側と同じ出口を使う。
         width, height = self.vm.map_size(map_id)
         resolved = self.vm.location_of_map(map_id)
@@ -544,6 +544,54 @@ class MapPresenter:
                     f"（表示だけ変わります）。{floor_text}。")
         return (f"⚠ 日本語名がありません。英名 `{resolved.location.name_en}` を"
                 f"出しています。{floor_text}。")
+
+    def room_text(self, map_id: int, map_ptr: int, here) -> str:
+        """「いまの部屋」の1行（RX-0053 / 2026-08-21）。⚠ 出せないときは空文字。
+
+        ★DQ2 のダンジョンは「入った区画（部屋）だけ見える」。その区画表は
+          ROM にあり、展開規則は `core/bgmap/region_map.py`（2026-08-03 に確定）。
+          ⚠ 2026-08-15 の時点で**UI から一度も呼ばれていなかった**（死んだコード）。
+          依頼者「迷路で同じ部屋をぐるぐる、が分かるのは狙いに合う」→ 案 a で画面へ。
+
+        ★RAM（`$1D`）は読まない。現在地の**論理セル**（物理 x,y ÷ span）で
+          区画表を引く。⚠ 区画表が無いマップ・世界地図・現在地不明は空。
+        ⚠ 区画番号は 3 ビットで**離れた部屋に使い回される**ので、
+          「何マスの部屋か」は `rooms()`（つながったかたまり）で数える。
+        """
+        if here is None:
+            return ""
+        live = getattr(self.vm, "live_metatiles", None)
+        if live is None:
+            return ""
+        try:
+            from ...core.bgmap import adapter, reader, region_map
+            from ...core.bgmap.world_art import WORLD_MAP_ID
+            prg = live.source.prg
+        except Exception:                               # noqa: BLE001
+            return ""
+        if map_id == WORLD_MAP_ID:
+            return ""
+        resolution = adapter.resolve_map_master(prg, map_id, map_ptr)
+        if not resolution:
+            return ""
+        master = resolution.master
+        try:
+            regions = region_map.load(prg, master.map_id)
+        except Exception:                               # noqa: BLE001
+            return ""
+        if not regions.has_data:
+            return ""
+        span = reader.span_of(master)
+        cx, cy = int(here[0]) // span, int(here[1]) // span
+        rid = regions.region_at(cx, cy)
+        if rid is None:
+            return ""
+        if rid == region_map.CORRIDOR:
+            return "🚪 いまの部屋: 通路"
+        size = next((len(cells) for r, cells in regions.rooms()
+                     if r == rid and (cx, cy) in cells), None)
+        tail = f"（{size} マス）" if size else ""
+        return f"🚪 いまの部屋: {rid} 番{tail}"
 
     def floor_text(self, map_id: int, map_ptr: int) -> FloorText:
         """階層とその出どころ。★食い違いは `warn=True` で返す。

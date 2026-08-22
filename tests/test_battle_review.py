@@ -299,7 +299,10 @@ def test_ツールチップに全ターンが出る():
                       battle_roles="lorasia:item(1.3)"))
 
     text = bf.format_battle_review_tooltip(rec.active(), in_battle=True)
-    assert text.startswith("今回の戦闘")
+    # ★2026-08-19（RX-0068）から先頭は「見かた」（数字の意味）。そのあとに戦闘。
+    #   ⚠ 以前は startswith("今回の戦闘") で、仕様変更後もこの検査だけ古いままだった（RX-0085）。
+    assert text.startswith(bf.TOOLTIP_HELP)
+    assert "今回の戦闘" in text
     assert "T1" in text and "T2" in text
     assert "撃破 0.8T / 崩壊 4.5T" in text
     assert "通常速攻" in text and "省資源" in text
@@ -316,17 +319,20 @@ def test_戦闘後のツールチップは直前戦闘になる():
     assert "直前の戦闘（勝利 / 1ターン）" in text
 
 
-def test_ツールチップの先頭に画面の4行が入る():
-    """⚠ 2026-08-11 の依頼者「戦況の行が切れて続きが見えない」への備え。
+def test_ツールチップに画面の4行は入れない():
+    """★2026-08-19（RX-0068）依頼者: 「いまの戦況」の4行は**画面と被る**ので出さない。
 
-    ★4行化で短くはなりましたが、狭い窓では今後も切れます。
-      **切れた行の全文をここで読めること**を守ります。
+    ⚠ 以前は逆（2026-08-11「切れた行の全文をツールチップで読む」）で、
+      仕様が変わった後も古い検査が残って赤のままだった（RX-0085）。
+      `summary_rows` は互換のため引数として受けるが、文面には使わない。
     """
     rows = ["優勢・短期", "撃破 0.5T / 崩壊 4.2T", "戦術 省資源 5.5/+1.5",
             "役割 ロ:攻3.0"]
     text = bf.format_battle_review_tooltip(None, True, summary_rows=rows)
     for row in rows:
-        assert row in text
+        assert row not in text
+    assert text.startswith(bf.TOOLTIP_HELP), "★先頭は数字の意味（見かた）"
+    assert "まだ記録がありません" in text
 
 
 def test_記録が無くてもツールチップが壊れない():
@@ -352,3 +358,62 @@ def test_画面が4行とレビューを実際に使っている():
     assert "self.vm.battle_review_tooltip()" in source
     # ★履歴が変わったらツールチップも作り直すこと（指示 §20）
     assert "self.vm.battle_review_revision()" in source
+
+
+@pytest.fixture
+def window(tmp_path):
+    """★実物の窓（offscreen）。4行そのものは `test_reasoning_view.py` が見る。"""
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    pytest.importorskip("PySide6", reason="PySide6 が無い環境")
+    from PySide6.QtWidgets import QApplication
+
+    from retroux.core.db.database import Database
+    from retroux.core.recorder import Recorder
+    from retroux.ui.main_window import MainWindow
+    from retroux.ui.view_model import ViewModel
+
+    app = QApplication.instance() or QApplication([])
+    assert app is not None
+    db = Database(tmp_path / "t.sqlite3")
+    db.register_rom("HASH", "テストROM", "JP", mapper=2)
+    events = tmp_path / "events.jsonl"
+    events.write_bytes(b"")
+    vm = ViewModel(Recorder(db, "HASH", events, tmp_path / "command.json"),
+                   db, "HASH", {1: "スライム"})
+    vm._mission_path = tmp_path / "mission.yaml"
+    win = MainWindow(vm, interval_ms=10 ** 6, log_path=tmp_path / "r.log")
+    yield win
+    win.close()
+
+
+def test_画面が4行とレビューを実際に使っているの挙動(window):
+    """★RX-0011: 字面の検査に挙動を併設。
+
+    ★4行そのものは `test_reasoning_view.py::test_画面が4段を実際に描く` が
+      見ているので、ここでは**字面検査の3つ目**、「4行が同じでも
+      レビューの版が進んだらツールチップを作り直す」（指示 §20）を見ます。
+    ⚠ 鍵に版が入っていないと、2ターン目以降がツールチップに出ません。
+    """
+    vm = window.vm
+    game1 = _game(turn=1, battle_balance="advantage", battle_length="short",
+                  battle_turns_to_win=1.3, battle_turns_to_lose=4.9)
+    vm._last_game = game1
+    assert vm.battle_review.observe(game1)
+    window._update_reasoning(game1)
+    first = window._reasoning_frame.toolTip()
+    assert "T1" in first, first
+    assert all(label.toolTip() == first for label in window._assessment_rows), (
+        "⚠ 欄ぜんぶに同じレビューを付けていない（指示 §18）")
+
+    # ★4行の材料は同じまま、ターンだけ進める（★行は変わらず版だけ変わる）
+    game2 = _game(turn=2, battle_balance="advantage", battle_length="short",
+                  battle_turns_to_win=1.3, battle_turns_to_lose=4.9)
+    vm._last_game = game2
+    assert vm.battle_review.observe(game2)
+    assert vm.assessment_rows() == [l.full_text for l in window._assessment_rows]
+    window._update_reasoning(game2)
+    second = window._reasoning_frame.toolTip()
+    assert second != first, "⚠ 版が進んだのにツールチップを作り直していない"
+    assert "T2" in second, second

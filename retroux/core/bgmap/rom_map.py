@@ -7,7 +7,7 @@
 
 ## ★★ これは「使われていないコード」ではありません（2026-08-12 に明記）
 
-⚠⚠ `docs/project/RETROUX_BACKLOG.md` の技術負債2 は、これを
+⚠⚠ `docs/history/RETROUX_BACKLOG.md` の技術負債2 は、これを
   「`dungeon_map.py` と重複／本体から import されていない」としています。
   ★**本体から呼ばれないのは正しい**のですが、**役割があります**。
 
