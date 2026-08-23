@@ -44,8 +44,7 @@ def _forget_gui_position(monkeypatch):
     ★並びの計算を試すテストは「覚えていない」前提で書く。
       覚えている場合の挙動は専用のテストで見る。
     """
-    monkeypatch.setattr(align_windows, "layout_is_remembered",
-                        lambda: False)
+    monkeypatch.setattr(align_windows, "remembered_keys", set)
 
 
 #: テストで使う作業領域。**FHD からタスクバー 40px を引いた形**。
@@ -381,8 +380,8 @@ def test_a_remembered_layout_survives_the_startup_align(placements,
     | FCEUX 本体 | **動かさない** | ★`fceux.cfg` の `MainWindow_wndx/y` に**自分で**覚えている |
     | Lua Script | **動かす** | ⚠ 誰も覚えていない。放っておくとゲーム画面に重なる |
     """
-    monkeypatch.setattr(align_windows, "layout_is_remembered",
-                        lambda: True)
+    monkeypatch.setattr(align_windows, "remembered_keys",
+                        lambda: {"main", "map", "log"})
 
     moved, messages = align_windows.arrange(UserConfig())
 
@@ -396,7 +395,8 @@ def test_a_remembered_layout_survives_the_startup_align(placements,
     assert placements == {}
     assert moved == 1, "Lua を最小化した1件だけのはず"
     # ★飛ばしたことを黙らない（「整列が効かない」と誤解されるため）
-    assert sum("覚えている" in m for m in messages) == 2, messages
+    # ⚠ 窓ごとに飛ばすので、飛ばした報告も窓の数だけ出る（RX-0101）
+    assert sum("覚えている" in m for m in messages) == 4, messages
 
 
 def test_the_align_button_can_still_force_the_gui_into_place(placements,
@@ -405,8 +405,8 @@ def test_the_align_button_can_still_force_the_gui_into_place(placements,
 
     ⚠ ここが効かないと、一度動かした窓を元の並びへ戻す手段が無くなる。
     """
-    monkeypatch.setattr(align_windows, "layout_is_remembered",
-                        lambda: True)
+    monkeypatch.setattr(align_windows, "remembered_keys",
+                        lambda: {"main", "map", "log"})
 
     cfg = UserConfig()
     moved, messages = align_windows.arrange(cfg, force=True)
@@ -501,3 +501,114 @@ def test_a_refused_focus_does_not_fail_the_arrange(placements, monkeypatch):
 
     assert moved >= 3, "前面化に失敗しただけで整列が失敗扱いになっている"
     assert any("前面にできませんでした" in m for m in messages)
+
+
+# --- ★記録が「ある」だけでは覚えていることにしない（RX-0101 / 2026-08-23）---
+
+#: ⚠ 上の autouse は `remembered_keys` を潰している。★本物を先に控えておく
+#:   （ここは import 時に走るので、まだ差し替えられていない）。
+_REAL_REMEMBERED = align_windows.remembered_keys
+
+
+def _write_state(tmp_path, monkeypatch, data):
+    import json
+
+    from retroux.ui import window_state
+
+    # ★このテストは判定そのものを見るので、autouse の差し替えを元に戻す
+    monkeypatch.setattr(align_windows, "remembered_keys", _REAL_REMEMBERED)
+    path = tmp_path / "window-state.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    monkeypatch.setattr(window_state, "DEFAULT_PATH", path)
+    return path
+
+
+def test_小さすぎる記録は覚えているとみなさない(tmp_path, monkeypatch):
+    """★★ **「記録がある」と「その記録で置けた」は別。** ★★
+
+    ⚠⚠ ここを取り違えて実害が出た（依頼者の画面 / 2026-08-23）:
+      小さすぎる記録は `apply_to` が弾き、窓は Qt の既定（画面中央・大きめ）で
+      開く。ところが整列側は「覚えているから動かさない」と判断して手を出さない。
+      ★誰も直さないまま、起動するたびに窓が重なる。
+    """
+    _write_state(tmp_path, monkeypatch,
+                 {"main": {"x": 10, "y": 10, "w": 100, "h": 80}})
+    assert align_windows.remembered_keys() == set()
+    assert align_windows.layout_is_remembered() is False
+
+
+def test_窓ごとに覚えているかを見る(tmp_path, monkeypatch):
+    """⚠ `main` の記録だけで3枚まとめて判断しない。
+
+    ★地図の記録が無いのに地図まで飛ばすと、`_ensure_map_window` が
+      「置き直して」と頼んでも整列が断る——**歯止めどうしが打ち消し合う**。
+    """
+    _write_state(tmp_path, monkeypatch, {
+        "main": {"x": 10, "y": 10, "w": 400, "h": 300},
+        "log": {"x": 10, "y": 500, "w": 900, "h": 150},
+    })
+    got = align_windows.remembered_keys()
+    assert got == {"main", "log"}, got        # ★map は入らない
+
+
+def test_背の低いログ窓は下限を下げて見る(tmp_path, monkeypatch):
+    """★下段のログ窓は横長で背が低い（150px 前後）。
+
+    ⚠ 主画面向けの下限（240px）で見ると、**毎回「覚えていない」**になり
+      整列が毎回動かしてしまう。`apply_to` 側と同じ下限を使うこと。
+    """
+    _write_state(tmp_path, monkeypatch,
+                 {"log": {"x": 10, "y": 500, "w": 900, "h": 150}})
+    assert align_windows.remembered_keys() == {"log"}
+
+
+def test_記録の無い地図だけを並べる(placements, monkeypatch):
+    """★覚えている窓は動かさず、⚠ 覚えていない窓は**置く**。"""
+    monkeypatch.setattr(align_windows, "remembered_keys",
+                        lambda: {"main", "log"})
+
+    align_windows.arrange(UserConfig())
+
+    assert MAP in placements, "記録の無い地図が置かれていない"
+    assert "RetroUX" not in placements, "覚えている本体を動かしている"
+
+
+# --- ★「ただ開いただけ」を覚えていることにしない（RX-0104 / 2026-08-23）---
+
+def test_既定で開いただけの記録は覚えているとみなさない(tmp_path, monkeypatch):
+    """★★ **これが起動直後の配置がおかしかった真因。** ★★
+
+    ⚠⚠ 実測（2026-08-23 / 依頼者の環境）:
+
+        14:03:39  起動「記録なし → 既定で開く」（＝既定の大きな窓）
+        14:03:41.089  画面が**自分の既定の配置**を保存
+        14:03:41  整列「配置を覚えているため動かしません」
+
+    ★画面は移動・リサイズから 750ms で保存します。整列が読むころには
+      「記録がある」状態になっており、⚠ **一度そうなると毎回そうなります**。
+    """
+    _write_state(tmp_path, monkeypatch, {
+        "main": {"x": 7, "y": 30, "w": 1283, "h": 416, "placed": "default"},
+        "map": {"x": 7, "y": 460, "w": 900, "h": 500, "placed": "default"},
+    })
+    assert align_windows.remembered_keys() == set()
+
+
+def test_利用者が置いた記録は今までどおり尊重する(tmp_path, monkeypatch):
+    """⚠ 逆に倒さないこと。★自分で決めた配置は毎回壊さない。"""
+    _write_state(tmp_path, monkeypatch, {
+        "main": {"x": 918, "y": 35, "w": 349, "h": 356, "placed": "user"},
+    })
+    assert align_windows.remembered_keys() == {"main"}
+
+
+def test_古い記録は利用者の配置として扱う(tmp_path, monkeypatch):
+    """★`placed` が無い記録（1.0.3 まで）は**尊重する**。
+
+    ⚠ ここを「既定扱い」に倒すと、更新した瞬間に
+      **みんなの配置が1回作り直される**。
+    """
+    _write_state(tmp_path, monkeypatch, {
+        "main": {"x": 918, "y": 35, "w": 349, "h": 356},
+    })
+    assert align_windows.remembered_keys() == {"main"}

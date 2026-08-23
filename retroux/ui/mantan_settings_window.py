@@ -27,7 +27,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QFormLayout, QGroupBox, QHBoxLayout, QLabel,
     QMessageBox, QPushButton, QSpinBox, QVBoxLayout, QWidget,
@@ -66,6 +66,10 @@ class MantanSettingsWindow(QWidget):
 
     def __init__(self, parent=None, user_path=None) -> None:
         super().__init__(parent)
+        # ★独立したウィンドウにする（RX-0103 / 2026-08-23）。
+        #   ⚠ いまは親を渡さずに作っているので**たまたま**独立しているだけで、
+        #     渡した瞬間に本体の中へ描かれる（`Ctrl+K` の画面がそれで壊れていた）。
+        self.setWindowFlag(Qt.WindowType.Window, True)
         self.setWindowTitle("まんたん設定")
         self._user_path = user_path
 

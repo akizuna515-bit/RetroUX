@@ -37,6 +37,27 @@ DEFAULT_PATH = pathlib.Path("work/window-state.json")
 MIN_WIDTH = 320
 MIN_HEIGHT = 240
 
+#: ★「ただ開いただけ」の場所。⚠ 利用者が決めた配置と混ぜないこと（RX-0104）
+PLACED_DEFAULT = "default"
+#: ★利用者の配置（自分で動かした / 整列で置いた / 前回の記録を戻した）
+PLACED_USER = "user"
+
+
+def usable(values, *, min_width: int = MIN_WIDTH,
+           min_height: int = MIN_HEIGHT) -> bool:
+    """その記録で窓を置けるか（RX-0101）。
+
+    ⚠ 小さすぎる記録は使わない（開いても何も見えない）。
+    ★`apply_to` と `remembers` の**両方がここを呼ぶ**。
+    """
+    if not values:
+        return False
+    try:
+        return (int(values.get("w") or 0) >= min_width
+                and int(values.get("h") or 0) >= min_height)
+    except (TypeError, ValueError):
+        return False
+
 #: 画面内と認めるために必要な重なり（画素）。
 #   ★角が1画素かかっているだけでは掴めないので、これだけは要る。
 VISIBLE_MARGIN = 80
@@ -130,6 +151,32 @@ class WindowState:
             # ⚠ 取れなくても終了処理を止めない
             pass
 
+    def remembers(self, key: str, *, min_width: int = MIN_WIDTH,
+                  min_height: int = MIN_HEIGHT) -> bool:
+        """その窓の配置を**使える形で**覚えているか（RX-0101 / 2026-08-23）。
+
+        ★★ 「記録がある」と「その記録で置けた」は別。 ★★
+
+          ⚠⚠ ここを `get(key)` の真偽で代用していて、実害が出た:
+            小さすぎる記録は `apply_to` が弾き、窓は **Qt の既定**
+            （画面中央・大きめ）で開く。ところが自動整列のほうは
+            「覚えているから動かさない」と判断して**手を出さない**。
+            ★結果、起動するたびに窓が重なったまま誰も直さない。
+
+          ★判定は `apply_to` と**同じ条件**を使うこと（下の `usable`）。
+            2か所に書くと、片方だけ直したときに静かにずれる。
+        """
+        values = self.get(key)
+        if values.get("placed") == PLACED_DEFAULT:
+            # ★★ **ただ開いただけの場所は「覚えている」ではない**（RX-0104）★★
+            #   ⚠⚠ 起動から約2秒で、画面は**自分の既定の配置**を書きます。
+            #     そのあと自動整列が読むと「覚えているから動かさない」と判断し、
+            #     ★既定の大きな窓が並べられないまま残ります。しかも一度書かれると
+            #     **毎回そうなる**（実測: 14:03:39 起動 → 14:03:41.089 保存 →
+            #     14:03:41 整列が全部飛ばす）。
+            return False
+        return usable(values, min_width=min_width, min_height=min_height)
+
     def apply_to(self, key: str, widget, *, splitter=None,
                  min_width: int = MIN_WIDTH, min_height: int = MIN_HEIGHT) -> bool:
         """窓へ状態を戻す（起動時に呼ぶ）。戻り値は**戻せたか**。
@@ -147,7 +194,7 @@ class WindowState:
         try:
             width = int(values.get("w") or 0)
             height = int(values.get("h") or 0)
-            if width < min_width or height < min_height:
+            if not usable(values, min_width=min_width, min_height=min_height):
                 # ⚠ 小さすぎる記録は使わない（開いても何も見えない）
                 self.problems.append(
                     f"{key} の保存サイズが小さすぎるため既定で開きます"
@@ -248,3 +295,37 @@ def clamp_to_screens(x: int, y: int, w: int, h: int,
     new_x = bx + max(0, (bw - w) // 2)
     new_y = by + max(0, (bh - h) // 2)
     return int(new_x), int(new_y), True
+
+
+def center_on_screen(widget) -> bool:
+    """窓を、いま乗っている画面の**作業領域の真ん中**へ置く（RX-0105）。
+
+    ★★ **題名の帯が画面の外へ出ないこと**が本題です。 ★★
+
+      ⚠ 置き場所を決めないと、Qt は親を基準に置きます。親（本体の窓）が
+        画面の上端にあると、子の窓は**上へはみ出して題名の帯が掴めません**
+        （依頼者「ウィンドウツールバーが表示されていない」/ 2026-08-23）。
+
+    ⚠ 画面の情報が取れないときは**何もしない**（推測で動かさない）。
+    戻り値は**動かしたか**。
+    """
+    try:
+        from PySide6.QtGui import QGuiApplication
+    except Exception:                                  # noqa: BLE001
+        return False
+    try:
+        screen = (QGuiApplication.screenAt(widget.pos())
+                  or QGuiApplication.primaryScreen())
+        if screen is None:
+            return False
+        area = screen.availableGeometry()
+        size = widget.frameGeometry().size()
+        if size.width() <= 0 or size.height() <= 0:
+            size = widget.size()
+        # ★はみ出すときは作業領域の左上に寄せる（負にはしない）
+        x = area.x() + max(0, (area.width() - size.width()) // 2)
+        y = area.y() + max(0, (area.height() - size.height()) // 2)
+        widget.move(x, y)
+        return True
+    except Exception:                                  # noqa: BLE001
+        return False

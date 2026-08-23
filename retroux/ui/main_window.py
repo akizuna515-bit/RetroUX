@@ -376,7 +376,9 @@ class MainWindow(QWidget):
         _log_saved = self._window_state().get("log")
         _log_ok = self._window_state().apply_to(
             "log", self._log_window, min_height=120)
-        get_logger("gui").debug(
+        self._mark_restored("log", _log_ok)
+        # ★他の窓と揃えて INFO（RX-0101 / 2026-08-23）
+        get_logger("gui").info(
             "窓の復元 log: 試み=%s → %s",
             (f"{_log_saved.get('x')},{_log_saved.get('y')} "
              f"{_log_saved.get('w')}×{_log_saved.get('h')}"
@@ -1712,6 +1714,8 @@ class MainWindow(QWidget):
         self.keybindings = load_keybindings()
         for problem in self.keybindings.problems:
             get_logger("gui").warning("キーバインド: %s", problem)
+        self._gui_shortcuts: list = []
+        self._install_gui_shortcuts()
 
         # ★ゲームパッド（XBOX / XInput）。⚠ 無くても起動する（RX-0076）。
         self._setup_gamepad()
@@ -2367,6 +2371,7 @@ class MainWindow(QWidget):
             #   ★覚えているならそれを使い、覚えていないときだけ標準へ置きます。
             self._map_needs_placing = not self._window_state().apply_to(
                 "map", self._map_window)
+            self._mark_restored("map", not self._map_needs_placing)
         return self._map_window
 
     def _place_map_window(self) -> None:
@@ -2415,6 +2420,25 @@ class MainWindow(QWidget):
         self._align_status.setText(
             "地図の追従: " + ("ON" if checkbox.isChecked() else "OFF"))
 
+    def _install_gui_shortcuts(self) -> None:
+        """修飾キー付きの割り当てに、画面側の受け口を作る（RX-0102）。
+
+        ★★ **キーを拾う道は2本ある。** ★★
+          単独キー（`A` `T` `G`）は Lua が拾い、修飾キー付きはここが拾う。
+
+          ⚠⚠ この2本目が無かったため、`Ctrl+Shift+R` / `Ctrl+K` /
+            `Ctrl+Shift+L` は**どこにも届いていませんでした**
+            （公開 README は効くと案内していた / 依頼者の指摘 2026-08-23）。
+
+        ⚠ 割り当てを変えたら**作り直す**（`_on_keybindings_applied`）。
+        """
+        from . import shortcuts as shortcuts_mod
+
+        shortcuts_mod.clear(getattr(self, "_gui_shortcuts", None))
+        self._gui_shortcuts = shortcuts_mod.install(
+            self, self.keybindings, self._actions.registered,
+            self.run_action, logger=get_logger("gui"))
+
     def _open_keybinding_window(self) -> None:
         """キーバインド設定を開く（指示書 §13）。"""
         from .keybinding_window import KeybindingWindow
@@ -2432,6 +2456,8 @@ class MainWindow(QWidget):
         from ..core.keybindings import load as load_keybindings
 
         self.keybindings = load_keybindings()
+        # ★新しい割り当てで受け口を作り直す（RX-0102）
+        self._install_gui_shortcuts()
         self._align_status.setText(message)
 
     def _show_lua_window(self) -> None:
@@ -2779,12 +2805,18 @@ class MainWindow(QWidget):
             saved = state.get(key)
             before = len(state.problems)
             applied = state.apply_to(key, widget, splitter=splitter)
+            self._mark_restored(key, applied)
             note = "；".join(state.problems[before:]) if len(
                 state.problems) > before else ""
+            # ★★ INFO で出す（RX-0101 / 2026-08-23）★★
+            #   ⚠ DEBUG だと既定の設定では**1行も残らない**。
+            #     「配置が雑」と言われたときに、記録が無いのか・弾かれたのか・
+            #     画面外だったのかを**後から切り分けられなかった**（今日それで
+            #     ログを見ても何も分からなかった）。★起動ごとに数行なので出す。
             if not saved:
-                log.debug("窓の復元 %s: 記録なし → 既定で開く", key)
+                log.info("窓の復元 %s: 記録なし → 既定で開く", key)
             else:
-                log.debug(
+                log.info(
                     "窓の復元 %s: 試み=%s,%s %s×%s → %s%s", key,
                     saved.get("x"), saved.get("y"),
                     saved.get("w"), saved.get("h"),
@@ -2846,6 +2878,40 @@ class MainWindow(QWidget):
                 # ⚠ 開けなくても起動は続ける。★理由は画面に出す
                 self._diag_status.setText(f"⚠ {key} を開き直せませんでした")
 
+    def _mark_restored(self, key: str, ok) -> None:
+        """その窓を**記録から戻せたか**を覚える（RX-0104）。"""
+        if not hasattr(self, "_restored_ok"):
+            self._restored_ok = {}
+        self._restored_ok[key] = bool(ok)
+
+    def _placed_flag(self, key: str, widget) -> str:
+        """その場所が「利用者の配置」か「ただ開いただけ」か（RX-0104）。
+
+        ★★ **ここを区別しないと、自動整列が永久に手を出せなくなります。** ★★
+
+          ⚠⚠ 実測（2026-08-23）:
+              14:03:39 起動「記録なし → 既定で開く」
+              14:03:41.089 画面が**自分の既定の配置**を保存
+              14:03:41 整列「配置を覚えているため動かしません」
+            ★既定の大きな窓が並べられないまま残り、**次からも毎回そうなる**。
+
+        判断:
+          - 記録から戻せた             -> 利用者の配置
+          - 戻せず、開いた場所のまま   -> **ただ開いただけ**
+          - 戻せず、そこから動いた     -> 利用者の配置
+            （★整列が置いた場合もここ。置いた並びは次回も再現してよい）
+        """
+        from .window_state import PLACED_DEFAULT, PLACED_USER
+
+        if getattr(self, "_restored_ok", {}).get(key):
+            return PLACED_USER
+        if not hasattr(self, "_opened_geometry"):
+            self._opened_geometry = {}
+        rect = widget.geometry()
+        now = (rect.x(), rect.y(), rect.width(), rect.height())
+        first = self._opened_geometry.setdefault(key, now)
+        return PLACED_USER if now != first else PLACED_DEFAULT
+
     def save_window_state(self, reason: str = "") -> bool:
         """窓の位置・サイズ・スプリッタの配分を保存する。
 
@@ -2862,7 +2928,8 @@ class MainWindow(QWidget):
         # ⚠ 本体の split の配分は保存しない（復元もしない / 2026-08-11）。
         state.capture_from("main", self,
                            extra={"follow_log": bool(
-                               self._follow_log.isChecked())})
+                               self._follow_log.isChecked()),
+                               "placed": self._placed_flag("main", self)})
         for name, key in (("_map_window", "map"),
                           ("_book_window", "book"),
                           ("_tactics_window", "tactics")):
@@ -2870,13 +2937,16 @@ class MainWindow(QWidget):
             if window is not None:
                 # ★開いていたかも覚える（2026-08-09）。⚠ 閉じた窓の位置は
                 #   覚えたままにする（次に開いたとき同じ場所へ出すため）。
-                state.capture_from(key, window,
-                                   extra={"open": bool(window.isVisible())})
+                state.capture_from(
+                    key, window,
+                    extra={"open": bool(window.isVisible()),
+                           "placed": self._placed_flag(key, window)})
         # ★下段の窓は境界も覚える（ログの高さは人によって好みが違う）
         log_window = getattr(self, "_log_window", None)
         if log_window is not None:
-            state.capture_from("log", log_window,
-                               splitter=log_window.splitter())
+            state.capture_from(
+                "log", log_window, splitter=log_window.splitter(),
+                extra={"placed": self._placed_flag("log", log_window)})
         ok = state.save()
 
         # ★何を保存したかを1行で残す（後から追えるように / 依頼者）。

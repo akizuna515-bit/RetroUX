@@ -227,3 +227,78 @@ def test_a_splitter_layout_with_a_different_number_of_panes_is_ignored(tmp_path)
     assert state.apply_to("main", _FakeWindow(), splitter=changed) is True
     assert changed.applied is None, \
         "段の数が違うのに保存した配分を当てている（Qt が黙って詰める）"
+
+
+# --- ★「ただ開いただけ」か「利用者の配置」か（RX-0104 / 2026-08-23）------
+
+class _Rect:
+    def __init__(self, x, y, w, h):
+        self._v = (x, y, w, h)
+
+    def x(self):
+        return self._v[0]
+
+    def y(self):
+        return self._v[1]
+
+    def width(self):
+        return self._v[2]
+
+    def height(self):
+        return self._v[3]
+
+
+class _Widget:
+    def __init__(self, rect):
+        self._rect = rect
+
+    def geometry(self):
+        return self._rect
+
+
+class _Host:
+    """`MainWindow` の判定だけを借りる入れ物（★Qt を起こさずに確かめる）。"""
+
+
+def _flag(host, key, widget):
+    from retroux.ui.main_window import MainWindow
+
+    return MainWindow._placed_flag(host, key, widget)
+
+
+def test_戻せた窓は利用者の配置():
+    host = _Host()
+    host._restored_ok = {"main": True}
+    assert _flag(host, "main", _Widget(_Rect(7, 30, 1283, 416))) == "user"
+
+
+def test_開いた場所のままなら既定扱い():
+    """★★ **ここが起動直後の配置がおかしかった真因。** ★★
+
+    ⚠ 画面は起動から約2秒で自分の配置を保存する。そこを「覚えている」と
+      数えると、⚠⚠ 自動整列が**永久に**手を出せなくなる。
+    """
+    host = _Host()
+    host._restored_ok = {"main": False}
+    widget = _Widget(_Rect(7, 30, 1283, 416))
+    assert _flag(host, "main", widget) == "default"
+    # ★何度保存されても既定のまま（動いていないので）
+    assert _flag(host, "main", widget) == "default"
+
+
+def test_開いたあと動いたら利用者の配置():
+    """★整列が置いた場合もここに入る（⚠ その並びは次回も再現してよい）。"""
+    host = _Host()
+    host._restored_ok = {"main": False}
+    assert _flag(host, "main", _Widget(_Rect(7, 30, 1283, 416))) == "default"
+    assert _flag(host, "main", _Widget(_Rect(911, 5, 364, 453))) == "user"
+
+
+def test_窓ごとに別々に数える():
+    """⚠ まとめて数えると、片方が動いただけで両方「利用者の配置」になる。"""
+    host = _Host()
+    host._restored_ok = {"main": False, "map": False}
+    assert _flag(host, "main", _Widget(_Rect(0, 0, 100, 100))) == "default"
+    assert _flag(host, "map", _Widget(_Rect(5, 5, 200, 200))) == "default"
+    assert _flag(host, "main", _Widget(_Rect(50, 50, 100, 100))) == "user"
+    assert _flag(host, "map", _Widget(_Rect(5, 5, 200, 200))) == "default"

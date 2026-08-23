@@ -34,9 +34,24 @@ class KeybindingWindow(QWidget):
     applied = Signal(str)
 
     def __init__(self, parent=None) -> None:
-        super().__init__(parent, )
+        super().__init__(parent)
+        # ★★ **独立したウィンドウにする**（RX-0103 / 2026-08-23）★★
+        #   ⚠⚠ これが無いと、親を渡した `QWidget` は**親の中に描かれる子部品**に
+        #     なる。★本体の窓は 364px 幅なので、720×620 のこの画面が
+        #     **本体の中身の上に重なって切れた状態**で出ていた
+        #     （依頼者「Ctrl+K の画面が壊れてる」/ 2026-08-23）。
+        #   ★他の別ウィンドウ（地図・図鑑・ログ・戦術）は全部これを付けている。
+        self.setWindowFlag(Qt.WindowType.Window, True)
         self.setWindowTitle("キーバインド設定")
         self.resize(720, 620)
+        # ★★ **画面の真ん中に置く**（RX-0105 / 2026-08-23）★★
+        #   ⚠ 置き場所を決めないと Qt は親を基準に置きます。本体の窓が
+        #     画面の上端にあると、★**題名の帯が画面の外へ出て掴めません**
+        #     （依頼者「表示場所が中心が良い。※ウィンドウツールバーが
+        #     表示されていない」/ 2026-08-23）。
+        from .window_state import center_on_screen
+
+        center_on_screen(self)
         self._path = kb.USER_PATH
         self._saved_text = ""
 

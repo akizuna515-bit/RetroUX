@@ -131,13 +131,42 @@ def layout_is_remembered() -> bool:
       ⚠ 「整列」ボタンを押したときは**明示的な指示**なので全部動かす
         （`force=True`）。
     """
+    return "main" in remembered_keys()
+
+
+#: 窓ごとの下限。★`main_window.py` が `apply_to` に渡す値と揃えること。
+#  ⚠ 下段のログ窓は横長で背が低いので、高さの下限だけ下げる。
+_MIN_SIZE = {"main": (320, 240), "map": (320, 240), "log": (320, 120)}
+
+
+def remembered_keys() -> set:
+    """**使える形で**配置を覚えている窓の名前（RX-0101 / 2026-08-23）。
+
+    ★★ 「記録がある」と「その記録で置けた」は別。 ★★
+
+      ⚠⚠ ここは長らく `get("main")` が空でないかだけを見ていて、
+        **3枚まとめて**「覚えている」と判断していた。実害:
+
+        1. 小さすぎる記録は `apply_to` が弾き、窓は Qt の既定
+           （画面中央・大きめ）で開く
+        2. なのにここは True を返すので、自動整列が**全部飛ばす**
+        3. ★誰も直さないまま、起動するたびに窓が重なる（依頼者の画面 / 08-23）
+
+      ⚠ さらに、地図の記録が無くても `main` があれば地図まで飛ばしていた。
+        `_ensure_map_window` は戻せなかったとき `arrange()` を呼ぶのに、
+        ★その `arrange()` が同じ理由で地図を飛ばす——**歯止めどうしが
+        打ち消し合っていた**。
+
+    ⚠ 読めないときは**空**を返す（＝整列して見せる。重なったまま放置しない）。
+    """
     try:
         from ..ui.window_state import WindowState
 
-        return bool(WindowState().get("main"))
+        state = WindowState()
+        return {key for key, (mw, mh) in _MIN_SIZE.items()
+                if state.remembers(key, min_width=mw, min_height=mh)}
     except Exception:                                  # noqa: BLE001
-        # ⚠ 読めないときは「覚えていない」側に倒す（整列して見せるほうが安全）
-        return False
+        return set()
 
 
 def arrange(cfg, wait: float = 0.0,
@@ -233,7 +262,7 @@ def arrange(cfg, wait: float = 0.0,
 
     # ★★ 覚えている配置を壊さない（R-8 / 上の `layout_is_remembered`）★★
     #   ⚠ Lua Script は**あとで必ず並べる**（誰も位置を覚えていないため）。
-    keep_layout = (not force) and layout_is_remembered()
+    keep = set() if force else remembered_keys()
 
     def skip(title: str) -> None:
         # ⚠ 飛ばすが**黙らない**。「整列したのに動かない」と思われるため
@@ -276,7 +305,9 @@ def arrange(cfg, wait: float = 0.0,
     standard = layout.compute_standard((x, y, area_w, area_h), emu_size,
                                        layout_cfg)
 
-    if keep_layout:
+    if "main" in keep:
+        # ★FCEUX は自分で位置を覚えている（`fceux.cfg`）。本体を動かさない
+        #   ときは、こちらも触らないほうが「前回のまま」になる。
         skip(emu.window_title_contains)
     elif found is None:
         messages.append(
@@ -303,17 +334,24 @@ def arrange(cfg, wait: float = 0.0,
     #
     #     計算どおりに並ばない原因がこれだった。FCEUX で使っている
     #     「実寸を読んでから決める」を、こちらの窓にも同じように使う。
-    if keep_layout:
-        skip(GUI_TITLE_PREFIX)
-    else:
-        has_map = bool(window_align.find_windows(MAP_TITLE_PREFIX,
-                                                 match="prefix"))
+    if True:
+        # ★★ **窓ごとに決める**（RX-0101）。⚠ まとめて飛ばすと、
+        #   記録の無い窓が既定の場所（画面中央）に置き去りになる。
+        has_map = ("map" not in keep) and bool(
+            window_align.find_windows(MAP_TITLE_PREFIX, match="prefix"))
         # ★下段の窓は4区画のときだけ（`layout.py` が `log` を返すかで分かる）
-        has_log = ("log" in standard) and bool(
+        has_log = ("log" in standard) and ("log" not in keep) and bool(
             window_align.find_windows(LOG_TITLE_PREFIX, match="prefix"))
+        has_main = "main" not in keep
+        for name, title in (("main", GUI_TITLE_PREFIX),
+                            ("map", MAP_TITLE_PREFIX),
+                            ("log", LOG_TITLE_PREFIX)):
+            if name in keep:
+                skip(title)
         # 1. 大きさだけ先に当てる（位置はまだ気にしない）
-        resize(GUI_TITLE_PREFIX, standard["main"].width,
-               standard["main"].height)
+        if has_main:
+            resize(GUI_TITLE_PREFIX, standard["main"].width,
+                   standard["main"].height)
         if has_map:
             resize(MAP_TITLE_PREFIX, standard["map"].width,
                    standard["map"].height)
@@ -322,7 +360,7 @@ def arrange(cfg, wait: float = 0.0,
                    standard["log"].height)
 
         # 2. **実際になった大きさ**を読む
-        main_size = size_of(GUI_TITLE_PREFIX) or (
+        main_size = (size_of(GUI_TITLE_PREFIX) if has_main else None) or (
             standard["main"].width, standard["main"].height)
         map_size = size_of(MAP_TITLE_PREFIX) if has_map else None
         log_size = size_of(LOG_TITLE_PREFIX) if has_log else None
@@ -345,8 +383,9 @@ def arrange(cfg, wait: float = 0.0,
         if map_size:
             mx, my = _fit(standard["map"], map_size)
             place(MAP_TITLE_PREFIX, mx, my)
-        gx, gy = _fit(standard["main"], main_size)
-        place(GUI_TITLE_PREFIX, gx, gy)
+        if has_main:
+            gx, gy = _fit(standard["main"], main_size)
+            place(GUI_TITLE_PREFIX, gx, gy)
         if log_size:
             lx, ly = _fit(standard["log"], log_size)
             place(LOG_TITLE_PREFIX, lx, ly)
@@ -420,7 +459,45 @@ def main(argv: list[str] | None = None) -> int:
     for warning in warnings:
         print(f"警告: {warning}", file=sys.stderr)
 
+    # ★★ **ログ基盤をここで立てる**（RX-0104 / 2026-08-23）★★
+    #   ⚠⚠ 2026-08-23 に `get_logger("align")` で結果を書くようにしたのに、
+    #     `work/retroux.log` には **1行も出ていませんでした**。
+    #     ★このコマンドは GUI とは**別のプロセス**で走ります。
+    #       立ち上げるのは `gui.py` / `record.py` / `savestate_backup.py` だけで、
+    #       ここは誰も基盤を立てていないため、書き先がありませんでした。
+    #   ⚠ 「ログを足した」だけで確かめないと、こうなります。
+    log_handle = None
+    try:
+        from ..core.logging_setup import setup_logging
+
+        log_handle = setup_logging(
+            cfg.path("log"),
+            level=cfg.logging.resolved()["level"],
+            max_bytes=cfg.logging.max_bytes,
+            backup_count=cfg.logging.backup_count,
+        )
+    except Exception as exc:                           # noqa: BLE001
+        print(f"警告: ログを立てられません: {exc}", file=sys.stderr)
+
     moved, messages = arrange(cfg, wait=args.wait, force=args.force)
+
+    # ★★ **結果をログにも残す**（RX-0101 / 2026-08-23）★★
+    #   ⚠ これまで `retroux.log` には「整列します」だけが残り、
+    #     **何を動かして何をなぜ飛ばしたかが1行も残っていなかった**。
+    #   ★配置がおかしいと言われたときに、後から切り分けられない。
+    try:
+        from ..core.logging_setup import get_logger
+
+        log = get_logger("align")
+        log.info("整列: %d 枚を動かしました", moved)
+        for line in messages:
+            log.info("整列 %s", line)
+    except Exception:                                  # noqa: BLE001
+        pass          # ⚠ ログに書けなくても整列は成功のまま
+    finally:
+        if log_handle is not None:
+            log_handle.shutdown()      # ★書き終わるまで待つ（別プロセスなので）
+
     for line in messages:
         if line.startswith("飛ばしました"):
             print(line, file=sys.stderr)
