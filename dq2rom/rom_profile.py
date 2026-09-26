@@ -61,17 +61,23 @@ class Profile:
 
     def hash_mismatches(self, rom: Rom) -> list[str]:
         """合わなかったハッシュの説明を返す（空なら一致）。"""
-        expected = self.data.get("hashes") or {}
-        actual = {"sha1": rom.sha1, "md5": rom.md5, "crc32": rom.crc32}
         out = []
-        for key, want in expected.items():
-            if not want:
-                continue
-            got = actual.get(key)
-            if got is None:
-                continue
-            if want.lower() != got.lower():
-                out.append(f"{key}: 期待 {want} / 実測 {got}")
+        pairs = (
+            (self.data.get("hashes") or {},
+             {"sha1": rom.sha1, "md5": rom.md5, "crc32": rom.crc32}, ""),
+            # ★ヘッダ抜き（版の識別はこちら / RX3-0002）
+            (self.data.get("payload_hashes") or {},
+             {"sha1": rom.prg_sha1, "crc32": rom.prg_crc32}, "payload_"),
+        )
+        for expected, actual, prefix in pairs:
+            for key, want in expected.items():
+                if not want:
+                    continue
+                got = actual.get(key)
+                if not got:
+                    continue
+                if want.lower() != got.lower():
+                    out.append(f"{prefix}{key}: 期待 {want} / 実測 {got}")
         return out
 
     def layout_mismatches(self, rom: Rom) -> list[str]:

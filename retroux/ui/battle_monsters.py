@@ -135,7 +135,11 @@ class BattleMonsterStrip(QScrollArea):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setFixedHeight(STRIP_HEIGHT)
-        self.setWidgetResizable(True)
+        # ⚠⚠ **中身を窓の幅に押し込めない**（RX-0124 / 2026-09-04）。
+        #   ★`True` だと札（`setFixedSize`）が縮まず、⚠ はみ出したぶんが
+        #     **切れて触れません**（実測: 12 種で 1230 要るのに 700 のまま）。
+        #   → ★幅は `_fit_width()` が札の数から決めます。
+        self.setWidgetResizable(False)
         self.setFrameShape(QFrame.Shape.NoFrame)
         # ⚠ 縦には出さない（帯の高さは固定なので、出ても掴めない）
         self.setVerticalScrollBarPolicy(
@@ -160,6 +164,37 @@ class BattleMonsterStrip(QScrollArea):
         """★いま出している札。テストと画面の確認用。"""
         return list(self._cards)
 
+    def content_width(self) -> int:
+        """★札を全部並べるのに要る幅（⚠ 札の数から直に計算）。
+
+        ⚠⚠ `self._row.sizeHint()` は**札を足した直後には使えません**
+          （★DQ3 側の実測で `(12, 8)` を返した / レイアウトが未計算）。
+          → ★時間に依存しないよう、**数から**出します。
+        """
+        count = len(self._cards)
+        if not count:
+            return 0
+        margins = self._row.contentsMargins()
+        return (margins.left() + margins.right() + count * CARD_WIDTH
+                + max(0, count - 1) * self._row.spacing())
+
+    def _fit_width(self) -> None:
+        """★中身の幅を決める（⚠ 狭いときは窓いっぱい / 背景が途切れないように）。"""
+        inner = self.widget()
+        if inner is None:
+            return
+        inner.resize(max(self.content_width(), self.viewport().width()),
+                     self.viewport().height())
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._fit_width()
+
+    def showEvent(self, event) -> None:
+        # ⚠ 隠れている間の大きさ変えは `resizeEvent` が来ない（★DQ3 で実測）
+        super().showEvent(event)
+        self._fit_width()
+
     def set_cards(self, cards) -> None:
         """並べ直す。⚠ 空なら「戦闘していません」と出す（黙って消さない）。"""
         cards = list(cards or [])
@@ -175,6 +210,9 @@ class BattleMonsterStrip(QScrollArea):
             self._empty = QLabel("戦闘していません")
             self._empty.setStyleSheet("color:#6a7080; font-size:11px;")
             self._row.addWidget(self._empty)
+            self._fit_width()
             return
         for card in cards:
             self._row.addWidget(_Card(card))
+        # ★札の数が変わったら幅も変える（⚠ ここを忘れると横スクロールが出ない）
+        self._fit_width()

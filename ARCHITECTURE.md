@@ -53,14 +53,25 @@ RetroUX は **3つのプロセス**が**ファイル経由**で会話します�
 | `retroux/plugins/dq2/` | **ゲーム知識**。`config.yaml`（振る舞いの設定）・`memory_map.yaml`（RAM/ROMアドレスと根拠。★敵の表は入っておらず、起動時に ROM から起こす → `retroux/core/enemy_tables.py`）・`dq2.lua`（読み取り関数） |
 | `retroux/tools/` | 起動補助 CLI（倍率設定・絵の展開・プレイデータ退避…） |
 | `dq2rom/` | ROM 解析 CLI（`python -m dq2rom --help`）。実行時に利用者の ROM から表や絵を抽出 |
+| `dq3/` | **DQ3 の本体**（v1.1.0 で追加）。`ui/`（画面）・`knowledge/`（ゲーム知識）・`battle/`（戦闘 AI）・`phase0/`（Lua と設定の生成）・`tools/`（初回生成） |
+| `dq3rom/` | DQ3 の ROM 解析（`profiles/` に番地と表の構造）。★絵と名前は利用者の ROM から |
+| `data/dq3/` | DQ3 の**解析成果**（升 id → CHR 索引・進行フラグ・場所 id の対応）。⚠ 絵ではありません |
 | `tests/` | 3,000件超。`uv run pytest`（ROM が要るものは自動 skip） |
 | `work/` | 実行時データ（DB・ログ・状態・生成物）。**消してよい**。Git 管理外 |
 
-## 起動の流れ（`scripts/start-retroux.ps1`）
+## 起動の流れ（`scripts/start-retroux.ps1` / DQ2）
 
 1. 多重起動チェック → 2. `generate_lua`（YAML→Lua） → 2.5 モンスター絵の初回展開
 → 3. ログ世代 → 4. セーブステート保護を起動 → 5. GUI 起動 → FCEUX 起動（`-lua run.lua`）
 → ウィンドウ整列。
+
+## 起動の流れ（`scripts/start-dq3.ps1` / DQ3）
+
+1. `generate_lua`（設定 → Lua） → **1.5 モンスター絵の初回生成**（`dq3.tools.monster_art_setup`）
+→ 2. セーブステートの世代バックアップ → 3. GUI 起動 → FCEUX 起動 → ウィンドウ整列。
+
+★1.5 は**初回だけ**働きます（2 回目以降は数 ms で抜けます）。
+⚠ 失敗しても起動は止めません（絵は表示だけの機能なので、次の起動でもう一度作ります）。
 
 ## 押さえておくべき不変条件
 

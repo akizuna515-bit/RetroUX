@@ -263,3 +263,28 @@ def test_tactics_lookup_falls_back_to_config():
     assert proc.returncode == 0, out
     assert "NG" not in out, out
     assert "戦術プロフィールの引き当ては期待どおり" in out, out
+
+TACTICS_GUARD = PROJECT_ROOT / "research" / "probes" / "active" / "tactics_guard_test.lua"
+
+
+@pytest.mark.skipif(not TACTICS_GUARD.exists(), reason="tactics_guard_test.lua が無い")
+def test_tactics_probe_refuses_without_write_root():
+    """★隔離先が無ければ、⚠ 戦術の検査は**走らない**（RX3-0334）。
+
+    ## ⚠⚠ なぜ要るか
+
+      ★`tactics_test.lua` は前まで**本物の** `work/generated/tactics.lua` を
+      消したり書いたりしていました（⚠ 8 worker で取り合い、たまに赤くなった）。
+      → ★隔離先を必須にしましたが、⚠ `lua_run.py` が必ずその環境変数を立てるので、
+        **門そのものは検査から通れません**（★壊す実験で「外しても緑」だった）。
+      → ⚠ この probe が `os.getenv` を差し替えて、★門が効くことを見ます。
+    """
+    proc = subprocess.run(
+        [sys.executable, str(RUNNER), str(TACTICS_GUARD)],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=PROJECT_ROOT,
+    )
+    out = (proc.stdout or "") + (proc.stderr or "")
+    assert proc.returncode == 0, out
+    assert "NG" not in out, out
+    assert "隔離先が無ければ" in out, out

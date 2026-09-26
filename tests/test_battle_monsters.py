@@ -117,3 +117,75 @@ def test_同じ中身なら作り直さない(strip):
     first = strip.widget().layout().itemAt(0).widget()
     strip.set_cards(bm.cards_from_ids([0x01, 0x02], NAMES, _no_art))
     assert strip.widget().layout().itemAt(0).widget() is first
+# --- ⚠⚠ 横スクロールが**本当に効く**こと（RX-0124 / 2026-09-04）------------
+
+def test_札が多いとき全部にたどり着ける(qapp):
+    """★★★ ⚠⚠ **方針だけ見ても分からない** ★★★
+
+    ⚠ 上の `test_横スクロールは出るが縦は出ない` は
+      `ScrollBarAsNeeded` という**方針**しか見ていませんでした。
+    ★`QScrollArea(widgetResizable=True)` が中身を窓の幅に押し込めるので、
+      ⚠ 札（`setFixedSize`）は縮まず、**はみ出したぶんが切れて触れません**。
+
+    ```text
+    直す前（幅 700 の帯）
+      12 枚   要る幅 1230 / 中身  700 / 右端 x=643..739  ⚠⚠ 届かない / 横バーも出ない
+    直した後
+      12 枚   要る幅 1230 / 中身 1230 / 右端 x=1128..1224 ★届く / 横バーが出る
+    ```
+    """
+    strip = bm.BattleMonsterStrip()
+    strip.resize(700, bm.STRIP_HEIGHT)
+    strip.show()
+    for count in (1, 3, 8, 12):
+        strip.set_cards(bm.cards_from_ids(list(range(0x10, 0x10 + count)),
+                                          NAMES, _no_art))
+        inner = strip.widget()
+        row = inner.layout()
+        row.activate()                       # ⚠ 位置は活性化しないと出ない
+        qapp.processEvents()
+        assert row.count() == count
+        last = row.itemAt(count - 1).widget()
+        assert last.x() + bm.CARD_WIDTH <= inner.width(), (
+            "⚠⚠ %d 枚目が中身からはみ出している（★触れない）" % count)
+        # ★入らないときだけ横バーが出る
+        wide = strip.content_width() > strip.viewport().width()
+        assert (strip.horizontalScrollBar().maximum() > 0) == wide
+
+
+def test_中身を窓に押し込めない():
+    """⚠ 直し方そのものを見る（★`True` に戻したら赤くなる）。"""
+    strip = bm.BattleMonsterStrip()
+    assert strip.widgetResizable() is False, (
+        "⚠⚠ 中身が窓の幅に押し込められる（★札が切れる）")
+
+
+def test_狭いときは窓いっぱいに広げる(qapp):
+    """⚠ 背景が途切れないように（★札が少ないときも幅は viewport 以上）。"""
+    strip = bm.BattleMonsterStrip()
+    strip.resize(700, bm.STRIP_HEIGHT)
+    strip.show()
+    strip.set_cards(bm.cards_from_ids([0x10], NAMES, _no_art))
+    assert strip.widget().width() >= strip.viewport().width()
+
+
+def test_空でも幅を決める(qapp):
+    """⚠ 「戦闘していません」だけのときも崩れないこと。"""
+    strip = bm.BattleMonsterStrip()
+    strip.resize(700, bm.STRIP_HEIGHT)
+    strip.show()
+    strip.set_cards([])
+    assert strip.content_width() == 0
+    assert strip.widget().width() >= strip.viewport().width()
+
+
+def test_窓の大きさが変わっても追随する(qapp):
+    """⚠ `resizeEvent` で幅を決め直していること。"""
+    strip = bm.BattleMonsterStrip()
+    strip.resize(400, bm.STRIP_HEIGHT)
+    strip.show()
+    strip.set_cards(bm.cards_from_ids([0x10], NAMES, _no_art))
+    narrow = strip.widget().width()
+    strip.resize(900, bm.STRIP_HEIGHT)
+    qapp.processEvents()
+    assert strip.widget().width() > narrow, "⚠⚠ 窓を広げても中身が追随しない"

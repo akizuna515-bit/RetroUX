@@ -1,0 +1,24 @@
+﻿location_id,map_id,name,kind,review_status,evidence,notes
+L0,0,,town,DRAFT,ルーラ表 0 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L9,9,,town,DRAFT,ルーラ表 1 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L1,1,,town,DRAFT,ルーラ表 2 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L20,20,,town,DRAFT,ルーラ表 3 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L11,11,,town,DRAFT,ルーラ表 4 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L12,12,,town,DRAFT,ルーラ表 5 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L80,80,,town,DRAFT,ルーラ表 6 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L10,10,,town,DRAFT,ルーラ表 7 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L14,14,,town,DRAFT,ルーラ表 8 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L51,51,,town,DRAFT,ルーラ表 9 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L15,15,,town,DRAFT,ルーラ表 10 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L23,23,,town,DRAFT,ルーラ表 11 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L2,2,,town,DRAFT,ルーラ表 12 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L6,6,,town,DRAFT,ルーラ表 13 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L25,25,,town,DRAFT,ルーラ表 14 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L7,7,,town,DRAFT,ルーラ表 15 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L18,18,,town,DRAFT,ルーラ表 16 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L16,16,,town,DRAFT,ルーラ表 17 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L26,26,,town,DRAFT,ルーラ表 18 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L17,17,,town,DRAFT,ルーラ表 19 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
+L68,68,,,DRAFT,実プレイで行った（player-knowledge.json）,⚠ 種別・名前は人が入れる
+L70,70,,,DRAFT,実プレイで行った（player-knowledge.json）,⚠ 種別・名前は人が入れる
+L109,109,,,DRAFT,実プレイで行った（player-knowledge.json）,⚠ 種別・名前は人が入れる

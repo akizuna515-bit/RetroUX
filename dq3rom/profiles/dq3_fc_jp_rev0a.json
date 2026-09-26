@@ -1,0 +1,610 @@
+{
+  "game_id": "dq3_fc_jp_rev0a",
+  "title": "ドラゴンクエストIII そして伝説へ…",
+  "region": "JP",
+  "platform": "Famicom",
+  "revision": "Rev 0A (PRG0)",
+  "_source": "input/260823_dq3-rom-deep-research.md §3（2026-08-22 調査）。2026-08-23 に work/rom/DQ3_J.nes で全項目を実測一致",
+  "mapper": 1,
+  "mapper_name": "MMC1",
+  "hashes": {
+    "_note": "iNES ヘッダ込み。⚠ ヘッダの書き方1つで変わるので版の識別には使わない",
+    "sha1": "56e0fc1f50e3a778e832d5e142d5591bd0332fad",
+    "md5": "4d7587c092e2955a80cfc2e383599f8e",
+    "crc32": "c1348e6f"
+  },
+  "payload_hashes": {
+    "_note": "★ヘッダ抜き（PRG のみ）。版の識別はこちら（NesCartDB の CRC と一致）",
+    "sha1": "5759a9d658d253c8a6aaa38969c443d66e0f3349",
+    "crc32": "a49b48b8"
+  },
+  "rom_layout": {
+    "ines_header_size": 16,
+    "prg_bank_size": 16384,
+    "prg_banks": 16,
+    "chr_banks": 0,
+    "uses_chr_ram": true,
+    "has_battery": true,
+    "wram_bytes": 8192,
+    "mirroring": "mapper_controlled",
+    "fixed_bank": 15,
+    "_note": "MMC1 16KB 切替モードの静的既定: $8000-$BFFF 切替、$C000-$FFFF は最終バンク固定。⚠ 実行時の MMC1 mode は未確認（調査資料 §4）"
+  },
+  "vectors": {
+    "nmi": "0xC955",
+    "reset": "0xFFD8",
+    "irq": "0xEF11",
+    "confidence": "confirmed"
+  },
+  "tables": {
+    "_note": "file = iNES ヘッダ込みのファイル位置。prg = ヘッダ抜き（file - 0x10）",
+    "enemies": {
+      "file": "0x003308",
+      "prg": "0x0032F8",
+      "count": 139,
+      "entry_size": 23,
+      "end_file_exclusive": "0x003F85",
+      "confidence": "confirmed",
+      "evidence": "北米版既知表 3197 bytes と全 byte 一致（調査資料 §5.1）"
+    },
+    "monster_graphics": {
+      "file": "0x008ED3",
+      "prg": "0x008EC3",
+      "bank": 2,
+      "cpu": "0x8EC3",
+      "entries": 139,
+      "entry_size": 5,
+      "end_file_exclusive": "0x00918A",
+      "pointer_from": "0x00956A",
+      "banks_list_note": "★どのバンクに絵の本体があるかは `_pak_data_banks_list` を `monster_id >> 3` で引き、⚠ 残り 3 bit の位置の bit で bank 2 / 3 を選ぶ（`_get_pak_data_bank`）。",
+      "layout": [
+        "b0",
+        "data_lo",
+        "data_hi",
+        "param_lo",
+        "param_hi"
+      ],
+      "confidence": "confirmed",
+      "_note": "★`monster_id` を**そのまま索引**にする（⚠ 5 バイト × 139）。\n  実機は `id*4 + id = id*5` を作り、`$956A` にある基点へ足す。\n  ⚠ `CMP #$A7`（167）未満だけ通す。\n★`data` は圧縮された絵、`param` は展開のパラメータ（⚠ 中身は未解析）。",
+      "evidence": "2026-08-31: 北米版の逆アセンブル `sub_39D93` 周辺 → `_pak_data_lib`。JP は同じコードが PRG 0x009891 に在り（`LDA $056D,Y / CMP #$A7 / ASL / ROL $B5 / ASL / ROL $B5 / CLC / ADC $056D,Y`）、基点は即値ではなく `$955A` の 2 バイト。★★ 139 件 × 5 バイトが **ちょうど** 0x00917A(PRG) で終わり、そこが 1 件目の `param` の指す先と**一致**する。★139 件すべてで data / param とも $8000-$BFFF の窓に収まる。",
+      "banks_list": "0x008EC1",
+      "banks_list_entries": 18
+    },
+    "world_main": {
+      "pointer_table_file": "0x01402C",
+      "rows": 256,
+      "expected_width": 256,
+      "first_data_file": "0x01422E",
+      "prg_bank": 5,
+      "pointer_to_file": "cpu_pointer + 0xC010",
+      "confidence": "confirmed",
+      "evidence": "256/256 行が 256 tile に展開。★ポインタ表は 257 個目が番兵（$9A99 → 0x015AA9 = アレフガルド表の先頭）で、全行が次ポインタで検証できる（2026-08-23 実測）",
+      "end_file": "0x015AA9"
+    },
+    "world_alefgard": {
+      "pointer_table_file": "0x015AA9",
+      "rows": 138,
+      "expected_width": 158,
+      "first_data_file": "0x015BBF",
+      "end_file": "0x016403",
+      "prg_bank": 5,
+      "confidence": "confirmed",
+      "evidence": "138/138 行が 158 tile に展開（2026-08-23 実測）。★139 個目のポインタ（$A3F3 → 0x016403）は番兵。行 0 と行 137 が両方「全部海」で上端・下端",
+      "_note_vs_research": "⚠ 調査資料 §6.2 は 139 行（158×139）と書くが、139 個目は行ではなく終端の番兵。0x016403 の先は地形が入り乱れた別データで、行として読むと 160 tile に膨らむ。docs/design/dq3-findings.md 参照"
+    },
+    "area_directory": {
+      "file": "0x01C04E",
+      "end_file_exclusive": "0x01C327",
+      "entries": 243,
+      "entry_size": 3,
+      "valid": 204,
+      "unused": 39,
+      "bank_rule": "tileset >= 0x0C -> bank 7, else bank 6",
+      "first_map_data_file": "0x01C327",
+      "confidence": "confirmed",
+      "evidence": "2026-08-23 実測: 既存 MDEC デコーダに bank 6/7 の 16KB 窓を渡して 204/0/39（work/dq3-probe/areamaps_try.py）"
+    },
+    "entrance_table": {
+      "file": "0x018058",
+      "end_file_exclusive": "0x0184DB",
+      "blocks": 243,
+      "terminator": "0xFF",
+      "entry_size": 2,
+      "confidence": "confirmed",
+      "evidence": "2026-08-31: 北米版の完全逆アセンブル `sub_17542F` / `$17545C` / `sub_175467` / `$175AE1` から仕組みを起こし、JP ROM で同じ 22 バイトを 探して位置を決めた（US 0x018034 / JP 0x018048 = PRG）。★243 block ちょうどで終端（area_directory の件数と一致、1155 バイト）。★★ `load_map` の行き先 404 件すべてに「戻りの行」がある（100%）。★入口の升（collision の下位ニブル 1/A/F）の数と block の対の数が 204 map 中 192（94%）で一致。⚠ 残り 12 は未解明（0/60/70/80/85/97/105/113/117/151/198/216）。⚠ ニブルを 1 つ足す案は 15 通り全部試したが、どれも一致件数が減った。",
+      "_kind_note": "★byte1（種別）は実機が 5 帯に振り分ける（`sub_175467`）。\n  <0x80      ★行き先 map の**何番目の入口に着くか**。\n             ⚠⚠ 404 件中 396 件で「行った先の その番目が元へ戻る」。\n  0x80-0xBF  ★`arrival_local[(種別-0x80)]`（ローカルの x, y, 向き）\n  0xC0-0xEF  ★`arrival_world[(種別-0xC0)]`（世界地図へ出る）\n  0xF0-0xFD  ★`arrival_world_short[(種別-0xF0)]`（世界地図へ出る・2 バイト）\n  0xFE-0xFF  ⚠ 表を引かない（★階段の音を鳴らして戻る道。未解析）"
+    },
+    "arrival_local": {
+      "file": "0x0184DB",
+      "entries": 7,
+      "entry_size": 3,
+      "confidence": "confirmed",
+      "_note": "★着地点（ローカル）: x, y, 向き（下位 2 bit）。⚠ bit2 の意味は未解析。",
+      "evidence": "2026-08-31: `sub_1754EE`（種別 0x80-0xBF）が `(種別 - 0x80) * 3` で引く表。★入口表の直後に隣接（US `_b6_d1` と同じ並び）。⚠ 実際に使われている索引の最大は 6（★表は 7 件）。"
+    },
+    "arrival_world": {
+      "file": "0x0184F0",
+      "entries": 19,
+      "entry_size": 3,
+      "confidence": "confirmed",
+      "_note": "★着地点（世界地図）: byte0（⚠ どの世界か。未解析）, worldX, worldY。",
+      "evidence": "2026-08-31: `sub_175516`（種別 0xC0-0xEF）が `(種別 - 0xC0) * 3` で引く表。★US `_b6_d2` と同じ並び。⚠⚠ 使われている索引の最大が **18** で、表の 19 件を**ちょうど使い切る**。"
+    },
+    "arrival_world_short": {
+      "file": "0x018529",
+      "entries": 9,
+      "entry_size": 2,
+      "confidence": "confirmed",
+      "_note": "★着地点（世界地図・2 バイト）: worldX, worldY。",
+      "evidence": "2026-08-31: `sub_175569`（種別 0xF0-0xFD）が `(種別 - 0xF0) * 2` で引く表。★US `_b6_d3` と同じ並び。⚠ 直後は map データ（US `_map0`）。⚠ 使われている索引の最大は 7（★表は 9 件）。"
+    },
+    "rura_points": {
+      "file": "0x001E4F",
+      "entries": 20,
+      "entry_size": 1,
+      "confidence": "confirmed",
+      "evidence": "2026-08-31: 北米版の `_returnable_areas_tbl`（bank00）と **20 バイト 完全一致**。参照コードも JP に居る（PRG 0x001CDA / $9CDA: `LDA $9E3F,X / CMP $008B / CPX #$14`）。★並びは画面の一覧順。★20 件すべて重複なしで、area_directory に実在する map。★うち 18 件は入口表の行き先にも出る。⚠ 出ない 2 件（$19 スー / $12 ハウクネス）は**内部 map を持たない**（block が空）ため。",
+      "_note": "★ルーラの行き先（map 番号）を、画面に並ぶ順で持つ表。⚠ 地名の**文字列はここには無い**（★実行時に画面から読む）。"
+    },
+    "chests_count": {
+      "file": "0x01E71D",
+      "entries": 64,
+      "entry_size": 2,
+      "confidence": "confirmed",
+      "evidence": "(map, 個数) の対 × 64。個数合計 193 = 中身表の長さ（2026-08-24 実測）"
+    },
+    "chests_content": {
+      "file": "0x01E79D",
+      "count": 193,
+      "entry_size": 1,
+      "confidence": "confirmed",
+      "evidence": "$FF 空 / $FE,$FD ミミック系 / $8x,$7F ゴールド (v&0x7F)*8 / 他 item ID",
+      "_note": "⚠ 値は同梱せず実行時に ROM から読む（RX-0090 と同じ方針）"
+    },
+    "tile_definitions": {
+      "file": "0x016405",
+      "entry_size": 3,
+      "confidence": "confirmed",
+      "evidence": "1 タイル 3 バイト、3 バイト目が collision。★8 タイル = 24 バイトを 1 グループとし、tileset から 4 グループを選ぶ（固定バンク $F64E）。実機実測の 32 バイトと 2/2 一致（tileset 0 / 1）。グループ数 98 は tileset 最大 27 → グループ 94〜97 とちょうど一致（2026-08-24）",
+      "group_bytes": 24,
+      "tiles_per_group": 8,
+      "groups": 98
+    },
+    "tile_overrides": {
+      "file": "0x016D44",
+      "entries": 17,
+      "entry_size": 4,
+      "confidence": "confirmed",
+      "evidence": "{map, 見た目のコピー元, 書き換える先, 値} × 17。実機は $F752 で map 番号を探し、★最初に一致した 1 件だけ collision[先] = 値 を書く。⚠ コピー元が 32/33 の 11 件は表の外（オブジェクト用）から見た目だけ持ってくる。14 件が実際に値を変え、うち 4 件は宝箱タイルの誤検出を消す（2026-08-24）"
+    },
+    "collision_index": {
+      "_note": "★表ではなく計算。固定バンク 15 の $F64E から復号（日本版 ROM のバイト列）",
+      "routine_cpu": "0xF64E",
+      "write_cpu": "0xF84F",
+      "base_pointer_word_cpu": "0xA3F3",
+      "group_index_table_cpu": "0xB478",
+      "rule": "tileset 0 → グループ 18..21 / 1..8 → [2n, 0, 2n+1, 1] / 9 以上 → (n-8)*4+18 から 4 つ",
+      "confidence": "confirmed",
+      "evidence": "実機実測 2/2 一致 + 宝箱個数表と 199/204 map 一致（2026-08-24）"
+    },
+    "doors": {
+      "_note": "★扉は表ではなく collision の下位ニブル。位置は地図の走査で出す",
+      "nibbles": {
+        "0x0B": "any_key",
+        "0x0C": "magic_key",
+        "0x0D": "final_key"
+      },
+      "key_check_cpu": "bank12 $982B",
+      "key_strength_zp": "0xB6",
+      "key_strength_values": [
+        0,
+        1,
+        3
+      ],
+      "rule": "$0D は $B6=3 のみ / $0C は $B6 が奇数（1 か 3）/ $0B は無条件。★強い鍵は弱い扉も開く",
+      "confidence": "confirmed",
+      "evidence": "bank12 $98A2・bank14 $B813・bank12 $982B に同じ比較が実在（2026-08-24）",
+      "_unresolved": "⚠ 鍵の道具 ID（$58/$59/$5A）は北米版由来で日本版未確認"
+    },
+    "names": {
+      "_note": "★名前辞書の**場所と形**だけ（RX3-0069 / 2026-09-03）。⚠ 名前そのものは持たない。ユーザーの ROM から実行時に復号する（dq3rom/names.py）",
+      "_evidence": "実機 trace（work/dq3-probe/nt_a.json / nt_spell.json / nt_item.json）: 固定 $FF17 / $C601 がモンスター名 $86DF〜 を読み、file 0x187 / 0x186 を $C5B5 / $C5D4 から開いて $85E3 / $8022 を読んだ。逆アセンブル: bank 14 $90C3（モンスター）/ $9043・$8FE0・$8FFD（固定長）/ $89B0（濁点マスク）/ $B1D8・$B1DD（F7・F6）",
+      "bank": 10,
+      "file_table": {
+        "_note": "★bank 10 の先頭にある「ファイル表」（2 バイトの pointer が並ぶ）。固定 $C4E0 / $C501 が global file id → (bank, local) で引く",
+        "cpu": "0x8000",
+        "monster_lo": 2,
+        "monster_hi": 6,
+        "item": 3,
+        "spell": 4,
+        "item_end": 5,
+        "place": 5,
+        "global_ids": {
+          "monster_lo": "0x181",
+          "monster_hi": "0x198",
+          "item": "0x186",
+          "spell": "0x187"
+        }
+      },
+      "monster": {
+        "format": "ff_terminated",
+        "split": 84,
+        "count": 139,
+        "_note": "★id < 84 は前半のファイル、それ以上は後半（bank 14 $90D9: SBC #$54）。count は enemies 表と同じ"
+      },
+      "item": {
+        "format": "fixed",
+        "width": 7,
+        "count": 125,
+        "_note": "★1 件 = 名前 7 + 濁点マスク 1 + 属性 1。終わりは次のファイル（local 5）の先頭"
+      },
+      "place": {
+        "format": "fixed",
+        "width": 7,
+        "count": 20,
+        "_note": "★ルーラの行き先の名前（RX3-0092）。1 件 = 名前 7 + 濁点マスク 1 + 文字数 1。道具名の表のすぐ後ろ（file_table 5 が指す）で、終わりは呪文のファイルの先頭",
+        "_evidence": "2026-09-06: file_table[5] = $8475 の先頭 2 バイトが $8477 を指し、$852B（呪文のファイル）まで 180 バイト = 20 件 x 9。⚠ 20 件中 19 件で「9 バイト目 = 復号した文字数」が一致する（★id 13 だけ 1 少ない / 理由は未解明）。★この byte が文字数だという裏付けは item 125/125・spell 62/62 が出す。★件数は rura_points（20 件）と同じ"
+      },
+      "spell": {
+        "format": "fixed",
+        "width": 5,
+        "count": 62,
+        "_note": "★1 件 = 名前 5 + 濁点マスク 1 + 属性 1。終わりはモンスター名の先頭。⚠ ホイミ は id 26"
+      },
+      "encoding": {
+        "_note": "1 バイト = 1 文字（CHR タイル 0x100 + byte）。固定長表はマスクの bit（先頭の字 = 最上位）で ゛。FF 区切り表は F7 = 次の字に ゛ / F6 = 次の字に ゜",
+        "dakuten_tile": "0x16A",
+        "handakuten_tile": "0x16B"
+      },
+      "handakuten_byte_ranges": [
+        [
+          "0xA4",
+          "0xA9"
+        ],
+        [
+          "0xCD",
+          "0xD1"
+        ]
+      ],
+      "_handakuten_note": "★固定長表で bit7 付きの はひふへほ（0xA4-0xA8）/ ハヒフヘホ（0xCD-0xD0）にマスク bit が立っていれば ゜（bank 14 $89D4-$89EF）。⚠ それ以外の 0x80 以上は未確定（decoder は '?' にして unknown へ数える）",
+      "confidence": "confirmed"
+    }
+  },
+  "field": {
+    "_note": "★フィールドのメニュー。⚠ 実測（2026-08-26 の記録 / work/dq3-probe/battle_record.txt）。★依頼者に普通に回復してもらい、人の手順をそのまま採った",
+    "menu_keywords": {
+      "talk": "はなす",
+      "spell": "じゅもん",
+      "status": "つよさ",
+      "item": "どうぐ",
+      "equip": "そうび",
+      "search": "しらべる"
+    },
+    "_columns_note": "⚠⚠ フィールドのコマンドは**2 列**。★じゅもん へは right（下ではない）",
+    "windows": {
+      "_note": "★左上の角（0x79）の位置だけを見る。⚠ 大きさは覚えている呪文の数で変わるので当てにしない",
+      "command": [
+        6,
+        2
+      ],
+      "caster": [
+        10,
+        4
+      ],
+      "spell": [
+        20,
+        2
+      ],
+      "target": [
+        4,
+        6
+      ],
+      "status": [
+        6,
+        20
+      ]
+    },
+    "_flow": [
+      "A     → コマンド窓 [6,2]",
+      "right → じゅもん（⚠ 2 列）",
+      "A     → 誰の呪文か [10,4]",
+      "A     → 呪文の一覧 [20,2]（⚠ 右上。戦闘では下）",
+      "A     → 対象の一覧 [4,6]",
+      "A     → 実行 → メッセージ",
+      "A ×2  → 閉じてコマンド窓へ戻る"
+    ],
+    "confidence": "high-confidence",
+    "evidence": "依頼者が普通に回復した手順を dq3_battle_record.lua で記録（f=221601-222024）。⚠ こちらからは 1 つも押していない"
+  },
+  "runtime": {
+    "_note": "★実行時の RAM。⚠ 「inferred」と書いてあるものは日本版で未確認。",
+    "party": {
+      "_note": "★画面の HP/MP 表示と RAM を突き合わせて特定（2026-08-25）。⚠ 依頼者の発案「キャプチャとメモリを突き合わせる」による",
+      "slots": 4,
+      "entry_size": 2,
+      "endian": "little",
+      "hp_current": "0x071C",
+      "hp_max": "0x0724",
+      "mp_current": "0x072C",
+      "mp_max": "0x0734",
+      "name": "0x075C",
+      "name_size": 4,
+      "items": "0x076C",
+      "class_gender": "0x0718",
+      "_class_gender_note": "★1 人 1 バイト。下位 3 bit = 職業（class_ids.inc: 0 勇者 / 1 魔法使い / 2 僧侶 / 3 賢者 / 4 戦士 / 5 商人 / 6 武闘家 / 7 遊び人）、bit3 = 性別（1 = 女）。⚠ 逆アセンブル `_b0_s2C_player_CLASS_read` は `AND #7`。★セーブステート 18 本で、装備している品と装備マスクが 146/146 一致（RX3-0082）",
+      "spells": "0x078C",
+      "spell_stride": 8,
+      "_spells_note": "★覚えている呪文の bit（RX3-0125 / 2026-09-08）。1 人 8 バイト。勇者は bytes 0-3 → ROM $A2BA のブロック 0-3、それ以外は bytes 0-3 → 魔法使い系ブロック 4-7 / bytes 4-7 → 僧侶系ブロック 8-11。bit は LSB から。⚠ 北米版 `_players_spell` は $079C（16 バイトずれ）。★固定セーブ 20 本で Lv と一致（勇者 Lv6 = メラ ホイミ ニフラム）",
+      "status": "0x073C",
+      "status_size": 2,
+      "status_flags": {
+        "alive":    { "byte": 0, "bit": 7, "confidence": "confirmed" },
+        "alive_hi": { "byte": 1, "bit": 7, "confidence": "confirmed" },
+        "poisoned": { "byte": 1, "bit": 5, "confidence": "confirmed" },
+        "illusion": { "byte": 0, "bit": 4, "confidence": "confirmed" },
+        "paralyzed": { "byte": 1, "bit": 6, "confidence": "confirmed",
+                       "evidence": "★RX3-0252（2026-09-13 依頼者「save7 まひを満タンで直したい。まんげつそう or キアリク」）。JP PRG の実コード: bank 0 $A09F が `$073D,X AND #$40` → `AND #$BF` で落とし文 #$42（まんげつそう $B27B → $A09F / ★隣の $A07F は毒 = bit5 を `AND #$DF` で落とす同じ形）/ 戦闘側 bank 4 $A3CD が同じ治し方、$8F37 が `ORA #$40` でまひにする、bank 13 $9F8E が「生きていて bit6 なし」を探す。★save7（依頼者のセーブ）は p1 だけ `80 C0`（まひ）/ 健康なセーブ 50 本 186 人で 1 度も立たない" }
+      },
+      "_status_note": "★状態（u16 x 4 / RX3-0125、RX3-0135 で日本版を確定）。confirmed: 2 バイトとも bit7 = 生存（★日本版セーブ 24 本 / 90 枠すべてで 0x8080 か 0x0000）。confirmed: **毒 = 上位バイト（+1）の bit5**（★2026-09-09 実測）。⚠⚠ 北米版 ram.inc から推測して「下位バイトの bit5」と置いていたが、**バイトが違っていた**（★番地が 16 バイトずれているのと同じ形）。★確かめ方: 依頼者が『スロット 0 は毒が 2 名』の状態でセーブ → その 1 本から「毒の 2 人だけで立つビット」を持つ (番地, 刻み) を総当たりすると 1244 件あったが、⚠ **健康なセーブ 24 本 / 90 枠で 1 度も立たない**という対照を掛けると**残ったのは $073D 刻み 2 の bit5 だけ**（1244 → 1 件）。⚠ 眠り・混乱のビットは**まだ分からない**（★推測を置かない。実物のセーブが来たら同じやり方で 1 件まで絞る / NEED-FIXTURE）。★★ まひ = **上位バイト（+1）の bit6**（RX3-0252 / 2026-09-13 / 根拠は status_flags.paralyzed.evidence: ROM のコード $A09F・$8F37 と save7）→ ★confirmed で置いた = 戦闘 AI（roles.lua / legality.lua）も まひ を見る（RX3-0135 の残り）。★★ 幻（マヌーサ）= **下位バイト（+0）の bit4**（RX3-0226 / 2026-09-13）。★JP PRG の実コード: bank 8 $96EC の たたかう が `LDA $073C,X / AND #$10 / BEQ / JSR 乱数 / CMP #$A0 / BCS` → 立っていれば乱数 < $A0 で空振り（★当たるのは 96/256 = 37.5% / ⚠ 50% ではない）。$9EC2 で敵の マヌーサ が同じ bit を立て（`ORA #$10 / STA $073C,X`）、$8276 で戦闘の頭に `AND #$80` で消す（= 1 戦闘だけ）。★セーブ 57 本 / 122 枠で、この bit が立っていた 2 本（8 枠）は 2 本とも直前の戦闘に マヌーサ を唱える敵（デスジャッカル）が居た。⚠ 戦闘の外では前の戦闘の値が残る（★戦闘中だけ読む / AI は戦闘中にしか読まない）。★日本版 PRG の $073C / $073D 参照は 74 か所で、⚠ 下位 bit0-7・上位 bit4-7 と下位ニブルを実際に使っている（= 他のビットも意味を持つ）。",
+      "item_slots": 8,
+      "_items_note": "★所持品 1 人 8 枠（bit7 = 装備中 / $FF = 空き）。⚠ 居ない枠（hp_max 0）は 0 で埋まる（= ひのきのぼう に見える）ので読まない。★セーブステート 18 本で並びを確認（2026-09-05 / RX3-0076。RX3-0007 の $076C と同じ）",
+      "confidence": "confirmed",
+      "evidence": "★セーブステート 5 つ（fc2/fc4/fc5/fc6/fc7）で画面の数字と一致し、かつ**現在 ≤ 最大**が 5/5 で成立。⚠ fc5 は戦闘でダメージを受けた 7/15 の状態でも正しい。★名前は $075C から 4 バイト × 4 人（「ハンソロ」= 4D 5A 4B 59 で確認）。⚠ 居ない枠は 0 / ★依頼者が「つよさ」の画面を 2 枚（セーブ 0 / 1）送ってくれた（2026-08-29）。1 人目「あかり」の**12 項目すべて**が RAM と一致した: レベル4 / ちから14 / すばやさ10 / たいりょく13 / かしこさ9 / うんのよさ6 / さいだいHP31 / さいだいMP9 / こうげき力26 / しゅびカ13、ゴールド 192→206、経験値 195→203。⚠ 1 人ぶんの突き合わせなので、★2 人目以降で裏を取れるとなお良い。",
+      "level": "0x0700",
+      "strength": "0x0704",
+      "agility": "0x0708",
+      "wisdom": "0x070C",
+      "luck": "0x0710",
+      "stamina": "0x0714",
+      "stat_size": 1,
+      "_stat_note": "★1 人 1 バイト × 4 人。⚠ 画面の並び（力/速/体/賢/運）とは**順番が違う**（★RAM は 力/速/賢/運/体）。⚠ 並びで決め打ちしないこと",
+      "attack": "0x07F1",
+      "defence": "0x07E9",
+      "derived_stride": 2,
+      "_derived_note": "⚠ こうげき力・しゅびカは**2 バイト刻み**で 4 人ぶん（★$07F1/$07F3/$07F5/$07F7）。★装備から計算される値で、$0700 台とは別の場所にある。\n⚠⚠ **戦闘の頭にしか作り直されません**（RX3-0284 / 2026-09-18）。★書き込む命令は ROM 全体で bank 4 の $8238-$829C（と援軍の $A34C-$A37C）だけで、⚠ 町で装備を替えても次の戦闘まで古い値のままです。★画面に出す値は `dq3/knowledge/derived_stats.py` がゲームと同じ式（bank 0 $94AE / $951F / $9465 / $9647）で作り直します。⚠ 隣の $07E5（1 バイト × 4）は**装備こみの素早さ**で、これも戦闘の頭に作られたもの。",
+      "exp": "0x0744",
+      "exp_size": 3,
+      "exp_stride": 3,
+      "_exp_note": "★3 バイト × 4 人（⚠ 2 バイトでは足りない）",
+      "next_exp": "0x6A3F",
+      "next_exp_size": 3,
+      "next_exp_stride": 3,
+      "_next_exp_note": "★★ 次のレベルに要る**累計**経験値（⚠ 残りではない。引き算は読む側で）。\n⚠⚠ ここは内蔵 RAM ではなく**カートリッジ側の RAM（$6000–$7FFF）**。\n  ★ゲーム自身が毎回書き直しているので、こちらで表を持たなくてよい。\n★根拠（2026-08-29 / セーブ 0 と 1）: しきい値は 304 / 264 / 308 / 330 で\n  **両方のセーブで同じ**、経験値だけ 205 と 203 で 2 違う。⚠ 残りも 2 違う。\n  ★勇者は Lv4 でしきい値 304 > 205（まだ上がらない）、戦士は Lv5 で 264 > 205。",
+      "_evidence": "★2026-08-29: 依頼者の「つよさ」画面 4 人ぶんと突き合わせ、**44 項目中 43 が一致**。\n  ⚠ 残る 1 つは勇者の経験値だけで、その画面だけ 19 分前（所持金 192）の古いもの。\n  ★4 人とも 力/速/体/賢/運 の値がばらばらなので、**偶然の一致ではない**。\n⚠⚠ **画面の並び（力/速/体/賢/運）と RAM の並び（力/速/賢/運/体）が違う**。\n  ★位置で決め打ちすると、たいりょくとかしこさが入れ替わったまま気づけない。"
+    },
+    "in_battle": {
+      "mode": "0x0032",
+      "mode_battle": "0xFD",
+      "flags": "0x60B7",
+      "flag_bit": "0x20",
+      "track": "0x06F0",
+      "battle_tracks": [
+        "0x10",
+        "0x12"
+      ],
+      "confidence": "confirmed",
+      "_note": "★DQ3 自身の式: $32 == $FD かつ $60B7 & $20（固定バンク $C8F8）。★$06F0 は音のドライバの「いまの曲」×2（bank1 $85C1）で、ENTERING / RESULT を分けるのに使う。\n⚠⚠ 旧い値 $0062 は戦闘中フラグではない（入口で種類を渡す引数 ＋ 汎用の作業バイト）。\n★根拠: RX3-0165（docs/research/dq3-battle-state-research.md）/ 実機 5 戦 ＋ 非戦闘 3,128 枚で誤検出 0。"
+    },
+    "window_color": {
+      "address": "0x06E0",
+      "dead": "0x27",
+      "low_hp": "0x2A",
+      "night": "0x21",
+      "normal": "0x30",
+      "time": "0x06DF",
+      "night_from": "0x78",
+      "confidence": "confirmed",
+      "_note": "★窓の色（RX3-0220 で調べ / RX3-0225 で Auto を人へ返す合図に使う）。ゲームが HP と状態から 1 本の処理（JP bank 13 $959B-$961C）で決めて $06E0 に置く（★フィールドと戦闘で同じバイト）。\n上から順に: 死んでいる人がいる → $27（オレンジ）/ 生きている人の HP < floor(最大 HP / 4) → $2A（緑）/ 夜（$06DF >= $78）で $60B7 bit5 が立っていない → $21（薄い青）/ それ以外 → $30（白）。\n⚠ 毒では変わらない / 赤は無い。★毎フレームではなく出来事（戦闘の頭・死・HP の変化・状態が治った）で作り直す。\n★読む所: dq3/phase0/generate_lua.py → CFG.window_color → battle_speed.lua（人へ返す色）/ auto_v0.lua（毎フレーム読む）/ dev.lua（state.json の window_color）。\n★根拠: repo のセーブ 57 通りで 規則 = $06E0 = $03E8 = PRAM[1]（docs/research/dq3-auto-release-window-color-consult.md）/ 見張り: tests/test_dq3_window_color.py"
+    },
+    "map_no": {
+      "address": "0x008B",
+      "confidence": "confirmed",
+      "_note": "⚠⚠ **`location.kind` が 1（ローカル）のときだけ意味がある。**\n★世界地図では前の値が残ったまま（2026-08-29 実測）。"
+    },
+    "confidence": "mixed",
+    "vram_queue": {
+      "_note": "★画面の更新は「RAM にためて NMI で転送」だった（指示書 §20 の予想どおり）。⚠ $2007 に書いているコードは ROM 全体で 2 か所だけ",
+      "buffer": "0x0300",
+      "count": "0x06D9",
+      "palette": "0x03E7",
+      "transfer_routine_cpu": "0xCA50",
+      "write_sites_cpu": [
+        "0xCA84",
+        "0xCA9C"
+      ],
+      "format": "[制御/上位アドレス][件数][下位アドレス][中身]… ⚠ 先頭バイトの bit7 が立っていれば PPUCTRL の設定つき（進む量 1 or 32）",
+      "confidence": "confirmed",
+      "evidence": "実機で $2007 への書き込みの PC を採り（$CA87 が 2215 回 / $CA9F が 167 回）、その場所を ROM で逆アセンブルして確認（2026-08-25）"
+    },
+    "scroll": {
+      "_note": "★画面が地図のどこを映しているかを決めるもの。⚠ どちらも書き込み専用なので、書き込みを捕まえるしかない",
+      "write_sites_cpu": [
+        "0xCAEE",
+        "0xCAF4"
+      ],
+      "nametable_select": "$2000 の bit0-1",
+      "observed": "町 map 9 で scroll=(64,80) / $2000=0x91 → ネームテーブル 1",
+      "confidence": "high-confidence",
+      "evidence": "実機で $2005 への書き込みの PC を採った（$CAEE / $CAF4 の 2 か所だけ）。★セーブステートの loopy_t（P_HT / P_VT / P_Hx / P_Vx）から計算した値と一致した"
+    },
+    "viewport": {
+      "_note": "★画面の升目 → 地図の升目。⚠ スクロールでは決まらない（面はスクロールに合わせて書き換わる）。★主人公がいつも同じ升に描かれることを使う",
+      "hero_cell": [
+        8,
+        7
+      ],
+      "tiles_per_cell": 2,
+      "formula": "地図 = 主人公の地図座標($30,$31) + (画面の升 - (8,7))",
+      "confidence": "high-confidence",
+      "evidence": "map 9 のセーブステート 2 つ（fc9 位置(2,10) / fc7 位置(19,13)）で、ずれ 26x26 通りを総当たりし、式が出す値が最良だった。★ROM から起こした地図と突き合わせ、(タイル, 下の升) を鍵にすると 280 升すべてが 1 通りの見た目に収まる。⚠ 世界地図では未確認",
+      "unverified": "広い世界地図でも中央固定かどうか"
+    },
+    "gold": {
+      "address": "0x07AC",
+      "size": 3,
+      "endian": "little",
+      "confidence": "confirmed",
+      "evidence": "★依頼者の画面（2026-08-29）で 192 → 206。⚠ RAM $07AC の 2 バイトが**同じ 192 → 206**。★2048 バイト全体を差分して、この値になるのはここだけ。\n⚠⚠ 2026-09-22（RX3-0369）訂正: size は **3** でした。★2 だと 65535 を超えたときに下 2 バイトだけを見て**巻き戻ります**（依頼者の save6: 画面 66970 / 誤表示 1434）。\n★根拠 ①: 逆アセンブルの `_b0_s1B_player_gold_read` / `_add` / `_subtract` が **`_players_gold` / `+1` / `+2` の 3 バイト**を扱う（北米版は $07BC / JP は 16 下）。\n★根拠 ②: セーブ 5 個で $07AC..$07AE を読むと、66970 のときだけ $07AE が 0x01 で、3 バイトの値が**画面と一致**（ほかの 4 個は $07AE = 0 で 2 バイトと同値）。"
+    },
+    "location": {
+      "kind": "0x002F",
+      "_kind_note": "★いまどこに居るか。0 = 世界地図 / 1 = ローカル（町・城・洞窟）/ 2 = アレフガルド。\n⚠⚠ **これを見ないと座標を取り違える。**\n  ★世界地図では $2A/$2B、ローカルでは $30/$31。\n⚠ `map_no`（$8B）と寸法（$88/$89）は**ローカルのときだけ意味がある**。\n  世界地図に出ても**前のローカルの値が残ったまま**（実測: セーブ 10 個中\n  8 個が世界地図なのに map_no=9 / 26x26 のままだった）。",
+      "facing": "0x0644",
+      "_facing_note": "★勇者が向いている方角（0=上 / 1=右 / 2=下 / 3=左）。\n⚠ `nav_v0.lua` が会話のために既に使っていた番地を、★ここへ集めた（RX3-0133 / 2026-09-09）。\n★根拠: `bank12 $992B` の `LDA #0..3` の直後に `ADC $0644`（方角の計算 / docs/design/dq3-findings.md）。",
+      "world_x": "0x002A",
+      "world_y": "0x002B",
+      "local_x": "0x0030",
+      "local_y": "0x0031",
+      "map_width": "0x0088",
+      "map_height": "0x0089",
+      "oob_tile": "0x008A",
+      "map_buffer": "0x7400",
+      "_map_buffer_note": "★ゲーム自身が復号した地図（⚠ カートリッジ側の RAM）。\n  1 升 1 バイト、`y * map_width + x`。⚠ 地形は下位 5 ビット（`raw & 0x1F`）。\n★bank14 $B746 で $7400 と確認（`research/probes/active/dq3_helper.lua`）。\n⚠⚠ **世界地図では使えない。** ★世界地図に出ても、この buffer は\n  **前のローカル地図の中身のまま**（2026-08-29 実測: 世界地図に居るのに\n  map 9 の 1 行目がそのまま残っていた）。→ ★世界地図は ROM から起こす。",
+      "confidence": "confirmed",
+      "evidence": "★2026-08-29: ゲームが復号した地図（`work/dq3-probe/mapbuf_9.txt` / 26x26）と\n  ROM のエリアマップ索引 9 を突き合わせ、**676 升すべて一致**（食い違い 0）。\n  ⚠ 寸法の同じもう 1 件（索引 228）は 442 升が食い違った。\n★→ `map_no`（$8B）は**エリアマップの索引そのもの**。\n⚠ ただし `kind`（$2F）が 1 のときだけ。",
+      "map_no": "0x008B"
+    },
+    "battle_enemies": {
+      "ids": "0x056D",
+      "counts": "0x0571",
+      "groups": 4,
+      "empty": "0xFF",
+      "confidence": "confirmed",
+      "_note": "★戦闘中に出ている敵。⚠ 群ごとに「種類」と「数」。\n  `ids[i]` が `0xFF` の枠は**空**。\n★`ids` は `runtime` ではなく ROM の敵の表（139 体）の索引。\n⚠⚠ 2026-08-31 訂正: ここには「敵の **HP は見つかっていない**」と\n  書いてありましたが、★**8 bit で探していた**のが原因でした。\n  実体は `hp_current`（$0520）に **16 bit × 8**。⚠ 見せるかどうかは\n  No-Spoiler の別問題なので、そちらは UI 側で決めます。",
+      "evidence": "★2026-08-31 実機: fc4（スライム 4 匹）の `$0500` が **7, 6, 7, 8**（⚠ 個体ごとに違う）。fc3（敵 2 が 4 匹）が 8, 9, 10, 9。fc6（スライム 3 + 敵 2 が 2）が 7, 7, 8 / 10, 8。★どれも `0 < いま <= ROM の HP`。⚠⚠ 一方 `$0520` は同じ種類なら**必ず同じ値**で、ROM の offset 6 と一致（★これが取り違えに気づいた決め手）。★fc0 / fc9（`$62=1` ＝ 戦闘の終わり）は HP が全部 0 で、状態の 2 バイト目も 0。\n★2026-08-29: 戦闘中のセーブ 5 個で、画面に出ている敵と一致した。\n  fc2  スライム 1        → ids 00 FF FF FF / counts 01 00 00 00\n  fc3  敵 2 が 4 匹       → ids 02 FF FF FF / counts 04 00 00 00\n  fc4  スライム 4        → ids 00 FF FF FF / counts 04 00 00 00\n  fc6  スライム 1 + おおがらす 2 → ids 00 01 FF FF / counts 01 02 00 00\n  fc8  スライム 4        → ids 00 FF FF FF / counts 04 00 00 00\n★ROM の敵の表とも辻褄が合う（0=HP8 / 1=HP9 / 2=lv2 HP10）。\n⚠ 候補の探し方: 「fc4 と fc3 で 4、fc6 で 1 か 2」になる番地は\n  $0100-$07FF に **$571 の 1 件だけ**だった。",
+      "hp_current": "0x0500",
+      "hp_size": 2,
+      "hp_slots": 8,
+      "status": "0x0530",
+      "status_size": 2,
+      "alive_bit": "0x80",
+      "_runtime_note": "⚠⚠ 2026-08-31 訂正: `hp_current` を `0x0520` と書いていましたが、★実機のセーブ 6 本が否定しました。`$0520` は **しゅび力**で、ROM の offset 6（`_bs_load_enemy_prop_DEF`）と 6 体すべてで一致します。\n★`ram.inc` を最後まで数えると: $0480 `_attr_ram_buf` 128 → **$0500 `_enemy_HP`（WORD×8）** → $0510 MP(8) → $0518 AGI(8) → $0520 DEF(WORD×8) → $0530 status。\n⚠ `alive` も **状態の 2 バイト目**の bit7。★1 バイト目は手番の初めの控えらしく、全滅（HP 全部 0）でも $80 のまま残ります。",
+      "mp": "0x0510",
+      "_mp_note": "★2026-09-14 RX3-0260 で確かめた（⚠ 以前は ram.inc の並びからの推定）: JP bank 4 $B788 `LDX $64 / LDA $0510,X`（マホトラが相手の今の MP を読む）/ $B7B3 `STA $0510,X`（減らす）。戦闘中のセーブ 21 本・敵 77 体で 76 体が ROM の最大 MP と一致、1 体は減っていた（敵が呪文を使った）。最大 MP 0 の敵は全部 0。★戦闘 AI がマホトラの効き目を見るだけに使う（⚠ 画面には出さない）。",
+      "agility": "0x0518",
+      "defense": "0x0520",
+      "defense_size": 2,
+      "alive_byte": 1,
+      "used_bit": "0x80",
+      "group_shift": 2,
+      "_group_note": "★RX3-0268（2026-09-14）: 群は状態の 1 バイト目（$0530+2i）の bit3-2、使用中は bit7。★JP bank 4 $BB75 `TXA / ASL / ASL / ORA #$80 / STA $0530,Y`（戦闘の初めに 1 体ずつ）。★戦闘中のセーブ 21 本で、群ごとのスロットの一覧 $07C1+8g と全部一致（RX3-0266 の調べ）。⚠ 以前は「群のスロットが先頭から数だけ並ぶ」とみなしていた（援軍の後にずれうる）。⚠ 戦闘の初めに $0530-$053F を 0 にするので、前の戦闘の値は残らない。",
+      "status_flags": {
+        "asleep":   { "byte": 1, "bit": 5, "confidence": "confirmed",
+                      "evidence": "★JP $9DC3 `LDA $0531,X / ORA #$20 / STA $0531,X`（ラリホー / 耐性 6 の判定の後）/ ★RX3-0266 の実機: 840 回の判定で予想と食い違い 0（文を出してから書く）" },
+        "sealed":   { "byte": 0, "bit": 5, "confidence": "confirmed",
+                      "evidence": "★JP $9E85 `JSR $A412 / LDA $0530,X / ORA #$20 / STA $0530,X`（マホトーン / 耐性 7）/ ★RX3-0266 の実機: 480 回で食い違い 0" },
+        "illusion": { "byte": 0, "bit": 4, "confidence": "confirmed",
+                      "evidence": "★JP $9F04 `JSR $A412 / LDA $0530,X / ORA #$10 / STA $0530,X`（マヌーサ / 耐性 9）/ ★RX3-0266 の実機: 480 回で食い違い 0 / ★敵の攻撃が乱数 < $A0 で外れる" },
+        "confused": { "byte": 1, "bit": 4, "confidence": "code",
+                      "evidence": "⚠ JP $9F6B（メダパニ / 耐性 11）のコードだけ。実機では試していない（★唱えられる人がいない）→ 戦闘 AI へは渡さない" },
+        "reflect":  { "byte": 1, "bit": 0, "confidence": "code",
+                      "evidence": "⚠ bit3-0 すべて（敵のマホカンタ $9385 `ORA #$0F` / $B45B で見る）。コードだけ → 戦闘 AI へは渡さない" }
+      }
+    },
+    "rura": {
+      "returnable": "0x0750",
+      "stride": 3,
+      "players": 4,
+      "bits": 20,
+      "confidence": "confirmed",
+      "_note": "★人ごとに「どこへ飛べるか」を持つ（⚠ 死んでいる間に訪れた町は その人だけ落ちる）。1 人 3 バイト・下位バイトから数えて bit N が `rura_points[N]`。",
+      "evidence": "2026-08-31: JP PRG 0x001CDA〜 の実コード。`LDA $0750,Y / ORA / STA $0750,Y` を 3 バイト、`Y = 人 * 3`。★索引が見つかると `INX / SEC / ROL ×3 / DEX` で bit X を立てる。★北米版 `_b0_s49_set_returnable_locations_bit` と同じ形。"
+    }
+  },
+  "known_other_revisions": {
+    "869501ca": "unsupported: 後期版（Rev B / PRG1）。⚠ Rev 0A の offset を流用しない"
+  },
+  "confidence": {
+    "identity": "confirmed",
+    "enemies": "confirmed",
+    "world_main": "confirmed",
+    "world_alefgard": "confirmed",
+    "area_directory": "confirmed",
+    "runtime_ram": "mixed",
+    "enemy_graphics": "unknown",
+    "text_encoding": "high-confidence",
+    "chests": "confirmed",
+    "collision": "confirmed",
+    "doors": "confirmed",
+    "door_key_item_ids": "inferred",
+    "party_hp_mp": "confirmed",
+    "names": "confirmed"
+  },
+  "text": {
+    "_note": "★CHR-RAM の字形から読み取った文字コード表。番号は**CHR のタイル索引**で、⚠ ROM のバイト値と同じとは限らない（未確認）。★形は `retroux/core/text.py` の Charset と同じなので、そのまま渡せる。\n⚠ 2026-08-31: `0x16E` = ？ / `0x16F` = ！ を足した。★依頼者の実機メモに `<6E>` が出て（「…なりますか<6E>」）、⚠ 推測せず**字形を描いて**確かめた（`work/dq3-probe/glyph_text_6C_71.png`）。★同じ絵で `0x170`=「 / `0x171`=＊ も既存の対応と合っていた。",
+    "_source": "セーブステート `tools/fceux/fcs/DQ3_J.fc7` の CHRR（8192 バイト）を8x8 の 2bpp として描き、人が読んだ（2026-08-25）",
+    "confidence": "high-confidence",
+    "_confidence_note": "⚠ 目で読んだもの。★実機の画面と突き合わせるまで confirmed にしない。特に小書き（ゃゅょ / ャ）は 8x8 では見分けにくい",
+    "runs": {
+      "256": "␣0123456789あいうえお",
+      "272": "かきくけこさしすせそたちつてとな",
+      "288": "にぬねのはひふへほまみむめもやゆ",
+      "304": "よらりるれろわをんっゃゅょアイオ",
+      "320": "カキクコサシスタテトナソヌハヒフ",
+      "336": "ホマミムメモラルレロンエニネノャ"
+    },
+    "single": {
+      "352": "ッ",
+      "355": "L",
+      "356": "M",
+      "357": "P",
+      "358": "V",
+      "359": "X",
+      "360": "。",
+      "368": "「",
+      "369": "＊",
+      "370": "▶",
+      "371": "▼",
+      "372": "：",
+      "373": "‥",
+      "388": "→",
+      "383": "ー",
+      "384": "じ",
+      "385": "だ",
+      "386": "ぶ",
+      "387": "ド",
+      "389": "A",
+      "390": "B",
+      "391": "C",
+      "392": "D",
+      "393": "E",
+      "394": "F",
+      "395": "G",
+      "396": "H",
+      "397": ".",
+      "362": "゛",
+      "366": "？",
+      "367": "！"
+    },
+    "_unresolved": [
+      "0x161 / 0x162 … 縦棒と『E』らしき字。⚠ 読み切れない",
+      "0x169 … ⚠ 2026-09-03 訂正: 半濁点は **0x16B**（bank 14 $89EC が ゜ に #$6B を使う）。0x169 は未確定のまま",
+      "⚠⚠ 2026-09-07（RX3-0108）: この訂正が **dq3rom/screen.py に届いていなかった**。★`HANDAKUTEN = 0x169` のままで、① `りっぱ` が `りっは` になり ② 半濁点のマスが `<6B>` として本文に漏れた。★いまは `screen.DAKUTEN / HANDAKUTEN` と `tables.names.encoding.*_tile` を検査が突き合わせる（`tests/test_dq3_handakuten.py`）",
+      "0x16C-0x16F … 記号（句読点らしきもの）。⚠ 未確認（★0x16B は半濁点なのでこの範囲から外した）",
+      "0x170-0x17F … 記号と罫線。★確定: 0x170=「 / 0x171=＊ / 0x172=▶ / 0x173=▼ / 0x174=： / 0x175=‥ / 0x17F=ー / ★残りは 0x176-0x17E の枠",
+      "★0x172（▶）だけがカーソル。**点滅している**（実測: VRAM へ 72 と 00 を交互に書く）",
+      "★0x173（▼）は**メッセージ送り**。A か B で送る（2026-08-27 / 依頼者）",
+      "⚠ 0x184（→）は別画面への誘導。★カーソルと混同しない",
+      "0x184 … → 右向きの長い矢印（★字形で確認）"
+    ],
+    "_dakuten_note": "★DQ3 の濁点は**対象文字の 1 行上**のマスに置かれる（2026-08-25 実測）。⚠ 流れの中に混ぜる DQ2 とは違うので、`retroux/core/text.py` の dakuten 機構は使わず `dq3rom/screen.py` で合成する。"
+  },
+  "battle": {
+    "_note": "★戦闘コマンド待ちを画面から判定するための最小限。⚠ 会話文やメッセージは一切持たない（`docs/00-project-policy.md` の決定）。",
+    "menu_keywords": {
+      "attack": "たたかう",
+      "flee": "にげる",
+      "defend": "ぼうぎょ",
+      "item": "どうぐ",
+      "spell": "じゅもん"
+    },
+    "spell_families": {
+      "_note": "⚠⚠ 賢者は**呪文の系統を選ぶ窓**が 1 段挟まる（RX3-0293）。★この語が窓に出ていたら系統の窓。⚠ どちらを選ぶかは ROM のブロック（4-7 = 魔法使い / 8-11 = 僧侶 / RX3-0125）で決める",
+      "mage": "まほうつかい",
+      "pilgrim": "そうりょ"
+    },
+    "cursor_tile": "0x172",
+    "confidence": "confirmed",
+    "evidence": "戦闘中のセーブステート DQ3_J.fc2 / fc6 の画面で確認（2026-08-25）。★4 項目とも読め、カーソルは たたかう の行にあった。★じゅもん は僧侶・魔法使いの窓で確認（覚えていない人には出ない）。★系統の窓は依頼者の save1（DQ3_J.fc1）の画面で確認（2026-09-18 / 窓(4,22) に「じゅもん ／ ▶まほうつかい ／ そうりょ」）"
+  }
+}

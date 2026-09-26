@@ -322,8 +322,15 @@ def placed_tiles(blocks: list[Block], on_grid: bool = True) -> set[tuple[int, ..
     return out
 
 
-def compare(tiles: set[tuple[int, ...]], width: int, height: int,
-            shot: list[list[tuple]]) -> Comparison:
+def compare_reference(tiles: set[tuple[int, ...]], width: int, height: int,
+                      shot: list[list[tuple]]) -> Comparison:
+    """★★ **金型**（⚠ 素直に総当たりする版 / 2026-08-02〜）★★
+
+    ⚠⚠ **消さないでください。** ★`compare` を速くしたとき、
+      「同じ答えを出すか」を確かめる相手がこれです。
+
+    ⚠ 遅いです（★79 枚で 721 秒）。ふだんは `compare` を使います。
+    """
     colors: list[tuple] = []
     for row in shot:
         for c in row:
@@ -357,6 +364,135 @@ def compare(tiles: set[tuple[int, ...]], width: int, height: int,
                             matched += 1
                     if (matched, judged) > (best.matched, best.judged):
                         best = Comparison(-1, matched, judged, skipped, (dx, dy))
+    return best
+
+
+def _cell_shapes(shot, dx: int, dy: int, cols: int, rows: int):
+    """★8x8 のマスを集め、**同じものはまとめる**。
+
+    戻り値は `(そのマスに出る色, 並びの形, 何個あるか)` の並び。
+
+    ⚠ 5 色以上のマスは**必ず判定できません**（★表は 4 色までしか
+      持てないので、必ず表に無い色が混じる）。→ ★ここで落とします。
+    """
+    seen: dict = {}
+    for by in range(rows):
+        base = dy + by * 8
+        for bx in range(cols):
+            left = dx + bx * 8
+            cell = tuple(shot[base + y][left + x]
+                         for y in range(8) for x in range(8))
+            got = seen.get(cell)
+            if got is None:
+                seen[cell] = 1
+            else:
+                seen[cell] = got + 1
+    out = []
+    for cell, count in seen.items():
+        where: dict = {}
+        for c in cell:
+            if c not in where:
+                where[c] = len(where)
+        if len(where) > 4:
+            continue                      # ⚠ 判定できない（★必ず skipped）
+        out.append((tuple(where), tuple(where[c] for c in cell), count))
+    return out
+
+
+def _good_maps(pattern: tuple, size: int, tiles: set, cache: dict):
+    """★その並びを ROM のタイルに合わせられる**色の当て方**を全部あげる。
+
+    ⚠ ここが `compare_reference` との違いです。⚠⚠ 金型は
+      **表を 1,680 通り作るたびに 64 画素を引き直して**いました。
+      ★並びが同じなら答えも同じなので、⚠ 1 度だけ調べて覚えます。
+    """
+    got = cache.get(pattern)
+    if got is None:
+        got = frozenset(
+            assign for assign in itertools.permutations(range(4), size)
+            if tuple(assign[i] for i in pattern) in tiles)
+        cache[pattern] = got
+    return got
+
+
+def compare(tiles: set[tuple[int, ...]], width: int, height: int,
+            shot: list[list[tuple]]) -> Comparison:
+    """★★ 撮影を ROM のタイルと突き合わせる（RX-0113 で速くした / 2026-08-30）★★
+
+    ## ⚠⚠ 答えは `compare_reference` と 1 ビットも変えていません
+
+      ★`tests/test_dq2rom_monsters.py::test_速い照合は金型と同じ答えを出す`
+      が、⚠ **実際の撮影 79 枚**で突き合わせます。
+
+    ## ★何をやめたか
+
+      金型は、offset ごとに **色の組 70 通り × 並べ替え 24 通り = 1,680 個**
+      の表を作り、⚠ **そのたびに全マスの 64 画素を引き直して**いました。
+
+          色 8 種 → 4.4 億回（★実測 79 枚で 721 秒）
+
+      ★やめたのは 3 つです。
+
+      ```text
+      1  同じマスを何度も見る
+         → ⚠ 中身が同じマスはまとめる（★空白のマスが大量にある）
+
+      2  色が決まるたびに 64 画素を引き直す
+         → ★マスの「並びの形」だけ先に出し、⚠ 当て方は 24 通りを
+           1 度調べて覚える
+
+      3  並べ替えのたびに「判定できるか」を数え直す
+         → ⚠ 判定できるかは**色の組だけ**で決まる（★並べ替えでは変わらない）
+           → 組ごとに 1 度だけ数える
+      ```
+
+    ## ⚠ 同点のときの扱いも同じです
+
+      ★金型は `>` で更新するので、**同点なら先に見つけたほうが残ります**。
+      ⚠ 見る順（dy → dx → 色の組 → 並べ替え）も揃えてあります。
+      ★これを崩すと `offset` が変わり、⚠ 別の答えに見えます。
+    """
+    colors: list[tuple] = []
+    for row in shot:
+        for c in row:
+            if c not in colors:
+                colors.append(c)
+    if len(colors) < 2:
+        return Comparison(-1, 0, 0, 0, None, "色が1種しかない")
+    if len(colors) > 8:
+        return Comparison(-1, 0, 0, 0, None, f"色が {len(colors)} 種と多すぎる")
+
+    take = min(4, len(colors))
+    perms = list(itertools.permutations(range(4), take))
+    cache: dict = {}
+    best = Comparison(-1, 0, 0, 0, None)
+    for dy in range(8):
+        for dx in range(8):
+            cols, rows = (width - dx) // 8, (height - dy) // 8
+            if cols < 1 or rows < 1:
+                continue
+            total = cols * rows
+            shapes = _cell_shapes(shot, dx, dy, cols, rows)
+            for subset in itertools.combinations(colors, take):
+                place = {c: i for i, c in enumerate(subset)}
+                live = []
+                judged = 0
+                for cc, pattern, count in shapes:
+                    slots = tuple(place.get(c, -1) for c in cc)
+                    if -1 in slots:
+                        continue          # ⚠ 表に無い色がある → skipped
+                    judged += count
+                    live.append((slots, _good_maps(pattern, len(cc), tiles,
+                                                   cache), count))
+                skipped = total - judged
+                for perm in perms:
+                    matched = 0
+                    for slots, good, count in live:
+                        if tuple(perm[i] for i in slots) in good:
+                            matched += count
+                    if (matched, judged) > (best.matched, best.judged):
+                        best = Comparison(-1, matched, judged, skipped,
+                                          (dx, dy))
     return best
 
 

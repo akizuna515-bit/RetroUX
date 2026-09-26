@@ -16,6 +16,16 @@ UNROM (mapper 2) のメモリ配置:
 
 そのため「CPUアドレス → ファイルオフセット」は**バンク番号が要る**。
 バンク番号なしで変換できるのは `$C000-$FFFF` だけ。
+
+MMC1 (mapper 1 / DQ3 日本版) も**静的解析では同じ形**で扱う（2026-08-23 / RX3-0002）:
+
+    $8000-$BFFF … 切り替えバンク
+    $C000-$FFFF … 最終バンク固定（16KB 切替モードの典型）
+
+⚠⚠ ただしこれは**静的解析の既定**であって、実行時の MMC1 mode
+  （PRG 32K/16K・どちらの窓が固定か）は**未確認**（調査資料 §4）。
+  ★実行時の番地解決にこの式を持ち込まないこと。確かめるまでは
+  「静的な読み出しの約束」として使う。
 """
 
 from __future__ import annotations
@@ -61,6 +71,13 @@ class Rom:
     sha1: str
     md5: str
     crc32: str
+    #: ★ヘッダを**除いた** PRG+CHR の hash（RX3-0002 / 2026-08-23）。
+    #   ⚠ DQ3 Rev 0A は payload の CRC32 `A49B48B8` で識別する
+    #     （カートリッジ DB・既知ダンプ情報がこちらを使う）。
+    #     ヘッダ込みの値は iNES ヘッダの書き方1つで変わるので、
+    #     **版の識別には payload を使う**。
+    prg_crc32: str = ""
+    prg_sha1: str = ""
 
     # --- 変換 ---------------------------------------------------------
 
@@ -71,8 +88,20 @@ class Rom:
 
     @property
     def fixed_bank(self) -> int:
-        """`$C000-$FFFF` に居座るバンク番号（UNROM は最終バンク）。"""
+        """`$C000-$FFFF` に居座るバンク番号（UNROM・MMC1 とも最終バンク）。
+
+        ⚠ MMC1 は**静的解析の既定**（16KB 切替・最終固定）。実行時は未確認。
+        """
         return self.prg_banks - 1
+
+    @property
+    def has_fixed_upper_window(self) -> bool:
+        """`$C000-$FFFF` が固定バンクになる mapper か。
+
+        ★UNROM と MMC1（静的既定）。知らない mapper は**固定とみなさない**
+          （⚠ 黙って最終バンクを当てると、別のゲームで静かにずれる）。
+        """
+        return self.mapper in (MAPPER_UNROM, MAPPER_MMC1)
 
     def file_offset(self, prg_offset: int) -> int:
         """PRG 先頭からの位置 → ファイル先頭からの位置。"""
@@ -89,7 +118,7 @@ class Rom:
         if not 0x8000 <= cpu_addr <= 0xFFFF:
             raise InesError(f"CPU アドレスが ROM 領域ではありません: ${cpu_addr:04X}")
 
-        if self.mapper == MAPPER_UNROM and cpu_addr >= 0xC000:
+        if self.has_fixed_upper_window and cpu_addr >= 0xC000:
             bank = self.fixed_bank
             return bank * PRG_BANK_SIZE + (cpu_addr - 0xC000)
 
@@ -160,6 +189,8 @@ def parse(data: bytes, path: pathlib.Path | None = None) -> Rom:
         sha1=hashlib.sha1(data).hexdigest(),
         md5=hashlib.md5(data).hexdigest(),
         crc32=format(zlib.crc32(data) & 0xFFFFFFFF, "08x"),
+        prg_crc32=format(zlib.crc32(prg + chr_data) & 0xFFFFFFFF, "08x"),
+        prg_sha1=hashlib.sha1(prg + chr_data).hexdigest(),
     )
 
 
@@ -176,6 +207,8 @@ def describe(rom: Rom) -> dict:
         "path": str(rom.path) if rom.path else None,
         "size_bytes": len(rom.raw),
         "hashes": {"sha1": rom.sha1, "md5": rom.md5, "crc32": rom.crc32},
+        # ★ヘッダ抜き（版の識別はこちら / RX3-0002）
+        "payload_hashes": {"sha1": rom.prg_sha1, "crc32": rom.prg_crc32},
         "prg_banks": rom.prg_banks,
         "prg_bytes": len(rom.prg),
         "chr_banks": rom.chr_banks,

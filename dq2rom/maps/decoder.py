@@ -66,6 +66,35 @@ from ..bitstream import BitReader, BitstreamError, coordinate_bits
 BANK2_PRG_BASE = 0x8000
 BANK2_PRG_END = 0xC000
 WINDOW_BASE = 0x8000
+WINDOW_SIZE = 0x4000
+
+
+@dataclasses.dataclass(frozen=True)
+class Semantics:
+    """ゲームごとの**意味づけ**（2026-08-23 / RX3-0005）。
+
+    ★★ ビット列の読み方（命令・brush・path・fill）は DQ2/DQ3 で同じ。 ★★
+      違うのは**ヘッダ下位 5 bit の意味**と**第 2 フェーズの合成**の 2 点だけ。
+      ⚠ ここを `if game == ...` で散らさず、差し替える 1 か所に寄せる。
+
+    | | DQ2（既定） | DQ3 |
+    | --- | --- | --- |
+    | ヘッダ下位 5 bit | 未使用（`unused_header_bits` に出す） | ★範囲外 / 背景タイル |
+    | 第 2 フェーズ | 別レイヤ（上位 3 bit に書く。地形は保つ） | ★上位 bit を **OR** で重ねる |
+
+    ⚠ DQ3 側の意味は調査資料 §7.2（北米版公開コード）由来。**実機での見え方は未確認**。
+      `phase2_mode="or"` が正しいかは Phase 6 で復号 RAM（`$7400`）と比べて決める。
+    """
+
+    name: str = "dq2"
+    #: ヘッダ下位 5 bit を背景タイルとして使うか
+    header_low5_is_background: bool = False
+    #: 第 2 フェーズの合成: "layer"（別レイヤ / DQ2） or "or"（上位 bit の OR / DQ3）
+    phase2_mode: str = "layer"
+
+
+DQ2 = Semantics()
+DQ3 = Semantics(name="dq3", header_low5_is_background=True, phase2_mode="or")
 
 TILE_MASK = 0x1F            # 地形は下位5ビット（`and #$1F` で屋根を落としている）
 ROOF_SHIFT = 5
@@ -98,6 +127,9 @@ class DecodedMap:
     bytes_consumed: int
     commands: int
     unused_header_bits: int
+    prg_bank: int | None = None       # ★どのバンクの窓だったか（記録用）
+    semantics: str = "dq2"
+    fill_tile: int | None = None      # ★下地に使った tile（DQ3 では背景と別）
 
     def to_json(self) -> dict:
         return {
@@ -112,8 +144,10 @@ class DecodedMap:
             "phase2_layer": self.phase2,
             "has_phase2": self.has_phase2,
             "phase2_bits": self.phase2_bits,
+            "fill_tile_id": self.fill_tile,
             "source": {
-                "prg_bank": 2,
+                "prg_bank": self.prg_bank,
+                "semantics": self.semantics,
                 "rom_offset_start": f"0x{self.prg_start:05X}",
                 "rom_offset_end": f"0x{self.prg_end:05X}",
                 "bytes_consumed": self.bytes_consumed,
@@ -130,12 +164,14 @@ class _Canvas:
       という実機の挙動を写せない。取り出すときに分ける。
     """
 
-    __slots__ = ("width", "height", "cells")
+    __slots__ = ("width", "height", "cells", "phase2_mode")
 
-    def __init__(self, width: int, height: int, background: int) -> None:
+    def __init__(self, width: int, height: int, background: int,
+                 phase2_mode: str = "layer") -> None:
         self.width = width
         self.height = height
         self.cells = [background & TILE_MASK] * (width * height)
+        self.phase2_mode = phase2_mode
 
     def write(self, index: int, value: int, roofing: bool) -> None:
         # ★範囲外は**黙って捨てる**。実機は $7800 のバッファへ書くだけなので
@@ -144,8 +180,13 @@ class _Canvas:
         if not 0 <= index < len(self.cells):
             return
         if roofing:
-            self.cells[index] = (self.cells[index] & TILE_MASK) | \
-                ((value & 0x07) << ROOF_SHIFT)
+            if self.phase2_mode == "or":
+                # ★DQ3: 上位 bit を OR で重ねる（調査資料 §7.2）。⚠ 実機未確認
+                self.cells[index] |= (value & 0x07) << ROOF_SHIFT
+            else:
+                # DQ2: 別レイヤ（上位 3 bit を置き換え、地形は保つ）
+                self.cells[index] = (self.cells[index] & TILE_MASK) | \
+                    ((value & 0x07) << ROOF_SHIFT)
         else:
             self.cells[index] = (self.cells[index] & ~TILE_MASK & 0xFF) | \
                 (value & TILE_MASK)
@@ -293,30 +334,60 @@ class _Decoder:
 
 
 def decode_map(prg: bytes, cpu_addr: int) -> DecodedMap:
-    """1マップぶん展開する。"""
+    """1マップぶん展開する（DQ2 / bank 2）。
+
+    ★薄い包み。⚠ 2026-08-23（RX3-0005）までは**ここが本体**で、
+      `start = 0x8000 + (cpu - 0x8000)` と PRG offset 0x8000〜0xBFFF
+      （= DQ2 の bank 2）しか見ていなかった。本体は `decode_window` へ移し、
+      「どの 16KB を見るか」を呼び出し側の仕事にした。DQ2 の呼び出しは変わらない。
+    """
     if not WINDOW_BASE <= cpu_addr <= 0xBFFF:
         raise MapDecodeError(
             f"マップのポインタが切り替えバンクの窓の外です: ${cpu_addr:04X}")
-    start = BANK2_PRG_BASE + (cpu_addr - WINDOW_BASE)
-    if start + 3 > min(len(prg), BANK2_PRG_END):
-        raise MapDecodeError(f"マップの先頭が bank 2 の外です: 0x{start:05X}")
+    window = prg[BANK2_PRG_BASE:BANK2_PRG_END]
+    return decode_window(window, cpu_addr, semantics=DQ2,
+                         prg_base=BANK2_PRG_BASE, prg_bank=2)
 
-    width = prg[start]
-    height = prg[start + 1]
-    flags = prg[start + 2]
+
+def decode_window(window: bytes, cpu_addr: int, *, semantics: Semantics = DQ2,
+                  prg_base: int = 0, prg_bank: int | None = None) -> DecodedMap:
+    """**16KB の窓**（`$8000-$BFFF` に入っているバンク）からマップを展開する。
+
+    ★どの窓を渡すかは呼び出し側（DQ2: bank 2 / DQ3: tileset で bank 6 か 7）。
+      ⚠ 窓が 16KB より短くてもよい（末尾の判定は `len(window)`）。
+    @param prg_base  出力の `prg_start/prg_end` に足す PRG offset（記録用）
+    """
+    if not WINDOW_BASE <= cpu_addr <= 0xBFFF:
+        raise MapDecodeError(
+            f"マップのポインタが切り替えバンクの窓の外です: ${cpu_addr:04X}")
+    start = cpu_addr - WINDOW_BASE
+    if start + 3 > len(window):
+        raise MapDecodeError(f"マップの先頭が窓の外です: +0x{start:04X}")
+
+    width = window[start]
+    height = window[start + 1]
+    flags = window[start + 2]
     if width == 0 or height == 0:
         raise MapDecodeError(f"幅・高さが 0 です（{width}x{height}）")
 
     tile_bits = (flags >> 6) + 2
     coord = coordinate_bits(width, height)
 
-    reader = BitReader(prg, start + 3, msb_first=True)
-    canvas = _Canvas(width, height, 0)
+    reader = BitReader(window, start + 3, msb_first=True)
+    canvas = _Canvas(width, height, 0, phase2_mode=semantics.phase2_mode)
 
     try:
         dec = _Decoder(reader, canvas, tile_bits, coord)
-        background = dec.tile_id()
-        canvas.cells = [background & TILE_MASK] * (width * height)
+        if semantics.header_low5_is_background:
+            # ★DQ3: 背景（範囲外）タイルは**ヘッダ下位 5 bit**（調査資料 §7.2）。
+            #   ビット列の先頭の tile_id は DQ2 同様に読んで下地に使う。
+            #   ⚠ 両者が違うことがあり得るので、両方を出力に残す
+            background = flags & 0x1F
+            fill = dec.tile_id()
+        else:
+            background = dec.tile_id()
+            fill = background
+        canvas.cells = [fill & TILE_MASK] * (width * height)
         dec.run()
 
         # --- 第2フェーズ（屋根 / 視界）---
@@ -338,9 +409,10 @@ def decode_map(prg: bytes, cpu_addr: int) -> DecodedMap:
         tiles=canvas.rows(TILE_MASK, 0),
         phase2=canvas.rows(0x07, ROOF_SHIFT),
         has_phase2=has_phase2, phase2_bits=phase2_bits,
-        prg_start=start, prg_end=end,
+        prg_start=prg_base + start, prg_end=prg_base + end,
         bytes_consumed=end - start, commands=dec.commands,
         unused_header_bits=flags & 0x1F,
+        prg_bank=prg_bank, semantics=semantics.name, fill_tile=fill & TILE_MASK,
     )
 
 

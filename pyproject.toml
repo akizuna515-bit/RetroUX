@@ -1,6 +1,6 @@
 [project]
 name = "retroux"
-version = "1.0.4"
+version = "1.1.0"
 description = "RetroUX — modernizes the user experience of classic games without changing what made them great"
 requires-python = ">=3.12"
 dependencies = [
@@ -11,6 +11,11 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    # ★並列でテストを走らせる（RX-0111 / 依頼者の許可 2026-08-30）
+    #   ⚠⚠ 既定では**使いません**。★`-n` を付けたときだけ効きます。
+    #   ⚠ いまのテストは半分以上が並列で安全ではありません
+    #     （★`.metrics/reports/parallel-scan.md`）。
+    "pytest-xdist>=3.5",
 ]
 
 [build-system]
@@ -18,7 +23,28 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["retroux", "dq2rom"]
+packages = ["retroux", "dq2rom", "dq3", "dq3rom"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# ★★ 8 worker を既定にする（RX-0114 / 依頼者の指示 2026-08-30）★★
+#
+#   ⚠⚠ 以前は「既定では使わない。`-n` を付けたときだけ」でした。
+#     ★理由は「いまのテストは半分以上が並列で安全ではない」。
+#
+#   ⚠ それは**本当でした**。並列にしたら隠れていた壊れが 5 つ出ました。
+#     ★全部直したうえで、下を確かめてから既定にしています。
+#
+#   ```text
+#   1 worker   3977 passed / 0 failed / 38 skipped / 460.30 秒
+#   8 worker   3977 passed / 0 failed / 38 skipped / 184.30 秒
+#   ★4 回連続で一致（⚠ Lua の検査だけなら 6 回連続 error 0）
+#   ```
+#
+#   ⚠ 1 本で走らせたいときは `-n 0`。
+#   ⚠⚠ **性能を測るときは、他のテストや計測を並走させないこと**
+#     （★2026-08-30 に、それで 27 倍の幻を見ました）。
+addopts = ["-n", "8"]
+markers = [
+    "slow: ⚠ 重い検査（★`--runslow` のときだけ走る）",
+]

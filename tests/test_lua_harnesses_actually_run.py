@@ -64,6 +64,22 @@ RUNNABLE: list[tuple[str, str, int]] = [
     # ★F-089 第10弾。見立てへ渡す敵（★2026-08-06 と 08-11 に2回こけた）。
     ("assess_enemy_view_test.lua", "すべて合格", 18),
     ("framecount_rewind_test.lua", "すべて通りました", 9),
+    # ★RX3-0166: 戦闘の状態（DQ3 自身の式）と、安全な戦闘だけ速くする / 勝ったら元の速さで人へ
+    # ★RX3-0225: Auto を人へ返すのは窓の色（W1〜W6）と、劣勢に「なった」とき（L3〜L5 / 2026-09-13）
+    #   ⚠ 独自の 30%（danger_hp）と死者の数えは廃止（L3d）/ 人が入れた Auto の最初の劣勢は続ける（L4）
+    # ★RX3-0344: 戦闘の種類は入口で 1 回だけ決める / 危険化は Auto ごと人へ返す
+    ("dq3_battle_speed_test.lua", "すべて合格", 54),   # ★RX3-0327 で 39 → 47（膠着）/ RX3-0344 で 52
+    # ★RX3-0170: 聞き込み・街移動の Turbo（頼みで入り、遭遇・town_end・セーブ・人の B・放置で切れる）
+    # ★RX3-0241: 施設の人の最初の台詞で等速へ（区間減速の間でも FCEUX へ normal を送り直す / Turbo へ戻らない）
+    ("dq3_town_speed_test.lua", "すべて合格", 25),
+    # ★RX3-0167: セーブを読んでフレーム数が巻き戻っても state.json を書き、頼みを読む
+    ("dq3_rewind_test.lua", "すべて合格", 4),
+    # ★RX3-0275: 世界地図の入口・出口の升（毎フレーム / 巻き戻りで捨てる / アレフガルドも）
+    ("dq3_world_edges_test.lua", "すべて合格", 7),
+    # ★RX3-0174: まんたんで やくそう / どくけしそう（呪文を優先 / 道具を優先 / 道具を使わない）
+    # ★RX3-0252: まひ（キアリク / まんげつそう / まひの人は唱える人・持ち主にしない）で 23 → 33 / 5 → 8
+    ("dq3_mantan_items_test.lua", "すべて合格", 37),   # ★RX3-0318/0320 で 33 → 37
+    ("dq3_mantan_item_wiring_test.lua", "すべて合格", 8),
     ("overkill_test.lua", "すべて通りました", 16),
     ("mantan_ranking_test.lua", "すべて通りました", 40),
     ("mantan_settings_test.lua", "すべて通りました", 20),
@@ -94,12 +110,22 @@ RUNNABLE: list[tuple[str, str, int]] = [
     ("research_capture_gate_test.lua", "すべて通りました", 9),
     # ★RX-0011: 却下が battle_veto イベントとして1人1ターン1回出る
     ("veto_event_test.lua", "すべて通りました", 12),
+    # ★RX3-0043: MAP のタイルの材料を書く（⚠ 8KB を毎回送らないこと）
+    ("dq3_map_art_test.lua", "件 OK", 20),   # ★RX3-0316 で 17 → 20
 ]
 
 #: ⚠ FCEUX の中でしか動かないもの（`emu` / `savestate` の本物が要る）。
 #:   ★理由を書いて**明示的に**外します。黙って落とさないため。
 NEEDS_FCEUX: dict[str, str] = {
     "carrier_balance_test.lua": "emu.framecount と実機の持ち物が要る",
+    "dq3_scroll_probe.lua": "実機でスクロール位置を調べる（RX3-0016）",
+    "dq3_text_capture.lua": "実機で遊びながら画面の文字を貯める（RX3-0016）",
+    "dq3_ppu_trace.lua": "実機で VRAM への書き込みを捕まえる（RX3-0015）",
+    "dq3_spell_trace.lua": "実機で呪文が決まる瞬間をコマ単位で撮る（RX3-0015）",
+    "dq3_passability_test.lua": "実機を起動して通行可否を対照つきで測る（RX3-0010）",
+    "dq3_auto_v0_live.lua": "実機を起動して製品の auto_v0 を動かす検証道具（RX3-0015）",
+    "dq3_menu_explore.lua": "実機を起動してセーブステートを操作する調査道具（RX3-0015）",
+    "dq3_hook_test.lua": "memory.registerwrite が実機で鳴るかを見る道具（RX3-0009）",
     "caution_test.lua": "emu が要る",
     "encountered_merge_test.lua": "emu が要る",
     "force_auto_test.lua": "emu が要る",

@@ -547,6 +547,109 @@ def test_real_pixel_layer_lands_where_the_capture_shows_it(real, mid, raw, expec
     assert expected in spots, f"{raw} -> {spots}（期待 {expected}）"
 
 
+# --- ★速くした照合が、金型と同じ答えを出すか（RX-0113 / 2026-08-30）-------
+
+def _both(tiles, width, height, shot):
+    """★速い版と金型の両方を回して、⚠ 比べられる形にして返す。"""
+    fast = validator.compare(tiles, width, height, shot)
+    slow = validator.compare_reference(tiles, width, height, shot)
+    pick = ("matched", "judged", "skipped", "offset", "note")
+    return ({k: getattr(fast, k) for k in pick},
+            {k: getattr(slow, k) for k in pick})
+
+
+@needs_rom
+@needs_shots
+def test_速い照合は金型と同じ答えを出す(real):
+    """★★ ⚠⚠ **速くしたなら、同じ答えであることを見せる** ★★
+
+    ## ⚠ 1 枚だけでは足りません
+
+      ★この計画では「1 例だけの検査はすり抜ける」ことが既に起きています
+      （⚠ 正解と誤答がたまたま同じ値で、9 日間緑でした）。
+
+      → ★**軽い順に何枚も**突き合わせます。⚠ 金型は遅いので、
+        ここでは小さいものだけ。**全 79 枚**は
+        `test_速い照合は全部の撮影で金型と同じ`（★`--runslow`）が見ます。
+
+    ## ★何が同じであるべきか
+
+      ```text
+      matched  judged  skipped  offset  note
+      ```
+
+      ⚠ `offset` まで見るのが肝です。★同点のときにどちらを残すかは
+        **見る順**で決まるので、⚠ 順を崩すと `offset` だけが変わります。
+    """
+    rom, entries = real
+    shots = sorted(CAPTURES.glob("*.png"))
+    checked = 0
+    for path in shots:
+        got = validator.NAME_RE.match(path.stem)
+        if not got:
+            continue
+        mid = int(got.group(1), 16)
+        if mid >= len(entries) or not entries[mid].in_range:
+            continue
+        width, height, shot = validator.read_png_rgb(path)
+        # ⚠ 金型は色数で爆発する。★ここでは小さいものだけ見る
+        colors = {c for row in shot for c in row}
+        if len(colors) > 4 or width * height > 64 * 64:
+            continue
+        entry = entries[mid]
+        blocks = decode_monster(rom.prg, entry.graphics_addr, entry.count)
+        tiles = validator.placed_tiles(blocks, on_grid=True)
+        fast, slow = _both(tiles, width, height, shot)
+        assert fast == slow, "⚠⚠ %s で答えが違う: 速 %s / 金型 %s" % (
+            path.name, fast, slow)
+        checked += 1
+    # ⚠⚠ 「0 件は通っていないだけ」なので、★何枚見たかを必ず確かめる
+    assert checked >= 10, "⚠⚠ 見た枚数が少なすぎる（%d 枚）" % checked
+
+
+@needs_rom
+@needs_shots
+@pytest.mark.slow
+def test_速い照合は全部の撮影で金型と同じ(real):
+    """⚠⚠ **全 79 枚**。★金型が遅いので `--runslow` のときだけ。
+
+    ★実測（2026-08-30）:
+
+    ```text
+    金型   672.07 秒
+    速い    21.91 秒   ★30.7 倍
+    違い       0 件    ⚠ matched / judged / skipped / offset / note すべて
+    ```
+    """
+    rom, entries = real
+    checked = 0
+    for path in sorted(CAPTURES.glob("*.png")):
+        got = validator.NAME_RE.match(path.stem)
+        if not got:
+            continue
+        mid = int(got.group(1), 16)
+        if mid >= len(entries) or not entries[mid].in_range:
+            continue
+        entry = entries[mid]
+        blocks = decode_monster(rom.prg, entry.graphics_addr, entry.count)
+        tiles = validator.placed_tiles(blocks, on_grid=True)
+        width, height, shot = validator.read_png_rgb(path)
+        fast, slow = _both(tiles, width, height, shot)
+        assert fast == slow, "⚠⚠ %s で答えが違う: 速 %s / 金型 %s" % (
+            path.name, fast, slow)
+        checked += 1
+    assert checked >= 70, "⚠⚠ 見た枚数が少なすぎる（%d 枚）" % checked
+
+
+def test_金型は消されていない():
+    """⚠⚠ **金型を消したら、速い版の正しさを言う相手がいなくなります。**"""
+    assert hasattr(validator, "compare_reference"), (
+        "⚠⚠ compare_reference が消えている（★速い版の裏取りができない）")
+    text = pathlib.Path(validator.__file__).read_text(encoding="utf-8")
+    assert "itertools.combinations" in text
+    assert "消さないでください" in text
+
+
 @needs_rom
 @needs_shots
 def test_real_matches_the_captures(validated):

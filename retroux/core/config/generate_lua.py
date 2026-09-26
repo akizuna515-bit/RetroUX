@@ -11,7 +11,10 @@ Python 側で読み、Lua のテーブルリテラルとして書き出す（DEV
 
 from __future__ import annotations
 
+import os
 import sys
+import time
+
 from pathlib import Path
 from typing import Any
 
@@ -129,11 +132,23 @@ def source_fingerprint(path: Path) -> str:
 
 
 def write_lua_module(name: str, data: dict, out_dir: Path, src: Path) -> Path:
+    """★生成物を 1 本書く。
+
+    ⚠⚠ **直接上書きしません**（RX-0119 / 2026-09-03）。
+      ★8 worker が同じ 1 本を書くと、⚠ Lua 側が**書きかけ**を読み、
+      「config が nil」で落ちます（★`PermissionError` と違い、静かに通ることもある）。
+
+    ```text
+    1 中身が同じなら書かない（⚠ 取り合いをそもそも起こさない）
+    2 tmp へ書いてから差し替える（★読む側に欠けを見せない）
+    3 差し替えが拒まれたら少し待って繰り返す（⚠ Windows）
+    ```
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{name}.lua"
     body = to_lua(data)
     fp = source_fingerprint(src)
-    out_path.write_text(
+    text = (
         "-- 自動生成ファイル。直接編集しないこと。\n"
         f"-- 生成元: retroux/plugins/dq2/{name}.yaml\n"
         f"-- 生成: retroux/core/config/generate_lua.py\n"
@@ -143,9 +158,22 @@ def write_lua_module(name: str, data: dict, out_dir: Path, src: Path) -> Path:
         f'local SOURCE_FINGERPRINT = "{fp}"\n'
         f"local DATA = {body}\n"
         "DATA.__source_fingerprint = SOURCE_FINGERPRINT\n"
-        "return DATA\n",
-        encoding="utf-8",
+        "return DATA\n"
     )
+    try:
+        if out_path.read_text(encoding="utf-8") == text:
+            return out_path                 # ★同じ中身なら書かない
+    except OSError:
+        pass
+    temp = out_dir / f"{name}.lua.{os.getpid()}.tmp"
+    temp.write_text(text, encoding="utf-8")
+    for _ in range(40):
+        try:
+            os.replace(temp, out_path)
+            return out_path
+        except PermissionError:
+            time.sleep(0.05)                # ⚠ 読んでいる側はすぐ閉じる
+    os.replace(temp, out_path)              # ⚠ 一時的でなければ投げる
     return out_path
 
 

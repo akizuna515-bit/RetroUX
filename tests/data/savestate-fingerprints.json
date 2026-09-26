@@ -1,0 +1,86 @@
+{
+ "_note": "★検査が名指ししているセーブの指紋（RX-0135）。⚠ 撮り直したら、この file も更新してください。",
+ "_how": "PYTHONUTF8=1 python scripts/update_savestate_fingerprints.py",
+ "states": {
+  "DQ3_J.fc0": {
+   "sha1": "c532ab8c4b286e4a",
+   "size": 15389
+  },
+  "DQ3_J.fc1": {
+   "sha1": "bcb9f953c8702b72",
+   "size": 14844
+  },
+  "DQ3_J.fc2": {
+   "sha1": "be9f6c2701dbefce",
+   "size": 8736
+  },
+  "DQ3_J.fc3": {
+   "sha1": "4260c07168cb62f1",
+   "size": 10933
+  },
+  "DQ3_J.fc4": {
+   "sha1": "725a20baafb66ecf",
+   "size": 10867
+  },
+  "DQ3_J.fc5": {
+   "sha1": "0c241910ce1fa79e",
+   "size": 13700
+  },
+  "DQ3_J.fc6": {
+   "sha1": "28dfc54e96e8a50f",
+   "size": 12529
+  },
+  "DQ3_J.fc7": {
+   "sha1": "c320bf61c9d6cbe7",
+   "size": 10679
+  },
+  "DQ3_J.fc8": {
+   "sha1": "fe03c443c6c4bca3",
+   "size": 14272
+  },
+  "DQ3_J.fc9": {
+   "sha1": "1726996cd752328d",
+   "size": 87542
+  },
+  "DQ2_J.fc0": {
+   "sha1": "7b2955c5300526ea",
+   "size": 11804
+  },
+  "DQ2_J.fc1": {
+   "sha1": "96757808d9e5f244",
+   "size": 79305
+  },
+  "DQ2_J.fc2": {
+   "sha1": "9ac144be5a9626bc",
+   "size": 9621
+  },
+  "DQ2_J.fc3": {
+   "sha1": "c8c733750ae9e6db",
+   "size": 9454
+  },
+  "DQ2_J.fc4": {
+   "sha1": "36361990f8c1713e",
+   "size": 10611
+  },
+  "DQ2_J.fc5": {
+   "sha1": "e2296d26a2b99bfc",
+   "size": 9667
+  },
+  "DQ2_J.fc6": {
+   "sha1": "a1012ba022c42231",
+   "size": 10764
+  },
+  "DQ2_J.fc7": {
+   "sha1": "e00f24f5785ce770",
+   "size": 10606
+  },
+  "DQ2_J.fc8": {
+   "sha1": "18dc3e2ba3e8f51f",
+   "size": 9554
+  },
+  "DQ2_J.fc9": {
+   "sha1": "3e191dc289fe5c74",
+   "size": 10507
+  }
+ }
+}
