@@ -23,33 +23,47 @@ from __future__ import annotations
 
 import pathlib
 
-_ROOT = pathlib.Path(__file__).resolve().parents[2]
-DEFAULT_ROM = _ROOT / "work" / "rom" / "DQ3_J.nes"
+from dq3 import paths as P3
+
+_ROOT = P3.program_root()
+#: ★DQ3 の ROM（RX3-0467 / 2026-09-29）。⚠ 解決は `dq3/paths.py::rom()` の 1 本。
+#
+#   ★user_config.yaml の `paths.dq3_rom` →（無ければ）従来の `work/rom/DQ3_J.nes`。
+#   ⚠⚠ 固定配置は必須ではありません。⚠ 使う瞬間に引き直します（★import で固めない）。
+DEFAULT_ROM = P3.lazy_rom()
 
 _cache: dict | None = None
 _tried = False
 last_error: str | None = None
 
 
-def _load(rom_path=None) -> dict | None:
-    """★1 度だけ読む。⚠ ROM が無い / 版が違うときは None（★黙らず `last_error` に残す）。"""
-    global _cache, _tried, last_error
-    if _tried and rom_path is None:
-        return _cache
-    _tried = True
-    target = pathlib.Path(rom_path) if rom_path else DEFAULT_ROM
+def _read(target) -> tuple:
+    """★読むだけ（⚠ memo に触らない）。戻りは `(名前辞書 or None, 理由 or None)`。"""
     if not target.exists():
-        last_error = "ROM がありません: %s" % target
-        _cache = None
-        return None
+        return None, "ROM がありません: %s" % target
     try:
         from dq3rom import names as N
 
-        _cache = N.load_cached(target)
-        last_error = None
+        return N.load_cached(target), None
     except Exception as exc:                       # noqa: BLE001 - ★理由を残して None
-        last_error = "名前辞書を作れません: %s" % exc
-        _cache = None
+        return None, "名前辞書を作れません: %s" % exc
+
+
+def _load(rom_path=None) -> dict | None:
+    """★既定の ROM は 1 度だけ読む。⚠ 読めなければ None（★黙らず `last_error` に残す）。
+
+    ⚠⚠ **`rom_path` を名指しした結果は memo に入れません**（RX3-0474 / 2026-09-29）。
+      ★入れていたころは、無い ROM を渡した検査 1 件が、同じ process の
+      **あとの検査全部**を「ROM が読めません」にしていました（⚠ skip が 47 ⇄ 51 で揺れた）。
+    """
+    global _cache, _tried, last_error
+    if rom_path is not None:
+        data, last_error = _read(pathlib.Path(rom_path))
+        return data
+    if _tried:
+        return _cache
+    _cache, last_error = _read(DEFAULT_ROM)
+    _tried = True
     return _cache
 
 
@@ -84,20 +98,29 @@ _points: list | None = None
 _points_tried = False
 
 
-def place_maps(rom_path=None) -> list:
-    """★ルーラの行き先の map 番号（⚠ 画面に並ぶ順）。★引けなければ空。"""
-    global _points, _points_tried
-    if _points_tried and rom_path is None:
-        return list(_points or [])
-    _points_tried = True
-    target = pathlib.Path(rom_path) if rom_path else DEFAULT_ROM
+def _read_points(target) -> list | None:
+    """★読むだけ（⚠ memo に触らない）。"""
     try:
         from dq3rom import profile as P
         from dq3rom import rura
 
-        _points = rura.read_points(P.load_and_identify(target))
+        return rura.read_points(P.load_and_identify(target))
     except Exception:                              # noqa: BLE001 - ★無ければ黙って空
-        _points = None
+        return None
+
+
+def place_maps(rom_path=None) -> list:
+    """★ルーラの行き先の map 番号（⚠ 画面に並ぶ順）。★引けなければ空。
+
+    ⚠⚠ `_load` と同じ理由で、**名指しの結果は memo に入れません**（RX3-0474）。
+    """
+    global _points, _points_tried
+    if rom_path is not None:
+        return list(_read_points(pathlib.Path(rom_path)) or [])
+    if _points_tried:
+        return list(_points or [])
+    _points = _read_points(DEFAULT_ROM)
+    _points_tried = True
     return list(_points or [])
 
 

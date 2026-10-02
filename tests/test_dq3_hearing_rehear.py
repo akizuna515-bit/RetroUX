@@ -198,7 +198,8 @@ def test_場所の一覧はlocation_idで数える(tmp_path):
     assert (got["L14"]["memos"], got["L14"]["heard"], got["L14"]["conversations"]) == (3, 2, 2)
     # ★場所が複数 map をまとめていれば、その場所へ寄せる（★location_id が単位 / 指示書 §9）
     merged = PD.PlayDataService(k, tmp_path / "vault").places(location_of_map=lambda m: "L14" if m in (9, 14) else "L%d" % m)
-    assert [p["location_id"] for p in merged] == ["L14", "L9"] or [p["location_id"] for p in merged] == ["L14"]
+    # ★数の順（RX3-0438 / ⚠ もとは文字列の順で L14 → L9 だった）
+    assert [p["location_id"] for p in merged] == ["L9", "L14"] or [p["location_id"] for p in merged] == ["L14"]
 
 
 def test_確認の文に消すもの残すもの復元の注意がある():
@@ -241,8 +242,9 @@ def test_管理画面で場所を選んでクリアできる(tmp_path, monkeypat
     w = AdminWindow(_AVM(), _Cmd(), speed=None, service=PD.PlayDataService(k, tmp_path / "vault"),
                     confirm=lambda t, x: asked.append((t, x)) or True, settings=UiSettings(tmp_path / "ui.json"))
     assert w.b_clear_place.text() == "この場所の会話記録をクリア"
-    assert [w.c_place.itemData(i) for i in range(w.c_place.count())] == ["L14", "L9"]
-    w.c_place.setCurrentIndex(0)
+    # ★数の順（RX3-0438 / ⚠ もとは文字列の順で L14 → L9 だった）
+    assert [w.c_place.itemData(i) for i in range(w.c_place.count())] == ["L9", "L14"]
+    w.c_place.setCurrentIndex(w.c_place.findData("L14"))
     w.do_clear_place()
     assert asked and "L14の会話記録をクリアします" in asked[0][1], asked
     assert "14" not in json.loads((k / "npc-heard.json").read_text(encoding="utf-8"))

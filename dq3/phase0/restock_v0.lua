@@ -5,8 +5,8 @@
 --   ```text
 --   店主に話す → 売買選択（かいにきた / うりにきた）
 --     → A        品揃え（★ROM と同じ並び。値段と所持金が同じ窓に出る）
---     → 上下 → A ＊「やくそうですね。
---     → 持ち主   ＊「どなたが おもちになりますか？
+--     → 上下 → A ★品を選んだ確認の窓
+--     → 持ち主   ★誰が持つかを尋ねる窓（⚠ 本文は写しません / RX3-0433）
 --     → 上下 → A ★確定
 --   ⚠ 個数は聞かれない（★1 回 1 個）
 --   ```
@@ -27,7 +27,7 @@
 --   ★k 個目は `carriers` の k 番目（⚠ 無ければ `carrier`）。★決めるのは Python です。
 --   ⚠ ただし押す前に RAM を見て、その人の袋が満杯なら**選び直します**
 --     （★空きが最も多い人 / DQ2 の `_pick_carrier` と同じ決まり）。
---   ⚠⚠ それでも「それいじょう ものを もてない」と聞かれたら、★いいえ（B）で答えて
+--   ⚠⚠ それでも「もてない」（★照合に使う語）と聞かれたら、★いいえ（B）で答えて
 --     `carrier_full` で止まります（⚠ 以前は窓を開けたまま `not_bought` で止まった）。
 --
 -- ## ★守っていること（まんたん / 戦闘での失敗から）
@@ -39,7 +39,11 @@
 --   5. ⚠⚠ 買えたことは **所持金と所持数の両方**で確かめる（★片方では足りない）
 --   6. ★すべての繰り返しに上限を置く
 
-local root = os.getenv("RETROUX_ROOT") or "C:/Projects/260721_RetroUX"
+-- ⚠⚠ 開発機のパスへ落ちない（RX3-0466 / 2026-09-29）
+local root = os.getenv("RETROUX_ROOT")
+if root == nil or root == "" then
+  error("RETROUX_ROOT が立っていません（★起動は DQ3.cmd から / RX3-0466）")
+end
 local write_root = os.getenv("RETROUX_WRITE_ROOT") or root
 
 local Core = dofile(root .. "/dq3/phase0/core.lua")
@@ -424,7 +428,7 @@ local function tick_verify(nt)
       return
     end
   end
-  -- ⚠⚠ 「でも ○○さんは それいじょう ものを もてないようですよ。」（RX3-0202）
+  -- ⚠⚠ その人はもう持てない、と聞き返された（★照合に使う語は `もてない` / RX3-0202）
   --   ★いいえ（B）で答えて止める。⚠ 以前はここで 300 フレーム待ち、窓を開けたまま
   --     `not_bought` で止まっていました（★save8 / 依頼者 2026-09-12）。
   if #run.full > 0 and find_near(nt, run.full, nil) ~= nil then

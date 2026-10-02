@@ -167,21 +167,33 @@ def test_実体と言い回しが揃えばFactになる(matcher):
     entity_id, name = _an_item(matcher)
     got = C.analyse(_obs("＊「%sは てにいれましたか？" % name), matcher)
     assert [r["relation"] for r in got["relations"]] == ["obtain_hint"]
-    assert len(got["facts"]) == 1
-    fact = got["facts"][0]
+    # ⚠ 2026-09-27（RX3-0432）: 名前が出れば `heard` も立つので、
+    #   ★`obtain_hint` だけを取り出して見ます（⚠ 「全部で 1 件」ではない）。
+    hints = [f for f in got["facts"] if f["predicate"] == "obtain_hint"]
+    assert len(hints) == 1, got["facts"]
+    fact = hints[0]
     assert fact["subject"] == "item:%d" % entity_id
     assert fact["predicate"] == "obtain_hint"
     assert fact["object"] is None, "⚠⚠ 根拠が無いのに object を作っている"
     assert fact["confidence"] >= C.FACT_MIN_CONFIDENCE
 
 
-def test_実体だけならFactにしない(matcher):
+def test_実体だけならobtain_hintにしない(matcher):
+    """⚠ 言い回しが無ければ `obtain_hint` は作らない（★指示書 §11）。
+
+    ⚠⚠ 2026-09-27（RX3-0432）: `heard` は**作ります**。
+      ★「名前が会話に出た」＝「知る機会があった」という別の Fact だからです。
+      ⚠ ここが混ざると、★`obtain_hint` の歯止めが効かなくなります。
+    """
     from dq3.knowledge import concepts as C
 
-    _entity_id, name = _an_item(matcher)
+    entity_id, name = _an_item(matcher)
     got = C.analyse(_obs("＊「%sを もっています。" % name), matcher)
     assert got["concepts"], "⚠ 実体は取れているはず"
-    assert got["facts"] == [], "⚠⚠ 言い回しが無いのに Fact を作った"
+    assert [f for f in got["facts"] if f["predicate"] == "obtain_hint"] == [], (
+        "⚠⚠ 言い回しが無いのに obtain_hint を作った")
+    heard = [f for f in got["facts"] if f["predicate"] == "heard"]
+    assert [f["subject"] for f in heard] == ["item:%d" % entity_id], heard
 
 
 # --- ⚠ Pattern B: 方角＋場所の型は Concept どまり -------------------------------
@@ -260,7 +272,8 @@ def test_歯止めが強すぎない(matcher):
 def test_対象の無いほのめかしはFactにしない(matcher):
     from dq3.knowledge import concepts as C
 
-    got = C.analyse(_obs("＊「あやしげな ばしょには なにか あるかも しれぬ。"), matcher)
+    # ★文は架空（RX3-0433）。⚠ 判定に使う語（`あやしげ` / `かもしれ` = `GENERIC_HINT_PHRASES`）は同じ
+    got = C.analyse(_obs("＊「あやしげな かげには なにか いるかも しれぬ。"), matcher)
     assert got["facts"] == []
     assert "generic_hint" in got["tags"], "⚠ ほのめかしと分かる印が無い"
 
@@ -287,7 +300,9 @@ def test_発話をまたいで組み合わせない(matcher):
 
     _entity_id, name = _an_item(matcher)
     got = C.analyse(_obs("＊「%s。＊「てにいれましたか？" % name), matcher)
-    assert got["facts"] == [], "⚠⚠ 発話をまたいで Fact を作った"
+    # ⚠ 2026-09-27（RX3-0432）: `heard` は 1 つ目の発話だけで立つので除いて見る。
+    assert [f for f in got["facts"] if f["predicate"] == "obtain_hint"] == [], (
+        "⚠⚠ 発話をまたいで obtain_hint を作った")
 
 
 # --- ⚠ 名前辞書が無いとき --------------------------------------------------------
@@ -326,5 +341,131 @@ def test_実測の会話からFactが起きる(matcher):
         # ⚠ この検査は work/ の記録に依存する。★2026-09-05 に聞き込み履歴を初期化した直後
         #   （城の会話だけ）で赤くなった。記録に手がかりの会話が無いのは環境であって欠陥ではない。
         pytest.skip("⚠ 記録に手がかりの会話が無い（★履歴を初期化した直後など）")
-    assert all(f["subject"].split(":")[0] in ("monster", "item", "spell") for f in facts)
+    # ★2026-09-27（RX3-0432）: `heard` で場所も subject になる（⚠ `location:L<map>`）。
+    #   ⚠ `visit` の Fact と**同じ形**にそろえてある（★突き合わせが効くように）。
+    kinds = {f["subject"].split(":")[0] for f in facts}
+    assert kinds <= {"monster", "item", "spell", "location"}, kinds
+    for f in facts:
+        if f["subject"].startswith("location:"):
+            assert f["subject"].split(":", 1)[1].startswith("L"), f["subject"]
     assert tagged, "⚠ ほのめかしの印が 1 件も付いていない"
+
+
+# --- ★「聞いた」（RX3-0432 / 2026-09-27）----------------------------------------
+
+def test_名前が出れば聞いたになる(matcher):
+    """★言い回しが無くても「知る機会があった」として `heard` を立てる。
+
+    ⚠⚠ もとは `obtain_hint`（「てにいれ」が要る）だけで、
+      ★実測で**会話 884 件のうち 1 種**しか立ちませんでした（RX3-0432）。
+    """
+    from dq3.knowledge import concepts as C
+
+    entity_id, name = _an_item(matcher)
+    got = C.analyse(_obs("＊「%sの うわさを きいた。" % name), matcher)
+    heard = [f for f in got["facts"] if f["predicate"] == "heard"]
+    assert [f["subject"] for f in heard] == ["item:%d" % entity_id], heard
+    assert all(f["confidence"] >= C.FACT_MIN_CONFIDENCE for f in heard)
+
+
+def test_場所の名前も聞いたになる(matcher):
+    """★場所は `location:L<map 番号>`（⚠ `visit` の Fact と同じ形）。"""
+    from dq3.knowledge import concepts as C
+
+    if not matcher.places:
+        pytest.skip("⚠ 場所の名前が 1 つも無い（★ROM も CSV も読めない）")
+    _folded, location_id, name = matcher.places[0]
+    got = C.analyse(_obs("＊「%sの はなしを きいた。" % name), matcher)
+    heard = [f for f in got["facts"] if f["predicate"] == "heard"]
+    assert [f["subject"] for f in heard] == ["location:%s" % location_id], heard
+
+
+def test_方角と場所の型は聞いたにしない(matcher):
+    """⚠⚠ `place_type` / `direction` は id を持たない（★どれのことか決められない）。"""
+    from dq3.knowledge import concepts as C
+
+    got = C.analyse(_obs("＊「きたの どうくつに なにか あるらしい。"), matcher)
+    heard = [f for f in got["facts"] if f["predicate"] == "heard"]
+    assert heard == [], "⚠⚠ 分類の語だけで聞いたを立てた: %s" % heard
+
+
+# --- ⚠⚠ 境目をまたぐ誤爆（★実測した 2 件 / RX3-0432）---------------------------
+
+def test_離れた2語がつながって別の名前にならない(matcher):
+    """⚠⚠ **実測した誤爆**（2026-09-27 / 会話 884 件で 2 件）。
+
+    ```text
+    「はるか にし…」 → 空白を**消す**と "はるかにし" → ⚠ 呪文 `ルカニ`（るかに）が入る
+    ```
+
+    ★`fold_marked` が空白を境目の印に置き換えるので、⚠ もう当たりません。
+    ⚠ この直しで**本物の当たりは 1 件も失っていません**（★312 → 312 / 実測）。
+
+    ⚠⚠ **原作の会話文はここに書きません**（★指示書 §20-7）。
+      ★名前を runtime の辞書から借りて、⚠ **真ん中に空白を入れた**文を作ります
+      （★空白を消す実装なら当たり、境目を残す実装なら当たらない）。
+    """
+    from dq3.knowledge import concepts as C
+
+    entity_id, name = _an_item(matcher)
+    # ★名前の真ん中に空白（⚠ ROM は行の折り返しでこれをやる）
+    split = name[:2] + " " + name[2:]
+    assert C.fold(split) == C.fold(name), "⚠ 見本が作れていない（★空白だけの違い）"
+    got = C.analyse(_obs("＊「%sの はなし。" % split), matcher)
+    heard = [f for f in got["facts"]
+             if f["predicate"] == "heard" and f["subject"] == "item:%d" % entity_id]
+    assert heard == [], "⚠⚠ 境目をまたいで当たった: %s" % heard
+
+
+def test_境目を残しても長い名前は当たる(matcher):
+    """★境目を残したせいで**当たらなくなっていない**ことの対照（⚠ 片側だけ見ない）。"""
+    from dq3.knowledge import concepts as C
+
+    entity_id, name = _an_item(matcher)
+    got = C.analyse(_obs("＊「%s。" % name), matcher)
+    heard = [f for f in got["facts"] if f["predicate"] == "heard"]
+    assert [f["subject"] for f in heard] == ["item:%d" % entity_id], heard
+
+
+def test_自分で付けた地名も引ける(tmp_path):
+    """★利用者が遊びながら付けた名前（`player-knowledge.json`）も別名にする。
+
+    ## ⚠⚠ これに気づくのが遅れました（2026-09-27 / RX3-0432）
+
+    ★「地名が無い場所が 152 か所ある」と数えていましたが、⚠ 利用者は既に
+    **57 か所に名前を付けていました**。★`LocationCatalog` は前から読んでいたのに、
+    ⚠ `place_aliases()` が読んでいませんでした。
+    """
+    import json
+
+    from dq3.knowledge import concepts as C
+
+    knowledge = tmp_path / "player-knowledge.json"
+    knowledge.write_text(
+        json.dumps({"location_names": {"L777": "じぶんでつけたなまえ", "L778": "あ"}},
+                   ensure_ascii=False), encoding="utf-8")
+    got = {name: location_id for _f, location_id, name in
+           C.place_aliases(knowledge_path=knowledge)}
+    assert got.get("じぶんでつけたなまえ") == "L777"
+    # ⚠ 短すぎる名前は入れない（★`MIN_ALIAS`）
+    assert "あ" not in got
+
+
+def test_同じ場所に漢字とかなの両方を許す(tmp_path):
+    """★`ナジミの塔`（人の命名）と `ナジミのとう`（ゲームの綴り）の両方が要る。
+
+    ⚠ 会話の照合は**ゲームの綴り**でしか当たりません（★`fold` は漢字を畳まない）。
+    """
+    import json
+
+    from dq3.knowledge import concepts as C
+
+    knowledge = tmp_path / "player-knowledge.json"
+    knowledge.write_text(
+        json.dumps({"location_names": {"L777": "ためしの塔"}}, ensure_ascii=False),
+        encoding="utf-8")
+    got = {name: location_id for _f, location_id, name in
+           C.place_aliases(knowledge_path=knowledge)}
+    assert got.get("ためしの塔") == "L777"
+    # ⚠ 漢字とかなは**別の綴り**（★畳んでも同じにならない）
+    assert C.fold("ためしの塔") != C.fold("ためしのとう")

@@ -134,9 +134,9 @@ def test_聞き込みはtalk0を飛ばし近い順に回りheardを残す(world)
     # ★Lua が終わり、窓の文が勇者メモへ流れ、窓が閉じた
     vm.nav = {"seq": 1, "active": False, "phase": "done", "reason": "talk_done"}
     vm.talk = {"slot": 5, "talk_id": 11}
-    vm.last_talk_text = "＊「こんにちは。たびびとの やどに ようこそ。"
+    vm.last_talk_text = "＊「ようこそ。ここは やどやですよ。"      # ★架空の文 / RX3-0433
     ctl.poll()
-    assert svc.heard.is_heard(9, 1) and svc.heard.texts(9, 1)[0]["text"].startswith("＊「こんにちは")
+    assert svc.heard.is_heard(9, 1) and svc.heard.texts(9, 1)[0]["text"].startswith("＊「ようこそ")
     # ★次は動く NPC（talk 0 の #3 は候補に出ない）
     action, p = cmd.sent[-1]
     assert p["npc_slot"] == "10" and vm.talk_tag["npc_id"] == 6
@@ -609,10 +609,15 @@ def test_目標の書き方を読む():
 
 
 def test_設定が無くても既定で動く():
-    """★RX3-0258: 既定は道具番号（★やくそう 6 / どくけしそう 2 / キメラのつばさ 2 / まんげつそう 2 / せいすい 2）。"""
+    """★RX3-0482（2026-10-02 依頼者）: 新規利用の既定は やくそう 3 / どくけしそう 1 / キメラのつばさ 1。
+
+    ⚠ 補充の層（`dq3.knowledge.restock.DEFAULT_WANTS`）の既定とも同じ値（★画面と実際に使う値を揃える）。
+    """
+    from dq3.knowledge import restock as RS
     from dq3.ui.town_bar import DEFAULT_WANTS, keep_gold, restock_wants
 
-    assert restock_wants(None) == [(101, 6), (102, 2), (104, 2), (108, 2), (103, 2)] == list(DEFAULT_WANTS)
+    assert restock_wants(None) == [(101, 3), (102, 1), (104, 1)] == list(DEFAULT_WANTS)
+    assert list(RS.DEFAULT_WANTS) == list(DEFAULT_WANTS), "⚠⚠ 既定が 2 か所で食い違っている"
     assert keep_gold(None) == 0
 
 

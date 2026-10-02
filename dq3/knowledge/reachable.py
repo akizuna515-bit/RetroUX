@@ -119,9 +119,10 @@ def spoken(name: str, talk: str, reading: str | None = None) -> bool:
     → ★`concepts.fold`（カタカナ → ひらがな）を通してから照合します。
     ⚠ 2 文字以下は誤って当たるので見ません。
 
-    ⚠⚠ 2026-09-12（RX3-0178）: 部分一致だけでは、ロマリアの兵士の
-      「アりアハンから**まいら**れた おかたでは？」が町の「マイラ」に当たり、
+    ⚠⚠ 2026-09-12（RX3-0178）: 部分一致だけでは、ロマリアの兵士が言った
+      「**まいら**れた」（＝ 参られた）が町の「マイラ」に当たり、
       まだ名前も聞いていない町を「行ける所」に出していました（ネタバレ）。
+      ★見本は架空の文にしてあります（⚠ 原作の会話は配布物に入れません / RX3-0433）。
     → ★名前のすぐ後ろが**ひらがな**なら、`concepts.FOLLOWERS`（助詞と区切りの 1 字）のときだけ当たりにします
       （★文の終わり・記号・空白・カタカナの後ろはそのまま当たり）。
       ⚠ 同じ決まりを 2 か所に書かない（★会話の Fact と同じ `FOLLOWERS` を使う）。
@@ -145,21 +146,69 @@ def spoken(name: str, talk: str, reading: str | None = None) -> bool:
     return False
 
 
-def all_place_names(master) -> set:
-    """★名簿にある**すべて**の地名（⚠ 知らない話の場所も含む / RX3-0292）。
+def all_place_names(master=None, knowledge_path=None) -> set:
+    """★照合に使う**すべて**の地名（⚠ 知らない場所も含む / RX3-0292）。
 
     ⚠ これ自体は画面に出しません。★「会話で名前を聞いたか」を調べる**相手**として使うだけです
       （⚠ 聞いていない名前は出ない = ネタバレにならない）。
+
+    ## ⚠⚠ 2026-09-27（RX3-0432 / 依頼者の判断「案 A」）に出どころを変えました
+
+    ★もとは **Topic の `related_location_names`** から作っていました（⚠ 55 個）。
+    → ⚠ それは「メモに書いた地名」であって、★**勇者が知っている地名ではありません**。
+    → ★`concepts.place_aliases()` に変更（⚠ 56 個）。出どころは 3 つとも明らか:
+
+    ```text
+    ★ROM のルーラ表              利用者の ROM
+    ★data/dq3/location-names.csv 人が書いた表
+    ★player-knowledge.json       ⚠ 利用者がゲーム内で付けた名前
+    ```
+
+    ## ⚠⚠ 2026-09-27 に 1 度**外しました**（★数が同じでも中身が違った）
+
+    ★`place_aliases()` **だけ**に差し替えたら、候補が 11 件 → **2 件**に落ちました。
+    ⚠ 数は 55 → 56 でほぼ同じなのに、★**中身が違っていた**からです:
+
+    ```text
+    ★place_aliases()          利用者が**もう知っている**名前（⚠ 大半は訪問済み → 候補から外れる）
+    ★related_location_names   人がメモに書いた名前（⚠ **まだ行っていない**場所を含む）
+    ```
+
+    → ★**両方**を語彙にします（⚠ 語彙は画面に出ません）。
+      ⚠ メモに書いただけでは出ません。★`BY_TALK`（**会話に名前が出た**）が要ります。
+      → ★これが「案 A」の正しい形です（⚠ 「メモに書いたから行け」は出さない）。
     """
-    topics = master.topics.values() if isinstance(master.topics, dict) else master.topics
-    got: set = set()
-    for topic in topics:
-        got |= {str(n) for n in (topic.related_location_names or ()) if n}
+    from . import concepts
+
+    got = {name for _folded, _location_id, name
+           in concepts.place_aliases(knowledge_path=knowledge_path)}
+    if master is not None:
+        topics = (master.topics.values() if isinstance(master.topics, dict)
+                  else master.topics)
+        for topic in topics:
+            got |= {str(n) for n in (topic.related_location_names or ()) if n}
     return got
 
 
 def topic_places(book, master) -> set:
-    """★勇者が知っている Topic が指している地名（⚠ `unknown` の話は入れない）。"""
+    """⚠⚠ **もう使いません**（2026-09-27 / RX3-0432 の「案 A」）。
+
+    ★依頼者の判断: メモの `about` は**ただのコメント**にする。
+    ⚠ 「メモに地名が書いてある」から「そこへ行け」を導くのは、
+      ★勇者の推論を**先回り**しており、⚠ 「正解ルートを断定しない」思想と食い違います。
+
+    > 依頼者（2026-09-27）「関連を勇者が把握しきるのはイベント終了後。単にコメントと思っていた」
+
+    ★「行ってみる？」の根拠は **`BY_TALK`（会話に名前が出た）だけ**にしました。
+    ⚠ 実測: 候補 11 件のうち `BY_TOPIC` だけのものは **1 件**（★失うのはそれだけ）。
+
+    ⚠ 関数は**残してあります**（★呼び出し側と検査のため）。常に空を返します。
+    """
+    return set()
+
+
+def _topic_places_legacy(book, master) -> set:
+    """⚠ 旧: 知っている Topic が指している地名（★2026-09-27 に使うのをやめた）。"""
     from . import council as C
 
     known = C.known_topic(book)
@@ -252,7 +301,7 @@ def _lookup(by_name: dict, name: str):
 
 
 def collect(location_book, guide_book=None, guide_master=None, *,
-            conversations=None, rom_path=None) -> list:
+            conversations=None, rom_path=None, knowledge_path=None) -> list:
     """★勇者が知っていて、まだ行っていない場所。
 
     ⚠⚠ **ROM の 20 件を素で返しません。** ★条件を満たしたものだけです。
@@ -301,8 +350,9 @@ def collect(location_book, guide_book=None, guide_master=None, *,
     from .place_readings import load as _readings
 
     readings = _readings()
-    # ⚠ 名簿が読めなければ、今までどおり `from_topic` だけ（★落とさない）
-    every = all_place_names(guide_master) if guide_master is not None else set()
+    # ★照合の語彙（⚠ 画面には出ない / RX3-0432 の案 A）
+    #   ⚠ `knowledge_path` は**検査で隔離するため**の口（★本番は既定のまま）。
+    every = all_place_names(guide_master, knowledge_path=knowledge_path)
     heard = {n for n in every if spoken(n, talk, readings.get(n))}
     for name in sorted(set(from_topic) | heard):
         loc = _lookup(by_name, name)

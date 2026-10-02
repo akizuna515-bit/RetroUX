@@ -71,23 +71,51 @@ def test_行った場所は出さない():
     assert [r.name for r in got] == [], "⚠ 行った場所を出している"
 
 
-def test_知っている話が指す未訪問の場所は出す():
+def test_話に書いただけでは出さない():
+    """⚠⚠ 2026-09-27（RX3-0432 / 依頼者の判断「案 A」）に**逆**にしました。
+
+    ★もとは「知っている話が指す未訪問の場所は出す」でした（`BY_TOPIC`）。
+    ⚠ それは「メモに地名が書いてある」から「そこへ行け」を導いていて、
+      ★勇者の推論を**先回り**しています。
+
+    > 依頼者（2026-09-27）「関連を勇者が把握しきるのはイベント終了後。単にコメントと思っていた」
+
+    → ★出す根拠は **会話に名前が出たこと**（`BY_TALK`）だけ。
+    """
     book = _Book([_Row("L9", "レーベ", visited=True)])
     master = _Master([_Topic("T1", ["レーベ", "ナジミの塔"])])
     got = RE.collect(book, _TopicBook({"T1": "active"}), master, conversations={})
+    assert [r.name for r in got] == [], "⚠⚠ メモに書いただけで出ている"
+    # ★`topic_places` はもう使わない（⚠ 常に空）
+    assert RE.topic_places(_TopicBook({"T1": "active"}), master) == set()
+
+
+def test_会話に名前が出れば出す():
+    """★語彙は「利用者が知っている名前」＋「メモに書いた名前」の両方。
+
+    ⚠⚠ 語彙を `place_aliases()` だけにしたら候補が 11 → 2 件に落ちました
+      （★`place_aliases()` は**もう知っている**名前＝大半が訪問済み）。
+      → ★メモの名前も**語彙としては**使う（⚠ 出す根拠は会話に出たことだけ）。
+    """
+    book = _Book([_Row("L9", "レーベ", visited=True)])
+    master = _Master([_Topic("T1", ["レーベ", "ナジミの塔"])])
+    talk = {"0/1": [{"text": "＊「ナジミの塔に いけるとか。"}]}
+    got = RE.collect(book, _TopicBook({"T1": "active"}), master, conversations=talk)
     assert [r.name for r in got] == ["ナジミの塔"]
-    assert got[0].why == (RE.BY_TOPIC,)
-    assert "追っている話" in got[0].why_text
+    assert got[0].why == (RE.BY_TALK,)
+    assert "話に出た" in got[0].why_text
 
 
-def test_知らない話の場所は出さない():
-    """⚠⚠ ここが濾し器の本体（★`unknown` の Topic は題名も場所も出さない）。"""
+def test_会話に出ていない場所は話の状態にかかわらず出さない():
+    """⚠⚠ 2026-09-27（案 A）: ★濾し器は **会話に出たか**だけになりました。
+
+    ⚠ もとは「`unknown` の Topic の場所は出さない」を見ていました
+      （★`active` なら出す＝メモ由来）。→ ⚠ どちらも**出しません**。
+    """
     master = _Master([_Topic("T1", ["ナジミの塔"]), _Topic("T9", ["ゾーマ城"])])
     got = RE.collect(_Book([]), _TopicBook({"T1": "active", "T9": "unknown"}),
                      master, conversations={})
-    names = [r.name for r in got]
-    assert names == ["ナジミの塔"]
-    assert "ゾーマ城" not in names, "⚠⚠ 知らないはずの場所が漏れている"
+    assert [r.name for r in got] == [], "⚠⚠ 会話に出ていないのに出ている"
 
 
 def test_解決した話の場所は出さない():
@@ -97,11 +125,14 @@ def test_解決した話の場所は出さない():
     """
     master = _Master([_Topic("T1", ["ナジミの塔", "いざないの洞窟"]),
                       _Topic("T3", ["シャンパーニの塔", "いざないの洞窟"])])
+    # ⚠⚠ 2026-09-27（案 A）: ★話の状態は**もう見ません**（会話に出たかだけ）。
+    #   ★会話に 2 つ出したうえで、⚠ 解決の有無で差が出ないことを見ます。
+    talk = {"0/1": [{"text": "＊「ナジミの塔と いざないの洞窟の はなし。"}]}
     got = RE.collect(_Book([]), _TopicBook({"T1": "resolved", "T3": "active"}),
-                     master, conversations={})
+                     master, conversations=talk)
     names = sorted(r.name for r in got)
-    assert "ナジミの塔" not in names, "⚠⚠ 解決した話の場所が「行ってみる？」に残っている"
-    assert names == sorted(["いざないの洞窟", "シャンパーニの塔"])
+    assert names == sorted(["いざないの洞窟", "ナジミの塔"]), names
+    assert {r.why for r in got} == {(RE.BY_TALK,)}
 
 
 def test_漢字の地名でも行った場所は出さない():
@@ -111,13 +142,17 @@ def test_漢字の地名でも行った場所は出さない():
     """
     book = _Book([_Row("L132", "エルフのかくれむら", visited=True)])
     master = _Master([_Topic("T4", ["エルフの隠れ里", "ノアニール西の洞窟"])])
-    got = RE.collect(book, _TopicBook({"T4": "active"}), master, conversations={})
+    # ⚠ 2026-09-27（案 A）: ★会話に出さないと候補にならないので、両方を会話に出す
+    talk = {"0/1": [{"text": "＊「エルフの隠れ里と ノアニール西の洞窟の はなし。"}]}
+    got = RE.collect(book, _TopicBook({"T4": "active"}), master, conversations=talk)
     names = [r.name for r in got]
     assert "エルフの隠れ里" not in names, "⚠⚠ 行った隠れ里が「行ってみる？」に残っている"
-    assert names == ["ノアニール西の洞窟"], "⚠ 別の場所まで消した"
+    # ⚠ 「ノアニール西の洞窟」の中の「ノアニール」もルーラの町として当たる（★別の話）。
+    #   ★ここで見たいのは「行った隠れ里が消え、別の場所は残る」ことだけ。
+    assert "ノアニール西の洞窟" in names, "⚠ 別の場所まで消した"
     # ★行っていなければ出す（⚠ 別名で何でも消していない）
     book = _Book([_Row("L132", "エルフのかくれむら", visited=False)])
-    got = RE.collect(book, _TopicBook({"T4": "active"}), master, conversations={})
+    got = RE.collect(book, _TopicBook({"T4": "active"}), master, conversations=talk)
     assert [r.location_id for r in got if r.name == "エルフの隠れ里"] == ["L132"]
 
 
@@ -165,9 +200,11 @@ def test_短い名前では当てない():
 def test_語の途中の名前では当てない():
     """⚠⚠ RX3-0178（2026-09-12）: ロマリアの兵士の「まいられた」（参られた）が町の「マイラ」に当たった。
 
-    ★見本は依頼者の記録の文を写したもの（⚠ 記録を名指しで読まない）。
+    ★見本は**架空の文**です（⚠ 原作の会話は公開物に入れません / RX3-0433）。
+    ⚠ ただし取り違えの元になる語（`まいられた`）は本物と同じにしてあります
+    （★ここを外すと検査が空回りします）。
     """
-    assert RE.spoken("マイラ", "＊「アりアハンからまいられた おかたでは？おお！ おまちしていました！") is False, \
+    assert RE.spoken("マイラ", "＊「とおくから まいられた おかたですね。") is False, \
         "⚠⚠ 「まいられた」を町のマイラと取り違えた（ネタバレ）"
     # ★助詞・「〜じょう」・記号・文の終わりが続くなら当たり
     assert RE.spoken("マイラ", "マイラの むらには おんせんが あるそうな") is True
@@ -186,8 +223,10 @@ def test_未観測の材料でも落ちない():
 
 def test_同じ場所を2度出さない():
     master = _Master([_Topic("T1", ["ナジミの塔"]), _Topic("T2", ["ナジミの塔"])])
+    # ⚠ 2026-09-27（案 A）: 会話に出さないと候補にならないので、★会話に 1 度出す
+    talk = {"0/1": [{"text": "＊「ナジミの塔の はなし。"}]}
     got = RE.collect(_Book([]), _TopicBook({"T1": "active", "T2": "discovered"}),
-                     master, conversations={})
+                     master, conversations=talk)
     assert [r.name for r in got] == ["ナジミの塔"]
 
 
@@ -227,7 +266,11 @@ def test_いまの記録でネタバレが出ない():
     path = paths.repo("work", "dq3-knowledge", "location-book.json")
     if not path.exists():
         pytest.skip("場所の記録がありません")
-    got = RE.collect(LocationBook.load(path=path), G.TopicBook.load(), GM.load())
+    # ★2026-09-28（RX3-0455）: 旧 Guide Master → **勇者メモの原本**
+    from dq3.knowledge import hero_memo as HM
+
+    built = HM.build(HM.DEFAULT_PATH)
+    got = RE.collect(LocationBook.load(path=path), G.TopicBook.load(), built.as_master())
     names = {r.name for r in got}
     try:
         conv = json.loads(paths.repo("work", "dq3-knowledge",

@@ -249,6 +249,14 @@ def test_unknown_overworld_view_falls_back_to_walked(vm):
 
 ROM_PATH = pathlib.Path(__file__).resolve().parents[1] / "work" / "rom" / "DQ2_J.nes"
 needs_rom = pytest.mark.skipif(not ROM_PATH.exists(), reason="ROM が無い")
+# ★★ 部屋の行の検査は FCEUX に付属するパレットも要ります（RX3-0489 / 2026-10-02）★★
+#   ⚠ ROM も FCEUX も利用者が置くものです。★ROM だけ置いた公開版の走行で赤くなっていました。
+#   ⚠ 開発 repo ではパレットがあるので、今までどおり走ります（★検査の意味は変えていない）。
+PALETTE_PATH = (pathlib.Path(__file__).resolve().parents[1]
+                / "tools" / "fceux" / "palettes" / "FCEUX.pal")
+needs_rom_and_palette = pytest.mark.skipif(
+    not (ROM_PATH.exists() and PALETTE_PATH.exists()),
+    reason="ROM か FCEUX のパレット（tools/fceux/palettes/FCEUX.pal）が無い")
 
 
 def _live(tmp_path):
@@ -261,7 +269,7 @@ def _live(tmp_path):
                          load_nes_palette(palette))
 
 
-@needs_rom
+@needs_rom_and_palette
 def test_the_room_line_names_the_room_you_stand_in(window, tmp_path):
     """★map $40（区画 10 部屋）。論理 (0,2) は区画 1 の 136 マスの部屋、
     (16,2) は通路。物理座標は論理 ×2（span）。"""

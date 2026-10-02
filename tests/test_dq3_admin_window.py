@@ -225,13 +225,16 @@ def test_詳しいログの入り切りは管理画面で保存しログ画面�
     w, vm, cmd, svc, k, _ = _window(tmp_path)
     told = []
     w.on_detail_log = told.append
-    assert w.c_detail_log.isChecked(), "★既定は出す（いままでどおり）"
-    w.c_detail_log.setChecked(False)
+    assert not w.c_detail_log.isChecked(), "★既定は出さない（RX3-0482 / 新規利用はオフ）"
+    w.c_detail_log.setChecked(True)
     body = json.loads((tmp_path / "ui.json").read_text(encoding="utf-8"))
-    assert body["log"]["show_detail"] is False and told == [False]
+    assert body["log"]["show_detail"] is True and told == [True]
     again = AdminWindow(vm, cmd, speed=w.speed, service=svc, confirm=lambda t, x: True,
                         settings=UiSettings(tmp_path / "ui.json"))
-    assert not again.c_detail_log.isChecked(), "⚠ 開き直したら戻っていない"
+    assert again.c_detail_log.isChecked(), "⚠ 開き直したら戻っていない"
+    again.c_detail_log.setChecked(False)
+    body = json.loads((tmp_path / "ui.json").read_text(encoding="utf-8"))
+    assert body["log"]["show_detail"] is False and told == [True], "★切っても保存（知らせ先は w だけ）"
     grid = w.l_bridge.parentWidget().layout()
     assert grid.getItemPosition(grid.indexOf(w.c_detail_log))[0] == \
         grid.getItemPosition(grid.indexOf(w.l_bridge))[0], "⚠ 行を増やした（★Lua Bridge の行の右に置く）"

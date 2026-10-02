@@ -227,7 +227,10 @@ class PlayDataService:
             head = str(key).split("/")[0]
             if head.isdigit():
                 add(loc_of(int(head)), "conversations")
-        return sorted(rows.values(), key=lambda r: r["location_id"])
+        from dq3.knowledge.locations import sort_key
+
+        # ★数の順（RX3-0438 / ⚠ 文字列の順だと L10 が L1 の直後に来る）
+        return sorted(rows.values(), key=lambda r: sort_key(r["location_id"]))
 
     def clear_location(self, location_id: str, map_ids=None, *, backup: bool = True) -> dict:
         """★その場所の会話記録だけを消す（★勇者メモの会話・会話の記録・聞いた人の台帳をセットで / 指示書 §10）。

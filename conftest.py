@@ -224,9 +224,258 @@ SLOW_MARK = "slow"
 SLOW_FLAG = "--runslow"
 
 
+# --- ★★ ⚠⚠ 本物の `work/` へ書かせない（RX3-0480 / 2026-10-01）★★ ---------
+#
+# ## ⚠⚠ 何が起きていたか（★実測）
+#
+#   2026-10-01 に全件を回して、**本物の `work/` の 3 つが書き換わりました**。
+#
+#   ```text
+#   work/window-state.json  538 → 284 bytes   ⚠⚠ **依頼者の DQ2 の窓の配置が痩せた**
+#   work/state_test.json                      ★Lua の検査の出力
+#   work/_desktop.png                         ⚠ **開発機の画面を撮った画像**
+#   ```
+#
+#   ★DQ3 側は `RX-0141` / `D-33` で `RETROUX_WRITE_ROOT` に逃がしてあります。
+#   ⚠ DQ2 側は手付かずで、`retroux/ui/window_state.py:32` の
+#     `DEFAULT_PATH = pathlib.Path("work/window-state.json")` が
+#     ⚠⚠ **cwd 相対**なので、pytest の cwd（= repo 直下）に書いていました。
+#
+# ## ★直し方（⚠ DQ2 の製品コードは触りません）
+#
+#   ⚠⚠ DQ2 全体の portable 化へは広げません（★依頼者の指示 / 2026-10-01）。
+#   → ★検査の間だけ `DEFAULT_PATH` を隔離先へ向けます。
+#     ⚠ これで DQ2 の窓を作る検査**ぜんぶ**（★実測 4 本）が一度に逃げます。
+#
+#   ⚠ 1 本ずつ直す形にしなかった理由: ★この計画は「口ごとに直して足し忘れる」を
+#     何度も踏んでいます（`RX-0141` の 25 か所）。**親を差し替える**ほうが強いです。
+
+def _isolate_dq2_window_state() -> str:
+    """★DQ2 の窓の記録を隔離先へ向ける（⚠ 戻せたら道を返す / 駄目なら空）。
+
+    ⚠ `retroux.ui.window_state` は PySide6 を import しないので、
+      ★ここで読み込んでも重くありません（実測 / import は `os` と `pathlib` だけ）。
+    """
+    try:
+        from retroux.ui import window_state as _ws
+    except Exception:                                   # noqa: BLE001
+        return ""                                       # ⚠ 無い環境では何もしない
+    base = os.environ.get("RETROUX_WRITE_ROOT")
+    if not base:                                        # pragma: no cover
+        return ""
+    got = pathlib.Path(base) / "work" / "window-state.json"
+    got.parent.mkdir(parents=True, exist_ok=True)
+    _ws.DEFAULT_PATH = got
+    return str(got)
+
+
+# --- ★★ ⚠⚠ 本物の DB へ**繋がせない**（RX3-0480 / 2026-10-01）★★ -----------
+#
+# ## ⚠⚠ 「再現できない」ではなく「測っていなかった」
+#
+#   ★2026-10-01 に `work/retroux.sqlite3-wal` / `-shm` が出て、⚠ 1 度しか再現せず
+#   「SQLite が開いた跡」として片づけました。→ ⚠⚠ **それは原因の特定ではありません**。
+#   ★`sqlite3.connect` を全件走行のあいだ記録したら、**2 本**が名指しで出ました:
+#
+#   ```text
+#   tests/test_map_passability.py::test_実際に歩いた先を通れないと言っていない   1 回
+#       ⚠ `sqlite3.connect(DB)`（★select だけだが**読み書きで開いている**）
+#   tests/test_icon_buttons_have_tooltips.py::test_the_main_window_icon_buttons…  6 回
+#       ⚠ DQ2 の本窓を作るので `Database` が既定の道（`work/retroux.sqlite3`）へ繋ぐ
+#   ```
+#
+#   ⚠⚠ **読むだけでも `-wal` / `-shm` が出来ます**（★WAL の DB を読み書きで開くため）。
+#   ★`-wal` を消すと、⚠ 本体へ反映前の変更が**失われます**。だから「開かせない」が要ります。
+#
+# ## ★直し方（⚠ DQ2 の製品コードは触りません）
+#
+#   ★`sqlite3.connect` を包み、⚠ 本物の `work/` 配下へ向いた接続を
+#   **隔離先の写し**へ付け替えます（★無ければその場で写す / 読めれば検査は同じ答えを出す）。
+#   ⚠ 1 本ずつ直さないのは、★「口ごとに直して足し忘れる」を繰り返しているためです。
+#
+#   ⚠⚠ **黙って付け替えません。** ★付け替えた先は走行の最後に名前つきで出します
+#     （`pytest_terminal_summary`）。
+
+#: ★付け替えた接続（道 → 回数）。⚠ worker ごとに別プロセスなので、★親へ集めます
+_db_redirects: dict = {}
+#: ★★ ⚠⚠ 写しの置き場は **worker ごとに固定**（走行ごとに増やさない）★★
+#
+#   ⚠⚠ 最初は `RETROUX_TEST_SANDBOX`（= `<worker>-<pid>`）の下に写していました。
+#     ★pid が毎回変わるので、⚠ **走行ごとに 42 MB × worker 数が積み上がります**
+#     （★実測: 1 回で 521 MB → 685 MB。置き土産は 24 時間残る設定）。
+#   → ★pid を含まない固定の場所にして**使い回します**。⚠ 上限は 8 × 42 MB です。
+#   ⚠ 元の DB が変わったら写し直します（★大きさと更新時刻を控えておく）。
+DB_COPY_DIR_NAME = "_db_copies"
+_sqlite_orig = None
+
+
+def pytest_testnodedown(node, error) -> None:
+    """★worker が終わったら、付け替えの記録を親へ集める（⚠ xdist / RX3-0480）。
+
+    ⚠⚠ これが無いと、親の `pytest_terminal_summary` は**自分の分（= 0 件）**しか
+      見ないので、★「本物の DB には繋いでいない」という嘘が出ます（2026-10-01 に出した）。
+    """
+    got = (getattr(node, "workeroutput", None) or {}).get("db_redirects") or {}
+    for path, n in got.items():
+        _db_redirects[path] = _db_redirects.get(path, 0) + n
+
+
+def _refresh_db_copy(src: pathlib.Path, want: pathlib.Path) -> None:
+    """★元が変わっていたら写し直す（⚠ 同じなら使い回す / 42 MB を毎回は写さない）。
+
+    ⚠⚠ 「写しが在るから使う」だけだと、★元の DB を入れ替えても**古い写しを読み続け**、
+      検査は古い観測で緑になります（★`RX3-0232` と同じ形: 作ったもので検算しない）。
+    """
+    import shutil
+    import tempfile
+
+    got = src.stat()
+    stamp = want.with_suffix(want.suffix + ".stamp")
+    want_stamp = "%d:%d" % (got.st_size, got.st_mtime_ns)
+    if want.exists():
+        try:
+            if stamp.read_text(encoding="utf-8") == want_stamp:
+                return
+        except OSError:
+            pass
+    tmp = tempfile.NamedTemporaryFile(delete=False, dir=str(want.parent),
+                                      suffix=".part")
+    tmp.close()
+    shutil.copyfile(src, tmp.name)
+    for suffix in ("-wal", "-shm", "-journal"):          # ⚠ 前の走行の跡を持ち越さない
+        try:
+            pathlib.Path(str(want) + suffix).unlink()
+        except OSError:
+            pass
+    os.replace(tmp.name, want)
+    stamp.write_text(want_stamp, encoding="utf-8")
+
+
+def _isolate_real_sqlite() -> bool:
+    """★本物の `work/` 配下への SQLite 接続を、隔離先の写しへ付け替える。
+
+    ⚠ 戻り値は「包めたか」。★二重に包みません。
+    """
+    global _sqlite_orig
+    import sqlite3
+
+    if _sqlite_orig is not None:
+        return False
+    if not (os.environ.get(SANDBOX_ENV) or os.environ.get("RETROUX_WRITE_ROOT")):
+        return False                                    # pragma: no cover
+    real_work = (ROOT / "work").resolve()
+    worker = os.environ.get("PYTEST_XDIST_WORKER") or "main"
+    sandbox_work = _sandbox_home() / DB_COPY_DIR_NAME / worker
+    # ⚠⚠ **付け替えを 2 度かけません。** ★隔離先は `work/_test_sandbox/` の下、
+    #   つまり**本物の `work/` の中**にあるので、⚠ 写しの道で開き直すと
+    #   もう一度付け替わり、★中身が空の別のファイルを読みます（2026-10-01 に実測）。
+    sandbox_home = _sandbox_home().resolve()
+    _sqlite_orig = sqlite3.connect
+
+    def _resolve(database):
+        """★本物の `work/` 直下を指していれば、写しの道を返す（⚠ そうでなければ None）。"""
+        text = str(database)
+        uri = text.startswith("file:")
+        if uri:
+            text = text[5:].split("?")[0]
+        if not text or text == ":memory:":
+            return None
+        got = pathlib.Path(text)
+        if not got.is_absolute():
+            got = pathlib.Path(os.getcwd()) / got
+        try:
+            got = got.resolve()
+        except OSError:                                 # pragma: no cover
+            return None
+        if got.is_relative_to(sandbox_home):
+            return None                                 # ★もう隔離先（⚠ 2 度かけない）
+        try:
+            rel = got.relative_to(real_work)
+        except ValueError:
+            return None
+        return sandbox_work / rel
+
+    def _connect(database, *a, **kw):
+        want = _resolve(database)
+        if want is None:
+            return _sqlite_orig(database, *a, **kw)
+        want.parent.mkdir(parents=True, exist_ok=True)
+        src = real_work / want.relative_to(sandbox_work)
+        if src.is_file():
+            _refresh_db_copy(src, want)
+        _db_redirects[str(want)] = _db_redirects.get(str(want), 0) + 1
+        # ⚠ `uri=True` で来た接続は、★道だけ差し替えて同じ形で返す
+        if str(database).startswith("file:"):
+            tail = str(database)[5:]
+            query = ("?" + tail.split("?", 1)[1]) if "?" in tail else ""
+            return _sqlite_orig("file:%s%s" % (want.as_posix(), query), *a, **kw)
+        return _sqlite_orig(str(want), *a, **kw)
+
+    sqlite3.connect = _connect
+    return True
+
+
+# --- ★★ ⚠ 書かれたら**気づく**ための見張り（RX3-0480）★★ -----------------
+#
+# ⚠⚠ 上の差し替えは「いま分かっている口」しか塞ぎません。
+#   ★だから「走ったあとに本物の `work/` が変わっていないか」を**数えます**。
+#   ⚠ 黙って skip を増やさないため、★変わっていたら**走行そのものを赤にします**。
+#
+# ⚠ 見るのは `work/` の**直下のファイル**だけです（★フォルダの中は潜らない）。
+#   `work/_test_sandbox/` `work/release/` などは検査と道具の作業場なので対象外です。
+
+#: ⚠⚠ **何も外しません。**
+#
+#   ★最初は `_` で始まる名前（私の作業用の足跡）を外していましたが、
+#   ⚠⚠ **それだと `work/_desktop.png` が見張りから漏れます**
+#     （★まさに漏れていた 1 つ）。「歯止めの武装条件に壊れが混ざる」形です。
+#   → ★見張りは**1 回の pytest の前後**しか比べないので、
+#     ⚠ 私が pytest の外で置いた足跡は**そもそも動きません**（除く必要がない）。
+WORK_GUARD_SKIP: tuple = ()
+
+#: ★大きいものも中身まで見る（⚠⚠ 2026-10-01 に 4 MB から上げました / RX3-0480）
+#
+#   ⚠⚠ **4 MB だと `work/retroux.sqlite3`（42 MB）は大きさだけの比較**でした。
+#     ★SQLite のページは固定長なので、⚠ WAL を本体へ反映しても**大きさは変わらない**
+#     ことがあります → ★見張りは「無事」と言い続けます（⚠ 歯止めの盲点）。
+#   ★`work/` 直下の 4 MB 超は 5 件・合計 84 MB（実測）。⚠ 指紋を取るのは
+#     走行の前後の 2 回だけで、★340 秒の走行に対して 1 秒ほどです（実測）。
+WORK_GUARD_MAX_BYTES = 256 * 1024 * 1024
+
+_work_guard_before: dict = {}
+
+
+def _work_snapshot() -> dict:
+    """★`work/` の直下のファイルを (大きさ, 中身の指紋) で撮る。"""
+    out: dict = {}
+    work = ROOT / "work"
+    if not work.is_dir():
+        return out
+    for got in work.iterdir():
+        if got.is_dir() or got.name.startswith(WORK_GUARD_SKIP):
+            continue
+        try:
+            size = got.stat().st_size
+            if size > WORK_GUARD_MAX_BYTES:
+                out[got.name] = "size:%d" % size
+                continue
+            import hashlib
+
+            out[got.name] = "%d:%s" % (
+                size, hashlib.sha256(got.read_bytes()).hexdigest()[:16])
+        except OSError:
+            continue
+    return out
+
+
 def pytest_sessionstart(session) -> None:
     """★親の `config` を覚えておく（RX-0130）。"""
     _config_hook(session.config)
+    # ⚠ xdist の worker では撮りません（★親だけが前後を比べます）
+    if not hasattr(session.config, "workerinput"):
+        _work_guard_before.update(_work_snapshot())
+    _isolate_dq2_window_state()
+    _isolate_real_sqlite()
 
 
 def pytest_addoption(parser) -> None:
@@ -317,7 +566,15 @@ def pytest_runtest_logreport(report) -> None:
     """★10% ごとに「経過 / 残り およそ」を出す。
 
     ⚠ `teardown` だけを数えます（★1 件につき 1 回）。
+
+    ⚠⚠ 併せて、飛んだ理由も集めます（★`SKIP_MUST_NOT` / D-35）。
+      ★`setup` で飛ぶもの・`call` で飛ぶものの両方が来るので、★先に拾います。
     """
+    # ⚠⚠ `xfail` も `report.skipped` で来ます（★理由の欄に assert 本文が入る）。
+    #   ★`wasxfail` が付いているものは skip ではありません（2026-09-29 に実測）。
+    if getattr(report, "skipped", False) and not hasattr(report, "wasxfail"):
+        key = (report.nodeid, _skip_reason(report))
+        _skipped_reasons[key] = _skipped_reasons.get(key, 0) + 1
     if report.when != "teardown":
         return
     got = _progress
@@ -342,6 +599,81 @@ def pytest_runtest_logreport(report) -> None:
         % (pct, used, left, got["done"], got["total"]))
 
 
+# --- ⚠⚠ skip は「件数」ではなく「理由」で見る（D-35 / RX3-0475）----------------
+#
+#   ★2026-09-29 に実際に起きたこと（`RX3-0474`）:
+#
+#     ⚠ 全件の skip が走行ごとに 47 ⇄ 51 で揺れた。⚠⚠ **合計は同じ**なので、
+#       「7379 passed」だけ見ていると**緑のまま**。中身は、ネタバレの歯止め
+#       （`test_ROMの20件を素で出さない`）が ROM を読めずに飛んでいた。
+#
+#   → ★だから件数は合否に使いません。⚠ 見るのは「**その理由で飛んでよいか**」。
+#
+#   ## ★2 つに分けています
+#
+#     ① `SKIP_MUST_NOT`  ⚠⚠ **起きてはいけない理由**（★理由 ＋ WI 番号 ＋ 条件）
+#                        → 1 件でも出たら**この走行を赤にします**
+#     ② 理由の一覧表示    ★飛んだ理由を件数つきで最後に出す（⚠ 数えるためではない）
+#
+#   ⚠ 許可リスト側（「飛んでよい理由」の全列挙）にはしていません。
+#     ★まっさらな環境では素材が無い skip が増えるので、⚠ 全列挙は
+#     環境ごとに赤くなり、**歯止めを外す圧力**になります（RX-0138 と同じ形）。
+
+#: ★この理由で飛んだら欠陥、という組（`理由の一部`, `WI`, `なぜ`, `いつ見るか`）
+#:
+#:   ⚠ 4 つめは「この環境でこの規則を当てにしてよいか」を返す関数です。
+#:     ★ROM を置いていない人の走行を赤にしないため（⚠ 鳴りすぎも壊れ方）。
+SKIP_MUST_NOT: tuple = ()
+
+
+def _dq3_rom_is_readable() -> bool:
+    """★DQ3 の ROM が**いま実際に読める**か（⚠ 置いてあるかではない）。
+
+    ⚠⚠ **`rom_names` を経由しないこと。** ★あの memo は `RX3-0474` で汚れる
+      当のものです。⚠ 経由すると「汚れているから条件も False」になり、
+      **歯止めが鳴りません**（★2026-09-29 に実際に空振りさせました）。
+    """
+    try:
+        from dq3 import paths as P3
+        from dq3rom import profile as P
+        from dq3rom import rura
+
+        got = P3.rom()
+        return got is not None and bool(rura.read_points(P.load_and_identify(got)))
+    except Exception:                                  # noqa: BLE001 - ★読めない扱い
+        return False
+
+
+SKIP_MUST_NOT = (
+    ("ROM が読めません", "RX3-0474",
+     "★ROM が読めているのに飛ぶのは欠陥です（⚠ 2026-09-29 は共有 memo の汚れで"
+     " ネタバレの歯止め 4 件が黙って飛び、件数だけが 47 ⇄ 51 で揺れました）",
+     _dq3_rom_is_readable),
+)
+
+#: ★飛んだ理由（⚠ 親プロセスに集めます。xdist の worker の report も親に来る）
+_skipped_reasons: dict = {}
+
+
+def _skip_reason(report) -> str:
+    """★`(path, lineno, "Skipped: 理由")` から理由だけ取り出す。"""
+    got = getattr(report, "longrepr", None)
+    text = got[2] if isinstance(got, tuple) and len(got) == 3 else str(got or "")
+    return text.split("Skipped: ", 1)[-1].strip()
+
+
+def _skip_violations() -> list:
+    """⚠⚠ 起きてはいけない理由で飛んだものを並べる（★条件が成り立つときだけ）。"""
+    out = []
+    for want, wi, why, applies in SKIP_MUST_NOT:
+        hit = {k: v for k, v in _skipped_reasons.items() if want in k[1]}
+        if not hit or not applies():
+            continue
+        for (nodeid, reason), count in sorted(hit.items()):
+            out.append((nodeid, reason, wi, why, count))
+    return out
+
+
 def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
     """⚠⚠ **黙って減らさない**（★`CLAUDE.md` の実装の基本ルール）。"""
     count = config.stash.get(_SLOW_SKIPPED, 0)
@@ -349,6 +681,80 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
         terminalreporter.write_line(
             "⚠ 重い検査を %d 件飛ばしました（★全部走らせるには %s）"
             % (count, SLOW_FLAG))
+
+    # ★飛んだ理由を出す（⚠ 件数は「内訳」として出すだけ。合否には使わない）
+    if _skipped_reasons:
+        by_reason: dict = {}
+        for (_nodeid, reason), n in _skipped_reasons.items():
+            by_reason[reason] = by_reason.get(reason, 0) + n
+        terminalreporter.write_line(
+            "★飛ばした理由 %d 種（⚠ 件数ではなく理由で見てください / D-35）"
+            % len(by_reason))
+        for reason, n in sorted(by_reason.items(), key=lambda x: (-x[1], x[0])):
+            terminalreporter.write_line("    %3d 件  %s" % (n, reason[:100]))
+
+    for nodeid, reason, wi, why, n in _skip_violations():
+        terminalreporter.write_line(
+            "⚠⚠ 飛んではいけない理由で飛びました（%s / %d 件）: %s\n"
+            "      理由: %s\n      %s" % (wi, n, nodeid, reason, why))
+
+    # ⚠⚠ 隔離を**黙ってやりません**（★RX3-0480 / 付け替えた先を名前で出す）
+    if _db_redirects:
+        terminalreporter.write_line(
+            "★本物の DB への接続を隔離先の写しへ付け替えました（%d 種 / RX3-0480）"
+            % len(_db_redirects))
+        for path, n in sorted(_db_redirects.items()):
+            terminalreporter.write_line("    %d 回  %s" % (n, path))
+
+
+def work_guard_changes() -> list[str]:
+    """⚠⚠ 走行の前後で、★本物の `work/` の直下が変わっていないか。
+
+    戻り値は変わったものの説明（★空なら無事）。
+    """
+    if not _work_guard_before:
+        return []
+    after = _work_snapshot()
+    out = []
+    for name in sorted(set(after) - set(_work_guard_before)):
+        out.append("+ work/%s（★新しく出来た）" % name)
+    for name in sorted(set(_work_guard_before) - set(after)):
+        out.append("- work/%s（⚠⚠ 消えた）" % name)
+    for name in sorted(set(after) & set(_work_guard_before)):
+        if after[name] != _work_guard_before[name]:
+            out.append("~ work/%s（⚠ 中身が変わった: %s → %s）"
+                       % (name, _work_guard_before[name], after[name]))
+    return out
+
+
+def pytest_sessionfinish(session, exitstatus) -> None:
+    """⚠⚠ 起きてはいけない理由の skip が 1 件でもあれば、★この走行を赤にする。
+
+    ⚠ skip は既定では緑です。★だから「飛んだ」ことに気づけません
+      （`RX3-0474` は 10 日ぶん気づけませんでした）。
+
+    ★★ ⚠⚠ **本物の `work/` を書き換えたら赤にします**（RX3-0480 / 2026-10-01）★★
+
+      ⚠ 2026-10-01 の実測で、全件が依頼者の `work/window-state.json` を
+        **538 → 284 bytes に痩せさせていました**（★DQ2 の窓の配置）。
+      ⚠⚠ 検査が緑なのに依頼者のデータが減るのは、★いちばん気づけない壊れ方です。
+    """
+    # ⚠⚠ worker は**別プロセス**なので、★親へ渡さないと報告が消えます
+    #   （★2026-10-01: 同じ形で「本物の DB への接続 0 件」という嘘を 1 度出しました）
+    out = getattr(session.config, "workeroutput", None)
+    if out is not None:
+        out["db_redirects"] = dict(_db_redirects)
+    if _skip_violations():
+        session.exitstatus = 1
+    changed = work_guard_changes()
+    if changed:
+        # ⚠ `write_line` は使えない（★terminalreporter がここには無い）
+        print("\n⚠⚠ 検査が本物の work/ を書き換えました（★%d 件）" % len(changed))
+        for line in changed:
+            print("    " + line)
+        print("★書き先を隔離してください（⚠ `RETROUX_WRITE_ROOT` / `tmp_path`）。")
+        print("⚠⚠ 中身は**戻していません**（★依頼者のものかもしれないため）。")
+        session.exitstatus = 1
 
 
 

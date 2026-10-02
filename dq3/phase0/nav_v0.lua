@@ -25,7 +25,11 @@
 --
 --   ★1 歩ごとの記録は書かない。書くのは 開始 / 終了 / 局面の変わり目 だけ。
 
-local root = os.getenv("RETROUX_ROOT") or "F:/Projects/260721_RetroUX"
+-- ⚠⚠ 開発機のパスへ落ちない（RX3-0466 / 2026-09-29）
+local root = os.getenv("RETROUX_ROOT")
+if root == nil or root == "" then
+  error("RETROUX_ROOT が立っていません（★起動は DQ3.cmd から / RX3-0466）")
+end
 local write_root = os.getenv("RETROUX_WRITE_ROOT") or root
 
 local Core = dofile(root .. "/dq3/phase0/core.lua")
@@ -85,7 +89,7 @@ local CLOSE_MAX = 16
 --     （[[project_retroux_two_writers_edge_trigger]] / 点滅するものは 1 枚で決めない と同じ形）。
 --   ⚠ はい／いいえ の字（`params.yes` / `params.no`）が来ていなければ、この歯止めは**働かない**（★今までどおり B で閉じる）。
 local CHOICE_MAX = 3
---: ★★ 「また すぐに たびだつ つもりか？」に はい で 1 回だけ答える（RX3-0194 / 2026-09-12）。
+--: ★★ **すぐ旅立つかを尋ねる窓**に はい で 1 回だけ答える（RX3-0194 / 2026-09-12）。
 --
 --   ⚠⚠ 依頼者「イシス（save6）でやはり再発する『またすぐにたびたつつもりですか？』系をとらまえてYesを押す論理が必要」
 --   ★王様（とイシスの女王）は記録（Q1）のあと、bank 13 の `$BB9D` で Q2 を聞く（`talk_script.DEPART_QUESTION`）。
@@ -166,7 +170,7 @@ local talk_hook = pcall(function()
 end)
 
 ----------------------------------------------------------------------
--- ★★ 「また すぐに たびだつ つもりか？」（bank 13 $BB9D / RX3-0194）
+-- ★★ **すぐ旅立つかを尋ねる窓**（bank 13 $BB9D / RX3-0194）
 ----------------------------------------------------------------------
 --   ★`$BB9D` は記録の処理 `$BB61` の中からだけ入る（Q1 の いいえ → BNE / 記録のあと → JMP）。
 --   ★ここでは「通った」フレームだけ写す。⚠ 答えるのは聞き込みの閉じる段（`tick_close`）だけ。
@@ -275,7 +279,7 @@ local runs = 0
 ----------------------------------------------------------------------
 -- ★★ 会話のページを 1 枚ずつ拾う（RX3-0229 / 2026-09-13）
 ----------------------------------------------------------------------
---   ⚠⚠ 依頼者「save1 老人にまごむすめタニアがあくと 以降話が続いているが、メモに残っておらず
+--   ⚠⚠ 依頼者「save1 老人の話が 2 段目から 以降話が続いているが、メモに残っておらず
 --     後で見てもわからない ※長尺メッセージの時にうまくとれてない？」
 --   ★原因: 画面は Python が `state.json` を読むとき（0.5 秒おき）にしか見ていなかった。
 --     ⚠ Turbo では B を 40 フレームおきに押すので、1 ページが 1 回の読みより短い
@@ -830,7 +834,7 @@ local function yes_no_window(nt)
   return nil
 end
 
---- ★★ Q2「また すぐに たびだつ つもりか？」に はい で 1 回だけ答える（RX3-0194）。
+--- ★★ Q2**すぐ旅立つかを尋ねる窓**に はい で 1 回だけ答える（RX3-0194）。
 --
 --   ⚠⚠ A を押すのは、次の 3 つが**そろったときだけ**:
 --     ① `$BB9D` の見張りが**この会話の中で**鳴った（bank 13）
@@ -1032,7 +1036,9 @@ local function frame()
         say(string.format("★セーブ %d を読み込み: %s", slot, ok and "OK" or tostring(why)))
         -- ★高速化などを残さない（RX3-0166 / ⚠ 中身は dev.lua の HOST.loaded）
         if HOST.loaded ~= nil then HOST.loaded(slot) end
-        status.loaded = {slot = slot, ok = ok, frame = emu.framecount()}
+        -- ★seq と理由も出す（RX3-0486 / ★パッドの LB の結果を画面が番号で突き合わせる）
+        status.loaded = {slot = slot, ok = ok, frame = emu.framecount(), seq = req.seq,
+                         why = (not ok) and tostring(why) or nil}
       end
     end
   end

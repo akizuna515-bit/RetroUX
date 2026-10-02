@@ -85,11 +85,13 @@ Write-LauncherLog "INFO" ("RetroUX 起動 (Quiet=" + [bool]$Quiet + ")")
 $script:RetroUXSession = ([guid]::NewGuid().ToString("N")).Substring(0, 12)
 Write-LauncherLog "INFO" ("この起動の札: " + $script:RetroUXSession)
 
-$python = Join-Path $Root ".venv\Scripts\python.exe"
-if (-not (Test-Path -LiteralPath $python)) {
-    Stop-Launcher -Message ("Python の仮想環境が見つかりません。`n`n" +
-        "次を実行して作ってください:`n" +
-        "  uv venv --python 3.12`n  uv pip install -e .") -Detail $python
+# ★Python の場所は共通の resolver が決める（RX3-0473 / 2026-09-29）。
+#   ⚠ 判定をここへコピーしないこと（★`Get-RetroUXPython` の 1 か所）。
+#   ⚠ DQ2 の portable 化そのものは今回していません（★解決の入口だけ揃えた）。
+$python = Get-RetroUXPython -Root $Root
+if (-not $python) {
+    Stop-Launcher -Message ("Python が見つかりません。`n`n" +
+        (Get-RetroUXPythonHint -Root $Root)) -Detail $Root
 }
 # ★GUI と常駐処理を起動する exe（Quiet なら pythonw.exe / 仕様書 4.1）
 $guiPython = Get-PythonForGui -Root $Root -Quiet:$Quiet

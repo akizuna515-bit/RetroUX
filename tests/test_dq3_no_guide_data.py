@@ -15,7 +15,8 @@ data/dq3/topic-rules.csv            ★その機械可読版
 
 - 起動できる（★例外を投げない）
 - 勇者メモ・聞き込み・MAP・戦闘 AI は**そのまま使える**
-- 攻略ナビ（勇者会議）だけが、★自然に無効化される
+- 勇者会議は、★人が書いた勇者メモ（`data/dq3/hero-memo.yaml`）で動く
+  （⚠ 2026-09-27 / RX3-0432 までは「自然に無効化される」だった）
 
 を守ります。⚠ 「壊れている」のと「無い」のは違います（★壊れていたら今までどおり止めます）。
 """
@@ -45,6 +46,23 @@ def test_規則が無ければ空の一覧になる(tmp_path: pathlib.Path) -> N
     assert G.load_rules(tmp_path / "無い.csv") == []
 
 
+def test_無いときstrictFalseなら例外にせず理由を残す(tmp_path: pathlib.Path) -> None:
+    """⚠⚠ 2026-09-28（RX3-0455）: ★壊す実験で**この道だけ鳴りませんでした**。
+
+    ★「無くても落ちない」と文書に書いたのに、⚠ `strict=False` で正本が無い場合を
+    **誰も見ていませんでした**（→ ★`return GuideMaster({}, None, (), problems)` を
+    `raise` に書き換えても検査は緑のまま）。
+
+    ⚠ 「黙って空」も困ります（★なぜ空なのかが分からない）。
+    → ★空で返しつつ、⚠ **理由を `problems` に残す**ところまでを固定します。
+    """
+    got = GM.load(tmp_path / "無い.csv", strict=False)
+    assert got.topics == {}, "⚠ 無いのに Topic がある"
+    assert got.path is None, "⚠ 読めていないのに path が付いている"
+    assert got.problems, "⚠⚠ 黙って空にした（★なぜ空かが分からない）"
+    assert any("ありません" in p for p in got.problems), got.problems
+
+
 def test_両方無くてもTopicBookは作れる(tmp_path: pathlib.Path) -> None:
     book = G.TopicBook(master=G.load_master(tmp_path / "無い1.csv"),
                        rules=G.load_rules(tmp_path / "無い2.csv"))
@@ -53,21 +71,26 @@ def test_両方無くてもTopicBookは作れる(tmp_path: pathlib.Path) -> None
 
 
 # ------------------------------------------------ ★勇者会議の無効化
-def test_攻略データが無ければ会議は開けないと分かる(tmp_path: pathlib.Path,
-                                                    monkeypatch) -> None:
-    """★入口を出さない判断が、`resolve_path` だけで決まること。"""
+def test_勇者メモの原本が無ければ会議は開けないと分かる(tmp_path: pathlib.Path,
+                                                        monkeypatch) -> None:
+    """★入口を出さない判断が、勇者メモの原本の在り処だけで決まること（RX3-0432）。"""
+    from dq3.knowledge import hero_memo as HM
     from dq3.ui.memo_panel import MemoPanel
 
-    monkeypatch.setattr(GM, "CANDIDATE_PATHS", (tmp_path / "無い.csv",))
+    monkeypatch.setattr(HM, "DEFAULT_PATH", tmp_path / "無い.yaml")
     assert MemoPanel._guide_available() is False
 
 
-def test_攻略データがあれば会議を出す() -> None:
-    """⚠ 開発機では今までどおり出ること（★消してしまわない）。"""
+def test_攻略データが無くても勇者メモがあれば会議を出す(tmp_path: pathlib.Path,
+                                                      monkeypatch) -> None:
+    """⚠⚠ 公開版（Guide Master が無い）でも会議が出ること（★窓は勇者メモで動く / RX3-0432）。"""
+    from dq3.knowledge import hero_memo as HM
     from dq3.ui.memo_panel import MemoPanel
 
-    if GM.resolve_path() is None:
-        pytest.skip("★この環境には Guide Master がありません")
+    memo = tmp_path / "hero-memo.yaml"
+    memo.write_bytes(b"schema_version: 1\nleads: []\n")
+    monkeypatch.setattr(GM, "CANDIDATE_PATHS", (tmp_path / "無い.csv",))
+    monkeypatch.setattr(HM, "DEFAULT_PATH", memo)
     assert MemoPanel._guide_available() is True
 
 

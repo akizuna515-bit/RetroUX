@@ -103,7 +103,7 @@ class AdminWindow(QWidget):
                 cb.setChecked(key in items)
         for cb in self.checks.values():
             cb.toggled.connect(lambda _on: self.settings.set("admin", "playdata_items", self.selected_items()))
-        # ★「詳しいログ」（RX3-0276）。⚠ 既定は出す（★いままでどおり）
+        # ★「詳しいログ」（RX3-0276）。⚠ 既定は出さない（★RX3-0482 / 保存があれば保存を優先）
         from .battle_window import SETTING_KEY, SETTING_SECTION, show_detail_of
 
         self.c_detail_log.setChecked(show_detail_of(self.settings))
@@ -165,6 +165,7 @@ class AdminWindow(QWidget):
         self.cb_video.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.cb_video.setMinimumContentsLength(8)
         # ★6 行 → 4 行（RX3-0258 / ⚠ 右の列が管理画面の高さを決めていた）。★出す値は同じ
+        # ⚠ 2026-10-02（DQ3-000156）: コントローラーの「パッドの枠」は外しました（★LB / RB はステート 0 固定）。
         rows = (("FCEUX", self.l_fceux, "ROM", self.l_rom), ("Lua Bridge", self.l_bridge, None, self.c_detail_log),
                 ("現在地", self.l_place, None, None), ("map_id", self.l_map, "座標", self.l_xy),
                 ("画面の見え方", self.cb_video, None, None))
@@ -246,6 +247,18 @@ class AdminWindow(QWidget):
         self.b_clear.setToolTip("⚠ 選んだ項目を消します（★消す前に退避）。ROM / セーブステート / 解析データは消しません")
         self.b_clear.clicked.connect(self.do_clear)
         lay.addWidget(self.b_clear)
+        # ★★ ⚠ 初回起動で見送っても**あとから呼べる道**（RX3-0471 / 依頼者 §1）★★
+        #
+        #   ⚠⚠ 誘いは `should_offer()` が False になると出なくなるので、
+        #     ★ここが唯一の入口になります。⚠ だから常に押せます。
+        self.b_migrate = QPushButton("旧版からデータを引き継ぐ")
+        self.b_migrate.setToolTip(
+            "★以前の RetroUX DQ3 のフォルダを 1 つ選ぶと、"
+            "あなたのデータだけを写します" + chr(10)
+            + "⚠ 旧版のフォルダは読むだけです（★削除も移動も書き換えもしません）"
+            + chr(10) + "⚠⚠ 新版に同じものが既にあるぶんは引き継げません（★上書きしません）")
+        self.b_migrate.clicked.connect(self.do_migrate)
+        lay.addWidget(self.b_migrate)
         self.l_backup = QLabel("")
         self.l_backup.setStyleSheet("color: #888;")
         lay.addWidget(self.l_backup)
@@ -283,6 +296,22 @@ class AdminWindow(QWidget):
     def do_backup(self) -> None:
         got = self.service.backup("manual")
         self._after_change("★退避しました: %s" % got.name)
+
+    def do_migrate(self) -> None:
+        """★旧版からの引き継ぎの窓を出す（RX3-0471 / ⚠ いつでも押せる）。
+
+        ⚠⚠ ここは**窓を出すだけ**です。★判断と一覧は `dq3.migrate` /
+          `dq3.ownership` にあり、⚠ この画面は一覧を 1 つも持ちません。
+        """
+        from dq3.ui.migrate_dialog import MigrateDialog
+
+        dlg = MigrateDialog(self)
+        dlg.exec()
+        got = dlg.result_of_run
+        if got is None:
+            return                                   # ★キャンセル（⚠ 何も書いていない）
+        self._after_change("★引き継ぎ: %s（写した %d 件 / 引き継げなかった %d 件）"
+                           % (got.outcome, got.copied, len(got.skipped)))
 
     def do_restore(self) -> None:
         latest = self.service.latest_backup()

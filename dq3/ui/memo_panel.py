@@ -89,7 +89,7 @@ class MemoPanel(QFrame):
             "council", "会議",
             "勇者会議" + chr(10)
             + "★聞いた会話から「次にやること」と「最近動いた話」を整理します" + chr(10)
-            + "⚠ 攻略の Topic は人が精査した Guide Master（input/）。★LLM は使いません",
+            + "★材料は人が書いた勇者メモ（data/dq3/hero-memo.yaml）。★LLM は使いません",
             on_click=self.open_council)
         buttons.addWidget(self.council_button)
         # ⚠⚠ 2026-09-25（RX3-0431）: 公開版に **Guide Master を同梱しません**
@@ -167,14 +167,17 @@ class MemoPanel(QFrame):
 
     @staticmethod
     def _guide_available() -> bool:
-        """★攻略の Topic（Guide Master）があるか（RX3-0431）。
+        """★勇者会議の材料（勇者メモの原本）があるか（RX3-0431 → RX3-0432）。
 
+        ⚠⚠ 2026-09-27: 窓は `data/dq3/hero-memo.yaml` で動くようになりました
+        （★もとは Guide Master の在り処を見ていた。⚠ 公開版には無いので会議が出なかった）。
+        ★原本は公開版にも入るので、公開版でも会議が出ます。
         ⚠ 読み込みまではしません（★起動を重くしない）。在り処だけ見ます。
         """
         try:
-            from dq3.knowledge import guide_master
+            from dq3.knowledge import hero_memo
 
-            return guide_master.resolve_path() is not None
+            return hero_memo.DEFAULT_PATH.is_file()
         except Exception:                                   # noqa: BLE001
             # ⚠ 見に行けないなら「無い」に倒す（★起動を止めない）
             return False

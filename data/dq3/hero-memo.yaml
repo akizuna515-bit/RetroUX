@@ -1,0 +1,622 @@
+﻿# ============================================================================
+# 勇者メモ（気になること）の原本 — RetroUX DQ3
+#
+# ★このファイルは **人間が書く唯一の原本** です（RX3-0432）。
+#   ⚠ AI が攻略内容を書き足すことはありません。
+#   ⚠⚠ 第三者の攻略サイトから、文章・項目・順序・見出しを持ち込まないでください。
+#
+# ★書くのは 4 つだけです。
+#     ① 覚えておきたいこと     memo
+#     ② いつ気になり始めるか   appears_when
+#     ③ いつ気にならなくなるか retires_when   ⚠⚠ 必須（省けません）
+#     ④ どこの話か             about          ★**ただのコメント**（⚠ 下）
+#   ★任意でもう 1 つ
+#     ⑤ 何の話として気にしているか  scenario  ★`scenarios:` に定義した id（⚠ 下）
+#     ⑥ 片づいたときに分かったこと  done      ★片づくと scenario の「分かったこと」に出る（⚠ 下）
+#
+#   ⚠ 順番・優先度・段階・親子関係は **書きません**。
+#     ★「気になり始めた時刻」で自動に並びます。
+#   ⚠ 内部 ID（item_id / map_id / RAM 番地 / bit）も **書きません**。
+#     ★名前から自動で解決します（利用者の ROM の名前辞書 / RX3-0432）。
+#
+# ============================================================================
+# 条件に書ける言い方は 6 つだけです
+# ============================================================================
+#
+#   聞いた: <道具名・呪文名・敵の名前・場所の名前>  ★会話にその名前が出た
+#   持った: <道具名>                   ⚠ **いま持っている**（★使う・渡すと成立しなくなる）
+#                                      → ★「持っている間だけ意味がある」カードに使います
+#                                      ⚠ 2026-09-28 時点で、下のカードでは**1 件も使っていません**
+#   入手した: <道具名>                 ★**一度でも手に入れた**（⚠ 使っても渡しても戻らない）
+#                                      ★片づく条件には基本こちらを使います（2026-09-28 / RX3-0443）
+#                                      ★材料 = 持ち物で見えた品 ＋ 宝箱 ＋ しらべる ＋ 入手のできごと
+#                                      ⚠ 拾ってすぐ手放した品は「持ち物」に 1 度も入りません（★実測 7 種）
+#   倒した: <敵の名前>                 ★戦闘で倒した
+#   行った: <場所の名前>               ★その場所に着いた
+#   フラグ: <flag_id>                  ★進行フラグが立った
+#
+#   ⚠ 名前は ROM に入っている綴りで書きます（★かなの細かい違いは吸収します）。
+#     書ける名前の数: 道具 125 / 呪文 62 / 敵 139 / 場所 20（★2026-09-26いう意味です（2026-09-27 / RX3-0432）。
+#     ⚠ 攻略ヒントかどうかは見ません。★場所の名前も書けます。
+#   ⚠ 辞書に無い場所は引けません。★`location-names.csv` に行を足して
+#     `name` を**ゲームの本文と同じ綴り**で入れてください（⚠ 漢字ではなく かな）。
+#
+# ⚠⚠ `聞いた:` には**正規の名前**を書きます（2026-09-27 / RX3-0440）。
+#   ⚠ 会話の文の断片（「ひあがらせるつぼ」「しんでんはネクロゴンド」など）は書きません。
+#   ★ゲームが別の言い回しで言うときは、`data/dq3/concept-aliases.yaml`（Concept Alias）に
+#     「言い回し → 正規の名前」を登録します。★会話にその言い回しが出たら、正規の名前を聞いたことになります。
+#     例: 会話「…ひあがらせるつぼ…」 → `聞いた: かわきのつぼ` が成立
+#
+# ⚠⚠ `appears_when` を複数書くと「**どれか 1 つ**満たせば出る」です（★既定。何も書かなくてよい）。
+#   ★`all_of: true`（全部そろって初めて出る）は **まだ効きません**（2026-09-27 実測）。
+#   ⚠ 書くと読み込みで止まります。★黙って無視して「効かない値」にしないためです。
+#   ★`all_of: false` は書かなくて同じです（2026-09-27 に 27 件から消しました）。
+#
+# ★`retires_when` も既定は「**どれか 1 つ**満たせば片づく」です。
+#   ★`retires_all: true` と書くと「**全部**そろって初めて片づく」になります（★効きます）。
+#
+#   ⚠ flag_id は `data/dq3/story-flags.csv` の `flag_id` 列にあるものだけです
+#     （★2026-09-26 時点で **8 件**）。
+#
+# ⚠⚠ 書けないもの（★いま RetroUX が観測できていないこと）
+#
+#   ⚠ 方角（「北に何かあるらしい」）      ★条件にはできません（memo 本文には書けます）
+#   ⚠ 呪文を覚えた / 転職した           ★観測していません
+#   ⚠ 会話でもらった品                  ★持ち物の印が立たない場合があります
+#   ⚠ 人物の名前                        ★NPC の個人名データがありません
+#
+#   → ★これらは memo の**本文**には自由に書けます。⚠ 条件に使えないだけです。
+#
+# ============================================================================
+# 書き方（★1 件はこの形）
+# ============================================================================
+#
+#   - id: <英小文字と _ の短い名前>       ★重複しない安定した名前
+#                                        ⚠ 頭の数字 NNN は**編集時の整理番号**です。
+#                                        ⚠ 表示の順・依存関係・攻略の順を**意味しません**
+#                                        （★画面の並びには使いません）
+#     scenario: <scenarios の id>         ★任意。何の話として気にしているか（⚠ 下）
+#     done: <片づいたときに分かったこと>   ★任意。片づくと memo の代わりにこの文が「分かったこと」に出る
+#                                        ⚠ その時点で勇者が知ったことだけ（★まだ出ていないカードの話は書かない）
+#     memo: |
+#       <覚えておきたいこと。1〜2 文。★この文がそのまま画面に出ます>
+#     appears_when:
+#       - 聞いた: <名前>                 ★どれか 1 つ満たせば出ます
+#     retires_when:
+#       - 入手した: <名前>               ⚠⚠ 省けません（★片づく条件は基本これ）
+#     retires_all: true                  ★任意。全部そろって初めて片づく（★上）
+#     about: <場所の名前>                 ★任意。**補足の場所**（⚠ ナビには出ません）
+#                                        ★複数書ける（`、` `・` `,` で区切る）
+#                                        ⚠ 「オーブを集める」のような**話・目的は scenario へ**
+#                                          （★about は地名の語彙にも使われるため / 2026-09-27）
+#     why:                               ★任意。何を根拠に出しているか
+#       kind: game_dialogue
+#       note: <どこで見たか。⚠ 攻略サイトの URL は書きません>
+#
+#   ★why.kind に書けるもの
+#     game_dialogue       ゲーム内の会話で見た
+#     game_screen         ゲームの画面で見た（会話以外。看板・宝箱など）
+#     rom_analysis        ROM 解析で分かった
+#     story_flag          進行フラグの観測から
+#     item                道具の解析データから
+#     location            場所の解析データから
+#     manual_observation  自分で遊んで気づいた
+#     original_editorial  ★RetroUX 独自の言い回し（⚠ 根拠が上のどれでもない）
+#
+# ============================================================================
+# scenario（何の話として気にしているか / 2026-09-27 / RX3-0434）
+# ============================================================================
+#
+#   ★書き方は 2 か所だけです（⚠ 仮の例 / 2026-09-27。★下の `leads:` に本物があります）
+#
+#   【手順 1】 下の `scenarios:` に「話の名前」を 1 つ足す（★id は英小文字と _ / title は画面に出る名前）
+#
+#     scenarios:
+#       orbs:                       ← id（カードから指す名前）
+#         title: オーブを集める      ← 画面の見出し（★書けるのは title だけ）
+#
+#   【手順 2】 その話に入れたいカードに `scenario: <id>` を 1 行足す
+#
+#     - id: 095_muor_orb
+#       scenario: orbs              ← ★これだけで「オーブを集める」の下に入る
+#       memo: |
+#         ムオルでオーブの手掛かりを探す
+#       appears_when:
+#         - all_of:                 ← ★「全部そろったら出る」（ムオル と オーブ の両方を知ったら）
+#             - 聞いた: ムオル
+#             - 聞いた: オーブ
+#       retires_when:
+#         - 聞いた: みずでっぽう
+#       done: <ムオルで分かったことを 1 文>   ← ★任意。片づいたら「分かったこと」にこの文が出る
+#
+#   【画面ではこう見える】（★カードの条件がそろった順に、1 枚ずつ増える）
+#
+#     ■ オーブを集める
+#        ── 気になっていること ──
+#        NEW グリーンオーブを探す               ← テドンに着いた（#505）
+#        NEW ムオルでオーブの手掛かりを探す      ← ムオル ＋ オーブ（#566）
+#        ── 分かったこと ──
+#        ✓ ...                                  ← 片づいたカードはここへ移る
+#                                                  （★`done:` があればその文、無ければ memo）
+#
+#   ★`done:` を足していくと、片づくたびに scenario の「分かったこと」が 1 文ずつ増え、
+#     ⚠ 話の中身が少しずつ解けていく見え方になります（★scenario 自体は何も覚えていません）。
+#
+#   ★scenario の無いカードは「ほかに気になっていること」に 1 枚ずつ並びます（★それでも動きます）。
+#   ★いつ出るかは `python scripts/dq3_hero_memo_check.py --timeline` で確かめられます
+#     （→ work/hero-memo-timeline-audit.md）。
+#
+#   ★新しい話を作るときの例（⚠ コメントのまま。使うなら # を外す）
+#
+#     scenarios:
+#       kandata:
+#         title: カンダタを追う
+#     leads:
+#       - id: 030_kandata1
+#         scenario: kandata         ← 既存のカードに 1 行足すだけ
+#
+#   ★カードに `scenario: orbs` と書くと、画面で「オーブを集める」の下にまとまります。
+#   ★所属するカードが 1 枚でも出たら、scenario も出ます（⚠ scenario に出る条件は書きません）。
+#   ⚠ まだ出ていないカードは、題名も件数も「???」も**出ません**。
+#   ⚠ 出ているカードが全部片づくと「いまは気になることはない」になります
+#     （★「完了」とは出しません。後から新しいカードが出れば、また開きます）。
+#
+#   ⚠⚠ 所属は「**そのカードが出た瞬間、勇者が何の話として気にしているか**」で決めます。
+#     ⚠ 「後から見れば○○に必要だった」という結果論では決めません。
+#   ⚠ 順番・優先度・前提・次の話（order / sequence / priority / parent / prerequisite / next）は
+#     **書けません**（★書くと読み込みで止まります）。
+#
+# ============================================================================
+
+schema_version: 1
+
+# ★ここに 1 件ずつ足していきます。
+#   ⚠ まずは **1 件だけ**書いて、実機で画面に出ることを確かめてください（RX3-0432）。
+#   ★形が違っていると、たくさん書いた分が全部やり直しになります。
+
+# ★何の話として気にしているか（⚠ title だけ / 並びは画面が「最近動いた順」で決めます）
+scenarios:
+  world_tour:
+    title: 世界を巡る
+  orbs:
+    title: オーブを集める
+  last_key:
+    title: 全ての鍵を開ける最後の鍵を探す
+  alefgard:
+    title: アレフガルドを巡る
+  zoma_route:
+    title: ゾーマ城への道
+
+# idの記載ルール NNN_Keyword NNNは概ねプレイ時系列の整理番号（依存関係は表さない。ソートする時便利なので）
+#   ⚠ NNN は**編集時の整理番号**です。表示の順・依存関係・攻略の順を意味しません（★画面の並びには使いません）
+leads:
+  - id: 010_tzkkey
+    memo: |
+      ナジミの塔に行く
+    appears_when:
+      - 聞いた: ナジミのとう
+    retires_when:
+      - 入手した: とうぞくのカギ
+    about: アリアハン、レーベ
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 020_romaria
+    memo: |
+      ロマリアへ
+    appears_when:
+      - 聞いた: まほうのたま
+    retires_when:
+      - 行った: ロマリア
+    about: 
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 030_kandata1
+    memo: |
+      カンダタを退治する
+    appears_when:
+      - 聞いた: カンダタ
+    retires_when:
+      - 入手した: きんのかんむり
+    about: ロマリア、カザーブ
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 035_elfruby
+    memo: |
+      ノアニールの問題を解決する
+    appears_when:
+      - 行った: ノアニール
+      - 聞いた: エルフのかくれむら
+    retires_when:
+      - フラグ: noaniel_awake
+    about: ロマリア、カザーブ
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 040_magickey
+    memo: |
+      魔法の鍵を入手する
+    appears_when:
+      - 聞いた: まほうのカギ
+    retires_when:
+      - 入手した: まほうのカギ
+    about: アッサラーム・イシス
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 050_ship
+    memo: |
+      船を入手する
+    appears_when:
+      - 行った: ポルトガ
+    retires_when:
+      - フラグ: ship_obtained
+    about: ポルトガ
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  # ★船を得たら、主要な街は「世界の一般知識として」知っている（2026-09-27 依頼者の判断 / RX3-0434）
+  #   ⚠ 「行く」は探索のカード。★着いてから知った問題は別のカード（例: 080_zipang）
+  #   ⚠ 全部の街を機械的にカードにはしません（★到達そのものに探索の意味がある街だけ）
+  - id: 075_to_zipang
+    scenario: world_tour
+    memo: |
+      ジパングへ行く
+    appears_when:
+      - フラグ: ship_obtained
+    retires_when:
+      - 行った: ジパング
+    done: |
+      ジパングを発見した。この街は問題を抱えているらしい
+    why:
+      kind: original_editorial
+      note: 船を得たら主要な街は一般知識として知っている（依頼者の判断）
+  - id: 075_to_tedon
+    scenario: world_tour
+    memo: |
+      テドンへ行く
+    appears_when:
+      - フラグ: ship_obtained
+    retires_when:
+      - 行った: テドン
+    done: |
+      テドンを発見した。過去に滅ぼされた街と聞いたが・・
+    why:
+      kind: original_editorial
+      note: 船を得たら主要な街は一般知識として知っている（依頼者の判断）
+  - id: 075_to_muor
+    scenario: world_tour
+    memo: |
+      ムオルへ行く
+    appears_when:
+      - フラグ: ship_obtained
+    retires_when:
+      - 行った: ムオル
+    done: |
+      ムオルを発見した。ポカハマズとは誰だろう？
+    why:
+      kind: original_editorial
+      note: 船を得たら主要な街は一般知識として知っている（依頼者の判断）
+  - id: 060_dama
+    scenario: world_tour
+    memo: |
+      ダーマの神殿へ
+    appears_when:
+      - 聞いた: ダーマ
+    retires_when:
+      - 行った: ダーマ
+    done: |
+      ダーマを発見した。転職を志す者の神殿らしい。
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 070_lastkey1
+    scenario: last_key
+    memo: |
+      最後の鍵の情報を聞く
+    appears_when:
+      - 聞いた: さいごのかぎ
+    retires_when:
+      - 行った: ランシール
+    done: |
+       最後の鍵の情報を聞いた。あらゆる鍵を開けることができるらしい。ランシールに何かがあるとの事
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 071_lastkey2
+    scenario: last_key
+    memo: |
+      最後のカギを探す（ランシール）
+    appears_when:
+      - 聞いた: さいごのカギ
+    retires_when:
+      - 聞いた: かわきのつぼ
+    done: |
+       なにか壷が必要だそうだ
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 072_lastkey3
+    scenario: last_key
+    memo: |
+      壷を探せ
+    appears_when:
+      - 聞いた: かわきのつぼ
+    retires_when:
+      - 入手した: かわきのつぼ
+    done: |
+       渇きの壷を手に入れた。どこで使うんだろう
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 073_lastkey4
+    scenario: last_key
+    memo: |
+      壷をどこで使うのか
+    appears_when:
+      - 入手した: かわきのつぼ
+    retires_when:
+      - 行った: スー
+    done: |
+       スーの西の海の浅瀬で使うようだ
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 074_lastkey5
+    scenario: last_key
+    memo: |
+      浅瀬を調べよう
+    appears_when:
+      - 行った: あさせのどうくつ
+    retires_when:
+      - 入手した: さいごのかぎ
+    done: |
+       最後のカギを手に入れた。全ての扉を開けることができるだろう
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 080_zipang
+    scenario: orbs
+    memo: |
+      ジパングの異変を解決する
+    appears_when:
+      - 行った: ジパング
+    retires_when:
+      - 入手した: パープルオーブ
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+#  - id: 090_green
+#    scenario: orbs
+#    memo: |
+#      グリーンオーブを探す
+#    appears_when:
+#      - 行った: テドン
+#    retires_when:
+#      - 持った: グリーンオーブ
+#    why:
+#      kind: game_dialogue
+#      note: ゲーム内の会話から
+  # ★「ムオルを知っている」かつ「オーブというものを知っている」で出る（2026-09-27 / RX3-0436）
+  #   ⚠ ムオルに着いただけでは出ない / オーブを知っているだけでも出ない（★all_of）
+  #   ★オーブ = 色の付かない一般の語（`concept-words.csv`）。初出は会話 #521
+  - id: 095_muor_orb
+    scenario: orbs
+    memo: |
+      ムオルでオーブの手掛かりを探す
+    appears_when:
+      - all_of:
+          - 聞いた: ムオル
+          - 聞いた: オーブ
+    retires_when:
+      - 入手した: グリーンオーブ
+    why:
+      kind: original_editorial
+      note: ゲーム内の会話から
+  - id: 090_blue
+    scenario: orbs
+    memo: |
+      ブルーオーブを探す
+    appears_when:
+      - 聞いた: ブルーオーブ
+    retires_when:
+      - 入手した: ブルーオーブ
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 100_red
+    scenario: orbs
+    memo: |
+      海賊が仕舞ったオーブを探す
+    appears_when:
+      - 聞いた: レッドオーブ
+    retires_when:
+      - 入手した: レッドオーブ
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 100_yellow
+    scenario: orbs
+    memo: |
+      発展した街でイエローオーブを探す
+    appears_when:
+      - 聞いた: イエローオーブ
+    retires_when:
+      - 入手した: イエローオーブ
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 105_bonepilates
+    scenario: orbs
+    memo: |
+      幽霊船を探索する
+    appears_when:
+      - 聞いた: ふなのりのほね
+    retires_when:
+      - 入手した: あいのおもいで
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 107_gaiasword
+    scenario: orbs
+    memo: |
+      ガイアの剣を入手する
+    appears_when:
+      - 聞いた: ガイアのつるぎ
+    retires_when:
+      - 入手した: ガイアのつるぎ
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 110_necrogond
+    scenario: orbs
+    memo: |
+      ネクロゴンドの洞窟を攻略する
+    appears_when:
+      - 行った: ネクロゴンドの洞窟
+    retires_when:
+      # ⚠ シルバーオーブは会話で受け取るため、★入手した瞬間の記録が残りません（2026-09-28 実測）。
+      #   → ★「祭壇に捧げた」旗を**代わりの証拠**にします（⚠ どちらかで片づく = 行を並べるだけ）。
+      - 入手した: シルバーオーブ
+      - フラグ: orb_placed_silver
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 130_baramos
+    memo: |
+      バラモス城に乗り込み、バラモスを倒す
+    appears_when:
+      # ★「6 つのオーブを捧げ終えた」を意味する旗（★ラーミア復活 / RX3-0456）。
+      #   ⚠ `orb_placed_silver` 単独では「オーブ集め完了」になりません（★置く順が決まっていない）。
+      #   ★この旗は 6 つそろった判定を通った後にしか立たず、⚠ 一度立つと消えません
+      #     （★逆アセンブルで唯一の書き込みを確認 / セーブ 246 本で例外なし）。
+      - フラグ: ramia_revived
+    retires_when:
+      # ★「バラモスを倒した」は、⚠ 戦闘の記録でも**ゲームの旗**でも成立します（RX3-0451）。
+      #   ⚠ ボスは戦闘の記録を取りこぼすことがあるため（★経験値 0 / 姿が変わる / RX3-0450）。
+      - 倒した: バラモス
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 140_lightcrystal
+    memo: |
+      光の玉を入手する
+    appears_when:
+      - 聞いた: ひかりのたま
+    retires_when:
+      - 入手した: ひかりのたま
+    about: 
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 150_underworld
+    scenario: alefgard
+    memo: |
+      別の世界があるらしい
+    appears_when:
+      - 聞いた: ギアガのおおあな
+    retires_when:
+      - 聞いた: ラダトーム
+    about: アレフガルド
+    done: 地下に別の世界があった
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 161_shield
+    scenario: alefgard
+    memo: |
+      勇者の盾を手に入れる
+    appears_when:
+      - 聞いた: ゆうしゃのたて
+    retires_when:
+      - 入手した: ゆうしゃのたて
+    about: アレフガルド
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 162_armor
+    scenario: alefgard
+    memo: |
+      光の鎧を手に入れる
+    appears_when:
+      - 聞いた: ひかりのよろい
+    retires_when:
+      - 入手した: ひかりのよろい
+    about: アレフガルド
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 163_sword
+    scenario: alefgard
+    memo: |
+      王者の剣を手に入れる
+    appears_when:
+      - 聞いた: おうじゃのけん
+    retires_when:
+      - 入手した: おうじゃのけん
+    about: アレフガルド
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 170_amagumo
+    scenario: zoma_route
+    memo: |
+      雨雲の杖を手に入れる
+    appears_when:
+      - 行った: L41
+    retires_when:
+      - 入手した: あまぐものつえ
+    about: アレフガルド
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 180_stoneofsun
+    scenario: zoma_route
+    memo: |
+      太陽の石を手に入れる
+    appears_when:
+      - 聞いた: たいようのいし
+    retires_when:
+      - 入手した: たいようのいし
+    about: アレフガルド
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 185_horyamulet
+    scenario: zoma_route
+    memo: |
+      聖なる守りを手に入れる
+    appears_when:
+      - 聞いた: せいなるまもり
+    retires_when:
+      - 入手した: せいなるまもり
+    about: アレフガルド
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 190_dropofrainbow
+    scenario: zoma_route
+    memo: |
+      虹のしずくを手に入れる
+    appears_when:
+      - 入手した: せいなるまもり
+    retires_when:
+      - 入手した: にじのしずく
+    about: アレフガルド
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から
+  - id: 200_zoma
+    scenario: zoma_route
+    memo: |
+      ゾーマ城に乗り込み、ゾーマを倒す
+    appears_when:
+      - 行った: ゾーマ城
+    retires_when:
+      - 倒した: ゾーマ
+    about: アレフガルド
+    why:
+      kind: game_dialogue
+      note: ゲーム内の会話から

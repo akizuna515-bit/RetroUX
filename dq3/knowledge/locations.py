@@ -34,13 +34,29 @@ import re
 
 from dq3.knowledge.concepts import PLACE_TYPES, fold
 
+from .. import ownership as _own
 from .. import paths
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-NAMES_PATH = ROOT / "data" / "dq3" / "location-names.csv"
+
+#: ★★ 地名の表（⚠ 人が 3 列を書く）★★
+#
+#   ★**user 側にあればそれを読みます**（案 A / `RX3-0472`）。
+#     ⚠ `location_book.table_names()` と `item_info._names_path()` は
+#       **ここを見ている**ので、★読み口はこの 1 行だけです。
+#   ⚠⚠ `concepts.LOCATION_NAMES` が同じ表を**別に持っていました**。
+#     ★そちらもこの resolver を通すようにしました（2026-10-01 / 「同じ判定を 2 か所」）。
+NAMES_PATH = _own.lazy_resolve("data/dq3/location-names.csv")
 KNOWLEDGE_PATH = paths.lazy_work("dq3-knowledge", "player-knowledge.json")
 
 #: ★挨拶の形（⚠ 会話の記録は「＊「」を含む。★場所の型は concepts.PLACE_TYPES と同じ語）
+#:
+#: ⚠⚠ **ここの見本だけは架空にしません**（RX3-0433 / 2026-10-01）。
+#:   ★挨拶の見本は「正規表現そのものを地名入りで書き出したもの」で、
+#:   ⚠ 架空の文に替えると**どの形を拾うのかが分からなくなります**。
+#:   ★地名は ROM のルーラ表にある語、残りは照合する助詞と語尾だけです
+#:   （⚠ 物語・台詞としての内容は入っていません）。
+#:
 #: ⚠⚠ 2026-09-07（RX3-0100）: 城の挨拶を拾えていませんでした。
 #:
 #:   ```text
@@ -75,6 +91,18 @@ APPROVED = "APPROVED"
 
 def location_id_of(map_id) -> str:
     return "L%d" % int(map_id)
+
+
+def sort_key(location_id) -> tuple:
+    """★`L<数>` を**数の順**に並べる鍵（2026-09-27 依頼者 / RX3-0438）。
+
+    ⚠ 文字列の順だと L1 → L10 → L100 → L11 … になり、地図を見ながら表を直すときに探せない。
+    ★`L<数>` は数の順（L1 → L2 → … → L10 → … → L100）、⚠ それ以外（`world` など）は後ろに文字列の順。
+    """
+    text = str(location_id or "")
+    if text[:1] == "L" and text[1:].isdigit():
+        return (0, int(text[1:]), "")
+    return (1, 0, text)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -276,7 +304,8 @@ def rura_points(rom_path=None) -> list[int]:
         from dq3rom import profile as P
         from dq3rom import rura
 
-        target = pathlib.Path(rom_path) if rom_path else ROOT / "work" / "rom" / "DQ3_J.nes"
+        # ⚠ 解決は `dq3/paths.py::rom()` の 1 本（RX3-0467）
+        target = pathlib.Path(rom_path) if rom_path else paths.rom_or_legacy()
         return rura.read_points(P.load_and_identify(target))
     except Exception:                                      # noqa: BLE001
         return []

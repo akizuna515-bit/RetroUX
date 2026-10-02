@@ -14,11 +14,12 @@ MASTER = {"map_id": 9, "npcs": [
 def test_話した相手だけがUIへ返る(tmp_path):
     led = H.HeardLedger(tmp_path)
     assert led.get_heard_npcs(9, MASTER) == []
-    led.record(9, 1, 0x00B, at=100, text="＊「こんにちは。たびびとの やどに ようこそ。")
+    # ★文の中身はこの検査で使いません（⚠ 役目は MASTER の talk_id から決まる）→ 架空 / RX3-0433
+    led.record(9, 1, 0x00B, at=100, text="＊「ようこそ。ここは やどやですよ。")
     got = led.get_heard_npcs(9, MASTER, labels={28: "商"})
     assert [g["npc_id"] for g in got] == [1]
     assert got[0]["role"] == "inn" and got[0]["appearance_label"] == "商"
-    assert got[0]["text"].startswith("＊「こんにちは")
+    assert got[0]["text"].startswith("＊「ようこそ")
     assert led.counts(9, MASTER) == {"npc_total": 2, "npc_heard": 1}
 
 

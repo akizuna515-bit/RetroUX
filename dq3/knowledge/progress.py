@@ -45,6 +45,14 @@ class Progress:
     visited: set = dataclasses.field(default_factory=set)
     #: ★立ったことのある物語の旗（RX3-0211 / ★一度立ったら覚える）
     story: set = dataclasses.field(default_factory=set)
+    #: ★★ 一度でも手に入れた品（RX3-0443 / 2026-09-28）
+    #:
+    #:   ⚠⚠ `items_ever` は**持ち物を覗いたときに見えた品**です。★拾ってすぐ使った・渡した品は
+    #:   1 度も見えないことがあり、⚠ 実測で **7 種**が抜けていました（ガイアのつるぎ / さとりのしょ /
+    #:   レッド・イエローオーブ など）。★そこで**入手した瞬間の記録**（勇者メモの宝箱・しらべる・入手）
+    #:   からも集めます（`acquired_items`）。
+    #:   ⚠ こちらも減りません（★`入手した:` の材料）。
+    acquired: set = dataclasses.field(default_factory=set)
     path: pathlib.Path | None = None
     _dirty: bool = False
     #: ★★ 一度でも持ち物を見たか（RX3-0312）
@@ -137,7 +145,25 @@ class Progress:
         self._dirty |= bool(added)
         return added
 
+    def note_acquired(self, item_ids) -> int:
+        """★入手した瞬間の記録から覚える（RX3-0443 / ⚠ 減らさない）。"""
+        added = 0
+        for raw in item_ids or ():
+            try:
+                item_id = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if item_id not in self.acquired:
+                self.acquired.add(item_id)
+                added += 1
+        self._dirty |= bool(added)
+        return added
+
     # --- ★Fact にする --------------------------------------------------------
+
+    def acquired_ever(self) -> set:
+        """★一度でも手に入れた品（★持ち物で見えた分 ＋ 入手の記録 / RX3-0443）。"""
+        return set(self.items_ever) | set(self.acquired)
 
     def facts(self) -> list[dict]:
         """★Topic State に流す Fact（⚠ id は安定 / 同じ出来事は同じ fact_id）。"""
@@ -146,6 +172,10 @@ class Progress:
         got = []
         for item_id in sorted(self.items_ever):
             got.append(Fact("item:%d" % item_id, "obtain", None, "inv:item:%d" % item_id, 1.0).to_json())
+        # ★「一度でも手に入れた」（RX3-0443）。⚠ `持った:` とは別の predicate
+        for item_id in sorted(self.acquired_ever()):
+            got.append(Fact("item:%d" % item_id, "acquired", None,
+                            "got:item:%d" % item_id, 1.0).to_json())
         for enemy_id in sorted(self.defeated):
             got.append(Fact("monster:%d" % enemy_id, "defeat", None, "battle:monster:%d" % enemy_id, 1.0).to_json())
         for loc in sorted(self.visited):
@@ -176,6 +206,7 @@ class Progress:
         self.defeated |= disk.defeated
         self.visited |= disk.visited
         self.story |= disk.story
+        self.acquired |= disk.acquired
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             tmp = target.with_suffix(".tmp")
@@ -186,6 +217,7 @@ class Progress:
                 "defeated": sorted(self.defeated),
                 "visited": sorted(self.visited),
                 "story": sorted(self.story),
+                "acquired": sorted(self.acquired),
             }, ensure_ascii=False, indent=1), encoding="utf-8")
             tmp.replace(target)
         except OSError:
@@ -208,6 +240,7 @@ class Progress:
         got.defeated = {int(x) for x in data.get("defeated") or []}
         got.visited = {str(x) for x in data.get("visited") or []}
         got.story = {str(x) for x in data.get("story") or []}
+        got.acquired = {int(x) for x in data.get("acquired") or []}
         return got
 
 
@@ -248,10 +281,59 @@ class Watcher:
         return got
 
 
+#: ★入手した瞬間が残る勇者メモの種類（★宝箱 / しらべる / 入手 / ⚠ 種類の名前が付いていない行）
+ACQUIRE_SOURCES = ("chest", "search", "item", "unknown")
+
+
+def acquired_items(memos_path=None) -> set:
+    """★勇者メモの記録から「入手した品」を集める（RX3-0443）。
+
+    ⚠⚠ `items_ever`（持ち物を覗いて見えた品）では**拾ってすぐ手放した品が抜けます**。
+      ★実測（2026-09-28 / 依頼者の記録 1396 件）: 記録には入手の行があるのに
+      `items_ever` に無い品が **7 種**（★ガイアのつるぎ / さとりのしょ / レッド・イエローオーブ 等）。
+
+    ⚠ `item_id` は**文字列**で入っています（★2026-09-28 に実測。int と決め打つと 0 件になる）。
+    ⚠ 記録が無ければ空（★公開版・まっさらな環境）。
+    """
+    from dq3.knowledge import concepts as C
+
+    target = pathlib.Path(memos_path) if memos_path else pathlib.Path(C.MEMOS)
+    got: set = set()
+    try:
+        lines = target.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return got
+    for line in lines:
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(row, dict) or row.get("source") not in ACQUIRE_SOURCES:
+            continue
+        raw = str(row.get("item_id") or "").strip()
+        if raw.isdigit():
+            got.add(int(raw))
+    return got
+
+
+def load_all(path=None, memos_path=None) -> Progress:
+    """★記録を読み、⚠ **入手の記録も取り込んだ** Progress（RX3-0443 / 保存はしない）。
+
+    ⚠⚠ 素の `Progress.load()` だけだと `acquired` が空のままで、★`入手した:` が
+      「1 度も成立していない」に見えます（2026-09-28 に門番で踏んだ）。
+    ★読むだけの道具（門番・時系列の監査）はこちらを使ってください。
+    """
+    got = Progress.load(path)
+    got.note_acquired(acquired_items(memos_path))
+    return got
+
+
 def gather(vm=None, progress: Progress | None = None, state=None, enemy_book=None,
-           visited=None) -> Progress:
+           visited=None, memos_path=None) -> Progress:
     """★いまの実プレイから Progress を更新する（⚠ vm があれば vm から取る）。"""
     got = progress if progress is not None else Progress.load()
+    # ★入手の記録（⚠ 持ち物を覗いた記録だけでは抜ける / RX3-0443）
+    got.note_acquired(acquired_items(memos_path))
     if vm is not None:
         try:
             state = state if state is not None else vm._raw()

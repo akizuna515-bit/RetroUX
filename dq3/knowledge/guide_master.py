@@ -1,5 +1,23 @@
 """Guide Master（人が精査した攻略 Topic の正本）を読む・検める（RX3-0074 / 2026-09-04）。
 
+⚠⚠ **退役しました**（2026-09-28 / RX3-0455）。
+
+  ★勇者会議の正本は `data/dq3/hero-memo.yaml` です（`hero_memo.py`）。
+  ⚠ このモジュールを**新しい用途に使わないでください**。
+
+  ★残してある理由は 3 つだけです。
+
+  ```text
+  ① Topic / GuideMasterError の型を `guide.py` が再輸出している
+  ② ⚠ 「表が無くても落ちない」を `tests/test_dq3_no_guide_data.py` が固定している
+  ③ ⚠ `Council(use_hero_memo=False)` から今も呼べる（★`__init__` の既定はこちら）
+  ```
+
+  ⚠ 下に書いてある `input/...csv` を読む道は ③ **だけ**です。
+  ★既定の経路（窓・CLI・道具）からは**1 つも通りません**。
+  → ⚠⚠ ファイルを消しても落ちません（★`resolve_path()` が `None` を返し、
+    `load()` は「正本が無い」で `GuideMasterError`、`guide.load_master()` は `{}`）。
+
 ★★ ここは**人が編集した CSV** を、壊さず・黙らず読むところ ★★
 
 ```text

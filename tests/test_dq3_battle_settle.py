@@ -26,6 +26,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from dq3.ui import view_model as VM                            # noqa: E402
 
 BOSS = 132          #: ★バラモス（⚠ 実データで確かめた番号）
+#: ★ゾーマ（姿が 2 つ）と オルテガ（⚠ どれも ROM の経験値が 0 / RX3-0450）
+ZOMA_FIRST, ZOMA_SECOND, ORTEGA = 133, 134, 135
 
 
 class _Book:
@@ -69,6 +71,9 @@ class _VM:
     _note_battle_end = VM.Dq3ViewModel._note_battle_end
     _settle_battle = VM.Dq3ViewModel._settle_battle
     _finish_battle = VM.Dq3ViewModel._finish_battle
+    # ★経験値が増え得ない相手の見分け（RX3-0450）
+    _exp_can_grow = VM.Dq3ViewModel._exp_can_grow
+    _party_alive = VM.Dq3ViewModel._party_alive
 
     def __init__(self) -> None:                                # noqa: D107
         self.enemy_names = _Book()
@@ -76,9 +81,20 @@ class _VM:
         self._pending_battle = None
         self._battle_settle = None
         self.overlays = 0
+        #: ★パーティの生き死に（⚠ 既定は生きている）
+        self.party = [{"hp": 10, "max_hp": 20}]
+        #: ★敵 id → ROM の経験値（⚠ ROM を読まない / ★実測の値を写してある）
+        #:   ⚠⚠ 公開木には ROM が無いので、**本物の表を引くと検査が落ちます**（2026-09-28 に踏んだ）。
+        self.exp_table = {BOSS: 65535, ZOMA_FIRST: 0, ZOMA_SECOND: 0, ORTEGA: 0, 5: 40}
+
+    def _enemy_exp(self, enemy_id):
+        return self.exp_table.get(int(enemy_id))
 
     def _total_exp(self) -> int:
         return self.exp
+
+    def _raw_party(self):
+        return self.party
 
     def write_enemy_overlay(self):
         self.overlays += 1
@@ -189,3 +205,82 @@ def test_次の戦闘が始まったら前の見張りは残らない(vm):
     assert 5 in vm.enemy_names.defeated
     assert BOSS not in vm.enemy_names.defeated, (
         "⚠⚠ 前の戦闘の見張りが、★次の経験値で誤って当たった")
+
+
+# --- ★★ 経験値が 0 のボス（RX3-0450 / 2026-09-28）-------------------------------
+#
+#   ⚠⚠ 実測: ROM の敵の表で **ゾーマ(133・134) と オルテガ(135) は EXP 0**。
+#     ★「経験値が増えたか」で勝ちを見ていたので、⚠ 待ち時間を延ばしても**永久に**
+#       「倒した」になりませんでした（★依頼者の記録で 132/133/134/135 が欠けていた）。
+
+def test_経験値が増えない相手は生き残ったかで見る(vm):
+    vm.exp = 1000
+    vm._note_battle_start()
+    vm._note_battle_groups([dict(id=ZOMA_SECOND, n=1)])
+    vm.exp = 1000                                   # ⚠ 増えない（★ROM の EXP が 0）
+    vm._note_battle_end()
+    assert ZOMA_SECOND in vm.enemy_names.defeated, "⚠⚠ 経験値 0 のボスを倒せない"
+    assert vm._battle_settle is None, "⚠ 増えるはずのない経験値を待たない"
+
+
+def test_全滅したら倒したにしない(vm):
+    vm.party = [dict(hp=0, max_hp=20), dict(hp=0, max_hp=18)]
+    vm.exp = 1000
+    vm._note_battle_start()
+    vm._note_battle_groups([dict(id=ORTEGA, n=1)])
+    vm._note_battle_end()
+    assert ORTEGA in vm.enemy_names.met
+    assert ORTEGA not in vm.enemy_names.defeated, "⚠⚠ 全滅を勝ちにした"
+
+
+def test_経験値が増える相手は今までどおり待つ(vm):
+    """⚠ 逃げた通常の敵を勝ちにしない（★経験値で見る道は変えていない）。"""
+    _fight(vm)
+    vm._note_battle_end()
+    assert vm._battle_settle is not None, "⚠ 経験値を待たなくなった"
+    assert BOSS not in vm.enemy_names.defeated
+
+
+def test_姿を変える相手は両方の姿を覚える(vm):
+    """⚠⚠ 群を**上書き**していたので、★戦闘中に id が変わると前の姿が消えていた。
+
+    ★実測: ゾーマ 133 は「会った」にも入っていなかった（⚠ 134 だけ入っていた）。
+    """
+    vm.exp = 1000
+    vm._note_battle_start()
+    vm._note_battle_groups([dict(id=ZOMA_FIRST, n=1)])
+    vm._note_battle_groups([dict(id=ZOMA_SECOND, n=1)])   # ★姿が変わった
+    vm._note_battle_end()
+    assert vm.enemy_names.met == {ZOMA_FIRST, ZOMA_SECOND}, "⚠⚠ 前の姿が消えた"
+    assert vm.enemy_names.defeated == {ZOMA_FIRST, ZOMA_SECOND}
+
+
+def test_同じ姿が何度届いても増えない(vm):
+    vm.exp = 1000
+    vm._note_battle_start()
+    for _ in range(4):
+        vm._note_battle_groups([dict(id=ZOMA_SECOND, n=1)])
+    groups, _before = vm._pending_battle
+    assert len(groups) == 1, "⚠ 同じ id を何度も足した"
+
+
+def test_ROMでボスの経験値が0であること():
+    """★上の見本の値が**本物と合っている**こと（⚠ ROM が無ければ skip）。
+
+    ⚠⚠ 見本だけだと「表の写しが古い」に気づけません（★この repo が何度も踏んだ形）。
+    """
+    from dq3.knowledge import enemies_seen as ES
+
+    try:
+        rows = {eid: dict(ES.master_of(eid) or ()) for eid in (BOSS, ZOMA_FIRST, ZOMA_SECOND, ORTEGA)}
+    except Exception as err:                               # noqa: BLE001
+        pytest.skip("⚠ 敵の表が読めません（★ROM が無い）: %s" % err)
+    if not all(rows.values()):
+        pytest.skip("⚠ 敵の表が読めません（★ROM が無い）")
+    assert rows[ZOMA_FIRST].get("EXP") == 0, "⚠ ゾーマの経験値が 0 でなくなった"
+    assert rows[ZOMA_SECOND].get("EXP") == 0
+    assert rows[ORTEGA].get("EXP") == 0
+    assert int(rows[BOSS].get("EXP") or 0) > 0, "⚠ バラモスの経験値が 0 になった（★見本を直す）"
+    # ★本物の判定も、見本と同じ答えを出すこと
+    real = VM.Dq3ViewModel._enemy_exp
+    assert real(ZOMA_SECOND) == 0 and int(real(BOSS)) > 0

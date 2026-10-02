@@ -1,24 +1,34 @@
 ﻿location_id,map_id,name,kind,review_status,evidence,notes
-L0,0,,town,DRAFT,ルーラ表 0 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L9,9,,town,DRAFT,ルーラ表 1 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L1,1,,town,DRAFT,ルーラ表 2 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L20,20,,town,DRAFT,ルーラ表 3 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L11,11,,town,DRAFT,ルーラ表 4 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L12,12,,town,DRAFT,ルーラ表 5 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L80,80,,town,DRAFT,ルーラ表 6 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L10,10,,town,DRAFT,ルーラ表 7 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L14,14,,town,DRAFT,ルーラ表 8 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L51,51,,town,DRAFT,ルーラ表 9 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L15,15,,town,DRAFT,ルーラ表 10 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L23,23,,town,DRAFT,ルーラ表 11 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L2,2,,town,DRAFT,ルーラ表 12 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L6,6,,town,DRAFT,ルーラ表 13 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L25,25,,town,DRAFT,ルーラ表 14 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L7,7,,town,DRAFT,ルーラ表 15 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L18,18,,town,DRAFT,ルーラ表 16 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L16,16,,town,DRAFT,ルーラ表 17 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L26,26,,town,DRAFT,ルーラ表 18 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L17,17,,town,DRAFT,ルーラ表 19 番目（ROM bank0 $9E3F）,★名前は実プレイの挨拶で覚える。⚠ 手で入れるなら APPROVED にする
-L68,68,,,DRAFT,実プレイで行った（player-knowledge.json）,⚠ 種別・名前は人が入れる
-L70,70,,,DRAFT,実プレイで行った（player-knowledge.json）,⚠ 種別・名前は人が入れる
-L109,109,,,DRAFT,実プレイで行った（player-knowledge.json）,⚠ 種別・名前は人が入れる
+L0,0,,town,DRAFT,ルーラ表 0 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L1,1,,town,DRAFT,ルーラ表 2 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L2,2,,town,DRAFT,ルーラ表 12 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L6,6,,town,DRAFT,ルーラ表 13 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L7,7,,town,DRAFT,ルーラ表 15 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L8,8,ゾーマ城,,DRAFT,依頼者の命名（player-knowledge.json / CONFIRMED）。⚠ 会話に同じ綴りは無い,★2026-09-27 RX3-0437: 勇者メモ 200 の 行った を公開版でも解くため（⚠ 人が確かめたら APPROVED に）
+L9,9,,town,DRAFT,ルーラ表 1 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L10,10,,town,DRAFT,ルーラ表 7 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L11,11,,town,DRAFT,ルーラ表 4 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L12,12,,town,DRAFT,ルーラ表 5 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L14,14,,town,DRAFT,ルーラ表 8 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L15,15,,town,DRAFT,ルーラ表 10 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L16,16,,town,DRAFT,ルーラ表 17 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L17,17,,town,DRAFT,ルーラ表 19 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L18,18,,town,DRAFT,ルーラ表 16 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L20,20,,town,DRAFT,ルーラ表 3 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L21,21,テドン,,DRAFT,会話 #506（L21）でこの地の名として出る ＋ 依頼者の命名（player-knowledge.json / CONFIRMED）,★2026-09-27 RX3-0434: 勇者メモ world_tour のカードを公開版でも解くため（⚠ 人が確かめたら APPROVED に）
+L22,22,ムオル,,DRAFT,会話 #567（L22）でこの地の名として出る ＋ 依頼者の命名（player-knowledge.json / CONFIRMED）,★2026-09-27 RX3-0434: 同上（⚠ 人が確かめたら APPROVED に）
+L23,23,,town,DRAFT,ルーラ表 11 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L25,25,,town,DRAFT,ルーラ表 14 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L26,26,,town,DRAFT,ルーラ表 18 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L50,50,ネクロゴンドの洞窟,,DRAFT,依頼者の命名（player-knowledge.json / CONFIRMED）。⚠ 会話に同じ綴りは無い（会話は ネクロゴンド のみ）,★2026-09-27 RX3-0437: 勇者メモ 110 を公開版でも解くため。⚠ 聞いた は会話に出ないので成立しない（NEVER_TRIGGERED）
+L51,51,,town,DRAFT,ルーラ表 9 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L68,68,冒険者登録所,,DRAFT,実プレイで行った（player-knowledge.json / memos.jsonl 12 件）,⚠⚠ ここだけ人が入れる（name と kind / RX3-0432）。★自分で遊んで見た地名。⚠ AI の推測・攻略サイトからの転記は禁止
+L70,70,アリアハンの城,,DRAFT,実プレイで行った（player-knowledge.json / memos.jsonl 14 件）,⚠⚠ ここだけ人が入れる（name と kind / RX3-0432）。★自分で遊んで見た地名。⚠ AI の推測・攻略サイトからの転記は禁止
+L80,80,,town,DRAFT,ルーラ表 6 番目（ROM bank0 $9E3F）,★ROM のルーラ表から自動で引ける（RX3-0432 で実測）。⚠ 手入力は不要
+L109,109,レーベの宿屋2階,,DRAFT,実プレイで行った（player-knowledge.json / memos.jsonl 5 件）,⚠⚠ ここだけ人が入れる（name と kind / RX3-0432）。★自分で遊んで見た地名。⚠ AI の推測・攻略サイトからの転記は禁止
+L132,132,エルフのかくれむら,,DRAFT,会話 #164（L132）でこの地の名として出る ＋ 記録の名前（location-book / dialogue・OBSERVED）,★2026-09-27 RX3-0437: 勇者メモ 035 の 聞いた を公開版でも解くため（⚠ 人が確かめたら APPROVED に）
+L159,159,ナジミのとう,tower,APPROVED,★依頼者自身がゲーム内で L159 を「ナジミの塔」と命名（player-knowledge.json）／ゲーム本文の綴りは「ナジミのとう」（会話 2 件 / 2026-09-27 実測）,⚠ 会話の照合はゲーム本文の綴りで行うため かな で入れてある。★漢字の「ナジミの塔」は 依頼者の命名から自動で引ける
+L166,166,ギアガのおおあな,,DRAFT,名前の綴り: 会話 #857（L4）と #1201（L7）。⚠⚠ map 166 との対応は**仮説**（ラダトームに初めて着く直前に通った / #1184 がこの地で目の前の穴として話す / 地名が未設定）,⚠⚠ AI が記録から推した対応です（RX3-0434）。★人が実機で確かめたら APPROVED に。違えば map を直す
+L32,32,ネクロゴンドのほこら,,DRAFT,依頼者の命名（2026-09-27）。会話 #1063 / #1138 にこの名が出る（⚠ 会話では「の」の後に空白が入る）,★2026-09-27 RX3-0440: 根拠の欄だけ AI が足した（名前は依頼者）
+L4,4,あさせのどうくつ,,DRAFT,依頼者の命名（2026-09-27）。勇者メモの記録ではこの場所の最初の記録が #855,★根拠の欄だけ AI が足した（名前は依頼者 / RX3-0440）
+L41,41,せいれいのほこら,,DRAFT,依頼者の命名（2026-09-28）。勇者メモの記録ではこの場所の最初の記録が #1249（⚠ 会話に同じ綴りは出ない）,★根拠の欄だけ AI が足した（名前は依頼者 / RX3-0439）

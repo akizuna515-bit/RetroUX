@@ -33,10 +33,12 @@ from __future__ import annotations
 import dataclasses
 import pathlib
 
+from .. import ownership as _own
 from .. import paths as P3
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CONFIG = ROOT / "config" / "dq3_phase0.yaml"
+#: ★設定の正本（⚠ user 側にあればそれを読む / `generate_lua.CONFIG` と**同じ resolver**）
+CONFIG = _own.lazy_resolve("config/dq3_phase0.yaml")
 #: ★UiSettings の置き場（⚠ 戦闘 AI と同じファイル / 別の節）
 SECTION = "mantan"
 KEY = "v1"

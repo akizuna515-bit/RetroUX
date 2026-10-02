@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -31,7 +32,24 @@ SLOT_SCRIPT = PROJECT_ROOT / "research" / "probes" / "active" / "enemyslot_test.
 WATCH_SCRIPT = PROJECT_ROOT / "research" / "probes" / "active" / "ramwatch_test.lua"
 RAMDUMP = PROJECT_ROOT / "work" / "ramdump" / "DQ2_J.fc0.bin"
 GENERATED = PROJECT_ROOT / "work" / "generated" / "memory_map.lua"
-OUTPUT = PROJECT_ROOT / "work" / "state_test.json"
+# ★★ ⚠⚠ 出し先は **Lua の隔離先**（RX3-0480 / 2026-10-01）★★
+#
+#   ⚠ 2026-10-01 の実測で、ここが**本物の** `work/state_test.json` を
+#     書き換えていました（★`lua_run.py` は隔離先を立てているのに、
+#     Lua 側が読み込み元の `root` に書いていました）。
+#
+#   ⚠⚠ 見る先は `RETROUX_WRITE_ROOT` では**ありません**。
+#     ★`lua_run.py` が走るときに `RETROUX_WRITE_ROOT` を
+#     **Lua の隔離先**（`RETROUX_TEST_SANDBOX`）へ**上書き**するためです。
+#     ⚠ ここを間違えると「書いたはずのものが無い」という顔で落ちます（★実際に踏んだ）。
+#   ⚠ 読み込み元（生成物・ROM ダンプ）は本物のままです（★そこにしかない）。
+def _output() -> Path:
+    base = (os.environ.get("RETROUX_TEST_SANDBOX")
+            or os.environ.get("RETROUX_WRITE_ROOT"))
+    return (Path(base) if base else PROJECT_ROOT) / "work" / "state_test.json"
+
+
+OUTPUT = _output()
 
 pytestmark = pytest.mark.skipif(
     not (DLL.exists() and RUNNER.exists() and SCRIPT.exists()

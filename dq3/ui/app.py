@@ -30,7 +30,62 @@ def build_parser() -> argparse.ArgumentParser:
                     help="⚠ 地図の窓を開かない")
     ap.add_argument("--check", action="store_true",
                     help="★画面を出さずに、読めるかだけ見る")
+    ap.add_argument("--no-migrate-offer", action="store_true",
+                    help="⚠ 初回起動の「旧版から引き継ぎますか」を出さない"
+                         "（★撮影・検査から使います）")
+    ap.add_argument("--migrate-offer-only", action="store_true",
+                    help="★引き継ぎの誘いだけ出して終わる（⚠ launcher 用 / "
+                         "結果は終了コードで返す = `dq3.migrate` の EXIT_*）")
     return ap
+
+
+def _migrate_offer_only() -> int:
+    """★★ 引き継ぎの誘い**だけ**を出して、結末を終了コードで返す（RX3-0481）★★
+
+    ## ⚠⚠ なぜ別の入口が要るのか
+
+      ★誘いは `dq3.ui.app` の中にありましたが、⚠ `start-dq3.ps1` は
+      **ROM / FCEUX が見つからないと `exit 1`** するので、
+      ⚠⚠ 設定の無い環境では**ここまで来ませんでした**（★2026-10-02 実機で判明）。
+      → ★launcher が設定チェックの**前に**この入口を叩きます。
+
+    ## ⚠⚠ 利用者データを 1 つも作らずに抜けます
+
+      ★`Dq3ViewModel` を**作りません**（⚠ 作ると設定や記録の初期値が出来て、
+      ★そのあと引き継いでも「既にある」で飛ばされます / 2026-10-02 実測）。
+      ⚠ 残るのは記録（`work/dq3-log/`）と、決めたときの覚えだけです（★どちらも derived）。
+
+    ## ★誘う必要が無ければ Qt を触りません
+
+      ⚠ `should_offer()` が偽なら **`QApplication` も作らず** 0 を返します
+      （★通常起動を 1 ミリ秒も遅くしないため）。
+    """
+    from dq3 import migrate as MG
+
+    if not MG.should_offer():
+        print("★引き継ぎの誘い: 出しません（⚠ もう決めている / 遊んだ証拠がある）",
+              flush=True)
+        return MG.EXIT_NOT_NEEDED
+
+    # ⚠ ここで初めて Qt を触る（★`--check` と同じ作法）
+    from PySide6.QtWidgets import QApplication
+
+    from .migrate_dialog import exit_code_for, offer_if_first_run
+
+    # ★★ ⚠⚠ **窓を出す前に 1 行出して、必ず flush する**（RX3-0481）★★
+    #
+    #   ⚠ `flush=True` が無いと、★Python は画面でないときに溜め込むので、
+    #     **窓が開いているあいだ 1 文字も出ません**（⚠ 2026-10-02 実測）。
+    #   ★launcher の記録に「ここまで来た」が残らないと、
+    #     ⚠⚠ 「誘いに到達したのか / 設定チェックで落ちたのか」が分かりません
+    #     （★まさにそれを 1 日かけて調べました）。
+    print("★引き継ぎの誘い: 出します（⚠ 設定チェックより前 / RX3-0481）", flush=True)
+    app = QApplication.instance() or QApplication(sys.argv[:1])
+    dlg = offer_if_first_run()
+    code = exit_code_for(dlg)
+    print("★引き継ぎの誘い: 終了コード %d" % code, flush=True)
+    del app
+    return code
 
 
 def _use_fast_tooltips(app) -> None:
@@ -92,6 +147,31 @@ def _show_tooltips_when_inactive(app) -> object:
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+
+    # ★★ 版と断面を 1 行目に残す（RX3-0464 / 2026-09-29）★★
+    #
+    #   ⚠⚠ これが無いと、実機で見てもらった報告が**どの断面のものか**
+    #     後から決められません（★2026-09-29 まで DQ3 には手段が 0 でした）。
+    #   ⚠ `pythonw` 起動では標準出力が捨てられるので、★記録にも書きます。
+    from dq3 import startup as ST
+
+    line = ST.log_startup(extra=("check" if args.check else "gui"))
+    print(line)
+
+    # ★★ ⚠⚠ **知らせるだけ**のこと（RX3-0472 / 2026-10-01）★★
+    #
+    #   ① 前の引き継ぎが途中で終わっている（`work/.migration-incomplete`）
+    #   ② カスタマイズ版を使っていて、見本（標準版）が更新されている
+    #
+    #   ⚠ どちらも自動で直しません（★自動 merge をしない方針 / `D-38`）。
+    for notice in ST.log_notices():
+        print(notice)
+
+    # ★★ ⚠⚠ **利用者データを作る前に**引き継ぎの誘いだけを出す道（RX3-0481）★★
+    #   ⚠ `Dq3ViewModel` より前でなければいけません（★下の註）。
+    if args.migrate_offer_only:
+        return _migrate_offer_only()
+
     vm = Dq3ViewModel(state_path=args.state, knowledge_path=args.knowledge)
 
     if args.check:
@@ -118,10 +198,29 @@ def main(argv=None) -> int:
     _use_fast_tooltips(app)
     # ★選んでいない窓でも説明を出す（RX3-0345 / ⚠ ふだん選ばれているのは FCEUX）
     app._retroux_tooltip_watcher = _show_tooltips_when_inactive(app)
+
+    # ★★ ⚠⚠ **窓を作る前に**引き継ぎを誘う（RX3-0471 / 2026-10-01）★★
+    #
+    #   ⚠ 順番がここでないといけません。★実測（2026-10-01）:
+    #     窓を作ると `work/generated/*.lua`（derived）が出来るだけですが、
+    #     ⚠⚠ **閉じると `work/dq3-window-state.json`（user）が出来ます**。
+    #     → ★user data が出来たあとに引き継ぐと、⚠ そのぶんが「既にある」で
+    #       飛ばされます（★消しはしませんが、引き継げません）。
+    #   ⚠ 誘いが出るのは「まだ決めていない ＋ 遊んだ証拠が無い」ときだけです
+    #     （`migrate.should_offer()`）。★断ったら次からは出ません。
+    #   ★あとから呼ぶ道は管理画面の「旧版からデータを引き継ぐ」です（⚠ いつでも）。
+    if not args.no_migrate_offer:
+        from .migrate_dialog import offer_if_first_run
+
+        offer_if_first_run()
+
     window = Dq3MainWindow(vm, interval_ms=args.interval,
                            memo_limit=args.memo_limit,
                            show_map=not args.no_map)
     window.show()
+    # ★コントローラー（RX3-0486）。⚠ ここ（本物の起動）だけで始める
+    #   （★検査で窓を作っても読み取りは始まらない = 実機のパッドでマウスが動かない）
+    window.start_gamepad()
     return app.exec()
 
 

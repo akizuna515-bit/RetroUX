@@ -116,7 +116,8 @@ def test_札とログを左右に並べログは1本(window):
 
 
 def test_行動履歴と詳しいログが届いた順に1本へ出る():
-    win, log = _win()
+    # ★詳しいログを入れた人の画面（⚠ 既定はオフ / RX3-0482）
+    win, log = _win(settings=_Settings({BW.SETTING_SECTION: {BW.SETTING_KEY: True}}))
     win._tails = [("戦闘", _Tail(["AUTO_V0 turn=1 slot=p1 action=attack", "★勝った"]), "#2b5fa8")]
     log.begin("battle").completed("勝利 / 1ターン")
     win.refresh()
@@ -167,11 +168,13 @@ def test_設定で切っていれば最初から出さない():
     assert win.log.toPlainText().endswith("[自動移動] 完了：行動") and "詳しい" not in win.log.toPlainText()
 
 
-def test_設定が無ければ詳しいログを出す(window):
-    """★いままでどおり（⚠ 設定の無い検査・古い設定ファイルで行動履歴だけにならない）。"""
+def test_設定が無ければ詳しいログを出さない(window):
+    """★RX3-0482（2026-10-02 依頼者）: 新規利用の既定は**オフ**。⚠ 保存があれば保存を優先。"""
     win, _ = window
-    assert win.show_detail is True
-    assert BW.show_detail_of(None) is True and BW.show_detail_of(_Settings()) is True
+    assert win.show_detail is False
+    assert BW.show_detail_of(None) is False and BW.show_detail_of(_Settings()) is False
+    assert BW.show_detail_of(_Settings({BW.SETTING_SECTION: {BW.SETTING_KEY: True}})) is True, \
+        "⚠⚠ 入れた人の設定を既定で上書きした"
 
 
 def test_切っていてもAIの戦況の1行は変わる():

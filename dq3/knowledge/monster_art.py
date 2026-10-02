@@ -21,10 +21,18 @@ from __future__ import annotations
 import os
 import pathlib
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-#: ★置き場（⚠ Git 管理外）
-ART_DIR = ROOT / "work" / "dq3-monster-art"
-ROM_PATH = ROOT / "work" / "rom" / "DQ3_J.nes"
+from dq3 import paths as P3
+
+#: ★★ 置き場（⚠ Git 管理外 / **derived**）★★
+#
+#   ⚠ 2026-10-01（`RX3-0472`）まで `ROOT / "work" / …`（= program 側）でした。
+#     ★配布 Runtime では `program_root == write_root` なので**道は変わりません**が、
+#     ⚠⚠ 検査が `RETROUX_WRITE_ROOT` を差し替えても**追いついていませんでした**
+#       （★本物の `work/` に 139 枚を書きうる形でした）。
+#   ★`lazy_work` なので、⚠ 使う瞬間に書き先を引き直します（RX3-0342）。
+ART_DIR = P3.lazy_work("dq3-monster-art")
+#: ⚠ 解決は `dq3/paths.py::rom()` の 1 本（RX3-0467）。★任意の場所を指定できます。
+ROM_PATH = P3.lazy_rom()
 #: ★置き場の絵が**どの作り方で**作られたか（RX3-0223）
 #:
 #:   ⚠ 前は「ファイルが在れば作らない」だけでした。

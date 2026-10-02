@@ -33,11 +33,13 @@ from __future__ import annotations
 import pathlib
 import threading
 
+from dq3 import paths as _P3
 from dq3.knowledge import seen_map as _seen
 
 #: ★利用者の ROM（⚠ Git の外。無ければ地図を出さない）
-DEFAULT_ROM = (pathlib.Path(__file__).resolve().parents[2]
-               / "work" / "rom" / "DQ3_J.nes")
+#
+#   ⚠ 解決は `dq3/paths.py::rom()` の 1 本（RX3-0467）。★任意の場所を指定できます。
+DEFAULT_ROM = _P3.lazy_rom()
 
 #: ★居場所の種別（⚠ `seen_map` と同じ値）
 KIND_WORLD = 0

@@ -22,6 +22,12 @@ PALETTE = PROJECT_ROOT / "tools" / "fceux" / "palettes" / "FCEUX.pal"
 BRIDGE = PROJECT_ROOT / "retroux" / "emulator" / "fceux" / "bridge.lua"
 
 needs_rom = pytest.mark.skipif(not ROM.exists(), reason="ROM が無い")
+# ★★ 絵を作る 2 本は FCEUX に付属するパレットも要ります（RX3-0489 / 2026-10-02）★★
+#   ⚠ ROM も FCEUX も利用者が置くものです。★ROM だけ置いた公開版の走行で赤くなっていました。
+#   ⚠ 開発 repo ではパレットがあるので、今までどおり走ります（★検査の意味は変えていない）。
+needs_rom_and_palette = pytest.mark.skipif(
+    not (ROM.exists() and PALETTE.exists()),
+    reason="ROM か FCEUX のパレット（tools/fceux/palettes/FCEUX.pal）が無い")
 
 
 # --- Lua 側の約束 -------------------------------------------------------
@@ -102,7 +108,7 @@ def test_状態を読むと欄が埋まる(tmp_path):
 
 # --- ★★ 通し: 歩いた先が DB に入るか ★★ ------------------------------
 
-@needs_rom
+@needs_rom_and_palette
 def test_見たマスの絵がDBまで届く(tmp_path):
     """★★ **これが本題**。⚠ 「つないだつもり」で届かないのが一番困る。"""
     from dq2rom.monsters.palette import load_nes_palette
@@ -178,7 +184,7 @@ def test_絵の係が無くても地図は動く(tmp_path):
     db.close()
 
 
-@needs_rom
+@needs_rom_and_palette
 def test_表の外のマップでは絵を付けない(tmp_path):
     """⚠⚠ **推測で描かない。** ★マスを見た記録は残るが、絵は付かない。
 

@@ -61,6 +61,8 @@ def list_rows(view) -> list[tuple[str, str, dict | None]]:
     返す 1 行 = (kind, text, card)。kind は `topic` / `separator`。
     ★並びは council が決めたまま（priority DESC → 更新 DESC / §21）。
     """
+    if getattr(view, "scenarios", None):
+        return scenario_rows(view)
     rows: list[tuple[str, str, dict | None]] = []
     for card in view.recent:
         rows.append(("topic", _row_text(card), card))
@@ -75,17 +77,82 @@ def list_rows(view) -> list[tuple[str, str, dict | None]]:
     return rows
 
 
-def _row_text(card: dict) -> str:
-    badge = card["badge"] or "   "
+def scenario_rows(view) -> list[tuple[str, str, dict | None]]:
+    """★勇者メモの scenario で束ねた一覧（RX3-0434）。
+
+    ```text
+    ■ ゾーマ城への道                       ← scenario（⚠ 選べない）
+      ── 気になっていること ──
+      NEW 雨雲の杖を手に入れる
+      ── 分かったこと ──
+      ✓ 太陽の石を手に入れる
+    ■ オーブを集める — いまは気になることはない   ← quiet
+      ...
+    ── ほかに気になっていること ──          ← scenario の無いカード
+    ── 片づいた話 ──
+    ```
+
+    ⚠⚠ 並びは `scenario_view.build` が決めたまま（★id 順・YAML の順は使わない）。
+    ⚠ 件数・分母・未発見のカードは**出しません**（★view にそもそも無い）。
+    """
+    from dq3.knowledge.scenario_view import QUIET, QUIET_TEXT
+
+    rows: list[tuple[str, str, dict | None]] = []
+    for group in view.scenarios:
+        head = "■ %s" % group.title
+        if group.state == QUIET:
+            head += " — %s" % QUIET_TEXT
+        rows.append(("separator", head, None))
+        if group.open_cards:
+            rows.append(("separator", "   ── 気になっていること ──", None))
+            for card in group.open_cards:
+                rows.append(("topic", _row_text(card, indent="   "), card))
+        if group.done_cards:
+            rows.append(("separator", "   ── 分かったこと ──", None))
+            for card in group.done_cards:
+                rows.append(("topic", _row_text(card, indent="   ", done=True), card))
+    loose_open = [c for c in view.recent if not c.get("scenario_id")]
+    loose_done = [c for c in view.resolved if not c.get("scenario_id")]
+    if loose_open:
+        rows.append(("separator", "── ほかに気になっていること ──", None))
+        for card in loose_open:
+            rows.append(("topic", _row_text(card), card))
+    if loose_done:
+        rows.append(("separator", "── 片づいた話 ──", None))
+        for card in loose_done:
+            rows.append(("topic", _row_text(card, done=True), card))
+    return rows
+
+
+def _row_text(card: dict, indent: str = "", done: bool = False) -> str:
+    badge = "✓" if done else (card["badge"] or "   ")
     when = card["last_updated_label"] if card["last_updated_at"] else ""
-    tail = " / ".join(p for p in (card["category_label"], card["status_label"], when) if p)
+    # ⚠ ✓ の行に「完了」を重ねない（★scenario の「完了」と読まれないように / RX3-0434）
+    status = "" if done else card["status_label"]
+    tail = " / ".join(p for p in (card["category_label"], status, when) if p)
     tree = "  └ " if card["parent_topic_id"] else ""
-    return "%-3s %s%s\n      %s" % (badge, tree, card["title"], tail)
+    # ★片づいたカードに `done:` の文があれば、題名の代わりにそれを出す（RX3-0437）
+    title = (card.get("done_text") or card["title"]) if done else card["title"]
+    return "%s%-3s %s%s\n%s      %s" % (indent, badge, tree, title, indent, tail)
+
+
+def _scenario_title(card: dict, view) -> str:
+    """★そのカードが属する scenario の題名（⚠ 無ければ空 / RX3-0445）。"""
+    want = card.get("scenario_id") or ""
+    if not want:
+        return ""
+    for group in getattr(view, "scenarios", ()) or ():
+        if group.scenario_id == want:
+            return group.title
+    return ""
 
 
 def detail_lines(card: dict, view) -> list[tuple[str, str]]:
     """★右側の詳細（⚠ 原文は最後の「聞いた文」だけ / §23）。"""
     rows = [("目的", card["objective"] or "—")]
+    if card.get("done_text"):
+        # ★片づいたときに分かったこと（`done:` / RX3-0437 / ⚠ 片づいたカードにしか入っていない）
+        rows.append(("分かったこと", card["done_text"]))
     if card["completion_hint"]:
         rows.append(("片づく目安", card["completion_hint"]))
     state = card["status_label"]
@@ -95,7 +162,13 @@ def detail_lines(card: dict, view) -> list[tuple[str, str]]:
 
         state += "（%s）" % update_text(card["update_count"], card["last_updated_label"])
     rows.append(("状態", state))
-    rows.append(("分類", "%s / priority %d" % (card["category_label"], card["priority"])))
+    # ⚠⚠ 2026-09-28（RX3-0445）: ここは「分類 探索 / priority 50」を出していました。
+    #   ★勇者メモ経路では `category` と `priority` は**全カード同じ固定値**で
+    #     （`hero_memo.compile_leads`）、⚠ 旧 Guide Master の列の名残でした。
+    #   → ★代わりに「何の話か」（scenario の題名）を出します。⚠ 無ければ行ごと出しません。
+    title = _scenario_title(card, view)
+    if title:
+        rows.append(("何の話", title))
     if card["related_locations"]:
         # ★解けた場所には「（L9 / 行った）」が付く（⚠ 解けていない名前はそのまま / RX3-0076）
         rows.append(("関連する場所", " / ".join(card["related_locations"])))
@@ -112,8 +185,11 @@ def detail_lines(card: dict, view) -> list[tuple[str, str]]:
         for fact_id in card["matched_fact_ids"]:
             fact = view.facts.get(fact_id) or {}
             name = fact.get("name")
-            lines.append("%s %s%s" % (fact.get("subject", fact_id), fact.get("predicate", ""),
-                                      "（%s）" % name if name else ""))
+            # ★同じ知識を何人から聞いたか（⚠ 行は 1 つ / 論理 Fact / RX3-0436）
+            count = int(fact.get("count") or 1)
+            lines.append("%s %s%s%s" % (fact.get("subject", fact_id), fact.get("predicate", ""),
+                                        "（%s）" % name if name else "",
+                                        "  ×%d 回" % count if count > 1 else ""))
         rows.append(("関連 Fact", "\n".join(lines)))
         texts = [view.facts[f]["text"] for f in card["matched_fact_ids"]
                  if f in view.facts and view.facts[f].get("text")]
@@ -254,7 +330,9 @@ class Dq3CouncilWindow(QWidget):
             return self._council
         from dq3.knowledge.council import Council
 
-        self._council = Council()
+        # ★2026-09-27（RX3-0432 / RX3-0434）: 人が書いた勇者メモ（`data/dq3/hero-memo.yaml`）で動かす。
+        #   ⚠ 第三者由来の Guide Master（input/）は窓からは読みません。
+        self._council = Council(use_hero_memo=True)
         return self._council
 
     def open_go_list(self):
@@ -297,7 +375,7 @@ class Dq3CouncilWindow(QWidget):
         """★view を描く（⚠ 判断しない）。"""
         self.view = view
         if not view.ok:
-            self.head_message.setText("⚠ Guide Master を読めません")
+            self.head_message.setText("⚠ 勇者メモ（hero-memo.yaml）を読めません")
             self.head_sub.setText("")
             self.head_reasons.setText(view.error)
             self.status_label.setText("")

@@ -34,6 +34,8 @@
 
 from __future__ import annotations
 
+import os
+
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMessageBox,
                                QSizePolicy, QVBoxLayout, QWidget)
@@ -165,7 +167,15 @@ class Dq3MainWindow(QWidget):
         self.vm = view_model
         self.commands = CommandWriter(command_path)
         # ★窓の名前（RX3-0306 / 依頼者「右：RetroUX DQ3」）
-        self.setWindowTitle("RetroUX DQ3")
+        #
+        #   ⚠ 2026-09-29（RX3-0464）: 版を足しました（例 `RetroUX DQ3 1.1.0`）。
+        #     ★DQ2 と同じ作法（`retroux/ui/main_window.py:315`）。
+        #     ⚠⚠ ここに数字を**書き写さない**（出どころは `pyproject.toml` の 1 か所）。
+        #   ⚠ 子窓（会議・図鑑・地図ほか）は `— RetroUX DQ3` のままにします
+        #     （★版は親の題名 1 か所でよい）。
+        from dq3 import startup as _startup
+
+        self.setWindowTitle(_startup.title())
         # ★★ 起動直後から画面にぴったり収める（依頼者 2026-08-29）。
         #   ⚠ 420 幅では**パーティの表が切れて**いた（実機の画面で確認）。
         self._layout = layout_mod.default_sizes(layout_mod.qt_area())
@@ -444,7 +454,7 @@ class Dq3MainWindow(QWidget):
                      "  中央 : FCEUX（ゲーム画面）\n"
                      "  右   : この画面\n"
                      "  下   : 戦闘（モンスターとログ）\n"
-                     "⚠ FCEUX は動かしません（★こちらの 3 つだけ）",
+                     "★FCEUX は中央へ動かします（⚠ 大きさは変えません）",
              self.arrange_windows),
             ("auto", "オート", AUTO_TIP, lambda: self._send("auto")),
             ("turbo", "ターボ", TURBO_TIP_DISABLED, lambda: self._send("turbo")),
@@ -470,7 +480,8 @@ class Dq3MainWindow(QWidget):
                          "⚠ フィールドで押してください",
              lambda: self._send("mantan")),
             ("admin", "管理", "管理画面を開く" + chr(10)
-                   + "★状態 / プレイデータの初期化・退避・復元 / 聞き込みテスト / 自動移動の停止",
+                   + "★状態 / プレイデータの初期化・退避・復元 / 聞き込みテスト / 自動移動の停止" + chr(10)
+                   + "★設定: 画面の見え方（フィルタ）/ 詳しいログ / 補充の数",
              self.open_admin),
             ("exit", "終", "終わります\n"
                    "★FCEUX も閉じるか聞きます\n"
@@ -964,13 +975,29 @@ class Dq3MainWindow(QWidget):
         `lock_path` は検査から差し替えるためのものです
         （⚠ 本物へ合図を置くと、★動いている控えを止めてしまいます）。
 
+        ## ⚠⚠ **どの道で抜けたかを記録に 1 行出します**（RX3-0479 / 2026-10-01）
+
+        ★2026-09-30 の実機で控えが止まりませんでした。⚠ そのとき
+        **3 つの道すべてが静かに `False` を返す**ので、
+        ⚠⚠ 「止めようとして駄目だった」と「止める相手が居なかった」を
+        あとから区別できませんでした。→ ★`savestate_backup.note()` に残します。
+
         戻り値: ★合図を置いたら True。
         """
         import json
         import os
 
+        from dq3 import savestate_backup as SB
+
+        # ★2 つの道（「終」ボタンと窓の ×）から呼ばれるので、⚠ 2 度目は黙って抜ける
+        #   （★合図を置き直しても害はありませんが、記録が二重になります）
+        if getattr(self, "_backup_stop_signalled", False):
+            return True
         mine = os.environ.get(self.SESSION_ENV)
         if not mine:
+            # ⚠ 札が無い（★手で `python -m dq3.ui.app` した / 起動スクリプトを通っていない）
+            SB.note("★控えの停止: 何もしません（⚠ %s が無い = この起動の札が不明）"
+                    % self.SESSION_ENV)
             return False
         try:
             from retroux.core import backup_status
@@ -983,16 +1010,254 @@ class Dq3MainWindow(QWidget):
             status = backup_status.status_path(lock_path)
             if not status.exists():
                 # ⚠ 一度も動いていない。★触らない
+                SB.note("★控えの停止: 何もしません（⚠ 状態ファイルが無い: %s）"
+                        % status)
                 return False
             got = json.loads(status.read_text(encoding="utf-8"))
             if got.get("session") != mine:
                 # ⚠ 別の起動が立てたもの（★DQ2 の起動かもしれない）。触らない
+                SB.note("★控えの停止: 何もしません"
+                        "（⚠ 別の起動のものです: 記録 %r / こちら %r）"
+                        % (got.get("session"), mine))
                 return False
-            lock_path.with_suffix(".stop").write_text("stop", encoding="utf-8")
+            stop = lock_path.with_suffix(".stop")
+            stop.write_text("stop", encoding="utf-8")
+            self._backup_stop_signalled = True
+            SB.note("★控えの停止: 合図を置きました（%s / 札 %r）" % (stop, mine))
             return True
-        except Exception:                  # noqa: BLE001
+        except Exception as exc:           # noqa: BLE001
             # ⚠ 終わるときの後始末で落ちない（★閉じること自体は続ける）
+            #   ⚠⚠ ただし**黙りません**（★2026-09-30 はここで消えた可能性も残っていた）
+            SB.note("⚠⚠ 控えの停止に失敗しました: %s: %s"
+                    % (type(exc).__name__, exc))
             return False
+
+    # --- ★コントローラー（RX3-0486 / 2026-10-02） -------------------------
+
+    def start_gamepad(self, link=None) -> bool:
+        """★パッドを読み始める（⚠ `dq3.ui.app` の本物の起動からだけ呼ぶ）。
+
+        ⚠ 止める条件: 環境変数 `RETROUX_NO_GAMEPAD` / 設定 `gamepad.enabled: false` /
+          XInput が無い（★どれも理由を状態欄に出す）。
+        """
+        from . import gamepad_link as GL
+        from .command_ack import AckWaiter
+
+        self.pad_settings = GL.PadSettings.from_settings(getattr(self, "settings", None))
+        self._pad_force = None
+        self._pad_restore = None
+        self._pad_wait = None
+        self._pad_waiter = AckWaiter(lambda: self.vm.state_path)
+        waiter = self._pad_waiter
+        self.pad_queue = GL.CommandQueue(
+            self.commands, lambda seq, action: waiter.stage_of(seq, action=action),
+            on_sent=self._pad_sent)
+        if link is None:
+            if os.environ.get("RETROUX_NO_GAMEPAD") or not self.pad_settings.enabled:
+                self.gamepad = None
+                return False
+            from dq3 import paths as P3
+            from retroux.core import window_align
+
+            logic = GL.PadLogic(
+                self.pad_settings, GL.PadFileWriter(P3.work(GL.PAD_FILE_NAME)),
+                mouse_move=window_align.move_cursor, mouse_button=window_align.mouse_left,
+                in_battle=lambda: bool(getattr(self, "_pad_in_battle", False)))
+            link = GL.GamepadLink(logic)
+        self.gamepad = link
+        if not link.start():
+            self._status.setText("⚠ コントローラーを読めません（XInput がありません）")
+            self.gamepad = None
+            return False
+        self._pad_timer = QTimer(self)
+        self._pad_timer.timeout.connect(self._gamepad_tick)
+        self._pad_timer.start(50)
+        return True
+
+    def stop_gamepad(self) -> None:
+        """★止めて全部離す（⚠ 押したまま終わらない）。⚠ 強制オートで入れたものは開始前へ戻す。
+
+        ★終わるので列は回りません → 戻す頼みは**直に送り、届くまで少し待ちます**
+          （★置き場 1 つ = 1 つずつ / 1 つ 1.5 秒まで / ⚠ FCEUX が先に閉じていれば届かない）。
+        """
+        link = getattr(self, "gamepad", None)
+        if link is None:
+            return
+        self.gamepad = None
+        timer = getattr(self, "_pad_timer", None)
+        if timer is not None:
+            timer.stop()
+        link.stop()
+        link.drain()
+        want = getattr(self, "_pad_restore", None) or (
+            self._pad_restore_of(self._pad_force) if getattr(self, "_pad_force", None) else None)
+        self._pad_force, self._pad_restore = None, None
+        if not want:
+            return
+        raw = self._pad_raw()
+        for action in self._pad_differs(want, raw):
+            try:
+                seq = self.commands.send(action)
+                self._pad_waiter.wait(seq, action, want="received", timeout=1.5)
+            except (OSError, ValueError):
+                pass
+
+    # ★強制オートの戻し方（★開始前の状態に**揃える** / ⚠ 反転を数えない）
+    #   ⚠ state.json は遅れて届くので、離した瞬間の 1 回では決めません（★入れた頼みがまだ映っていないことがある）。
+    #   → ★離してから `PAD_RESTORE_SECONDS` の間、「開始前」と食い違っていれば 1 つずつ戻します。
+    PAD_RESTORE_SECONDS = 5.0
+    PAD_RESTORE_SPACING = 1.0
+
+    @staticmethod
+    def _pad_flags(raw: dict) -> dict:
+        """★オートと**人の**ターボ（⚠ 戦闘の自動の高速化は含めない = `turbo_manual`）。"""
+        turbo = raw.get("turbo_manual")
+        if turbo is None:
+            turbo = raw.get("turbo_enabled")                 # ⚠ 古い Lua（★欄が無い）
+        return {"auto": bool(raw.get("auto_enabled")), "turbo": bool(turbo)}
+
+    @staticmethod
+    def _pad_restore_of(force: dict | None) -> dict | None:
+        if not force:
+            return None
+        return {k: v for k, v in force.get("before", {}).items() if force.get(k)}
+
+    def _pad_differs(self, want: dict, raw: dict) -> list:
+        now = self._pad_flags(raw)
+        return [k for k in ("auto", "turbo") if k in want and now[k] != want[k]]
+
+    def _pad_raw(self) -> dict:
+        try:
+            return self.vm._raw() or {}
+        except Exception:                                    # noqa: BLE001 ★読めなくても続ける
+            return {}
+
+    def _pad_sent(self, action: str, seq: int) -> None:
+        """★セーブ / ロードの頼みに番号が付いた（★結果を番号で待つ）。"""
+        import time as _time
+
+        wait = getattr(self, "_pad_wait", None)
+        if wait is not None and wait["action"] == action:
+            wait.update(seq=seq, at=_time.monotonic())
+        if action in ("auto", "turbo") and getattr(self, "_pad_restore", None) is not None:
+            self._pad_restore["last"] = _time.monotonic()
+
+    def _pad_result(self, raw: dict) -> None:
+        """★ステート 0 の保存 / 読込の**実際の結果**を出す（⚠ 「頼んだ」を成功と言わない）。"""
+        import time as _time
+
+        from . import gamepad_link as GL
+
+        wait = getattr(self, "_pad_wait", None)
+        if wait is None:
+            return
+        verb = "保存" if wait["action"] == "save_state" else "読込"
+        got = ((raw.get("pad") or {}).get("saved") if wait["action"] == "save_state"
+               else (raw.get("nav") or {}).get("loaded"))
+        if wait.get("seq") is not None and isinstance(got, dict) and got.get("seq") == wait["seq"]:
+            self._pad_wait = None
+            if got.get("ok"):
+                self._status.setText("★%s: ステート %d に%sしました" % (
+                    "RB" if verb == "保存" else "LB", GL.PAD_STATE_SLOT, "保存" if verb == "保存" else "戻"))
+            else:
+                self._status.setText("⚠ ステート %d の%sに失敗しました: %s"
+                                     % (GL.PAD_STATE_SLOT, verb, got.get("why") or "理由不明"))
+            return
+        if _time.monotonic() - wait["at"] > 10.0:
+            self._pad_wait = None
+            self._status.setText("⚠ ステート %d の%sの結果を確かめられませんでした（FCEUX の応答が無い）"
+                                 % (GL.PAD_STATE_SLOT, verb))
+
+    def _pad_reconcile(self, raw: dict) -> None:
+        """★強制オートを離したあと、開始前の状態へ揃える（★1 秒に 1 つ / 5 秒まで）。"""
+        import time as _time
+
+        rest = getattr(self, "_pad_restore", None)
+        if rest is None:
+            return
+        now = _time.monotonic()
+        want = {k: v for k, v in rest.items() if k in ("auto", "turbo")}
+        diff = self._pad_differs(want, raw)
+        if now - rest["since"] > self.PAD_RESTORE_SECONDS:
+            self._pad_restore = None
+            return
+        if not diff:
+            return                                           # ⚠ 揃って見えても見張りは続ける（★遅れて映る頼みがある）
+        busy = self.pad_queue.inflight is not None or any(
+            p["action"] in ("auto", "turbo") for p in self.pad_queue.pending)
+        if busy or now - rest.get("last", 0.0) < self.PAD_RESTORE_SPACING:
+            return
+        self.pad_queue.push(diff[0])
+        rest["last"] = now
+
+    def _gamepad_tick(self) -> None:
+        """★パッドで出た操作を主スレッドで行い、頼みの列を進める。"""
+        link = getattr(self, "gamepad", None)
+        if link is None:
+            return
+        raw = self._pad_raw()
+        self._pad_in_battle = bool(raw.get("in_battle"))
+        for name in link.drain():
+            try:
+                self._on_pad(name, raw)
+            except Exception as err:                         # noqa: BLE001 ★1 つの失敗で止めない
+                self._status.setText("⚠ パッドの操作 %s に失敗: %s" % (name, err))
+        self._pad_reconcile(raw)
+        self._pad_result(raw)
+        self.pad_queue.tick()
+
+    def _on_pad(self, name: str, raw: dict) -> None:
+        import time as _time
+
+        from . import gamepad_link as GL
+
+        bar = getattr(self, "town_bar", None)
+        ctl = getattr(bar, "ctl", None)
+        slot = GL.PAD_STATE_SLOT                             # ⚠ 0 固定（依頼者 2026-10-02 DQ3-000156）
+        if name == GL.RELEASED:
+            self.pad_queue.clear("パッドが離れた / 対象外の窓")
+        elif name == GL.CANCEL:
+            if ctl is not None and ctl.busy():
+                ctl.stop()
+                bar.refresh()
+        elif name == GL.INN:
+            if raw.get("in_battle"):
+                return
+            button = (getattr(bar, "move_buttons", None) or {}).get("inn")
+            # ★［宿］ボタンが押せるときだけ（★同じ条件 = 面識のある宿屋がある・聞き込み / 補充の間でない）
+            if button is not None and button.isEnabled():
+                bar._on_move("inn")                          # ★［宿］ボタンと同じ入口
+            else:
+                self._status.setText("★X: いまは宿屋へ移動できません（★町の中で、知っている宿屋があるときだけ）")
+        elif name == GL.FORCE_BEGIN:
+            before = self._pad_flags(raw)
+            # ★開始前から入っていたものは触らない（⚠ 戻すときも触らない）
+            self._pad_force = {"auto": not before["auto"], "turbo": not before["turbo"],
+                               "before": before}
+            self._pad_restore = None
+            for action in ("auto", "turbo"):
+                if self._pad_force[action]:
+                    self.pad_queue.push(action)
+        elif name == GL.FORCE_END:
+            want = self._pad_restore_of(getattr(self, "_pad_force", None))
+            self._pad_force = None
+            if want:
+                # ⚠ まだ出していない「入れる」頼みは取り消す（★出していなければ戻す必要もない）
+                kept = [p for p in self.pad_queue.pending if p["action"] not in want]
+                self.pad_queue.pending.clear()
+                self.pad_queue.pending.extend(kept)
+                self._pad_restore = dict(want, since=_time.monotonic(), last=0.0)
+        elif name in ("load_state", "save_state"):
+            if name == "load_state" and ctl is not None and ctl.busy():
+                ctl.stop()                                   # ★街の自動を先に止める（依頼者 §4）
+                bar.refresh()
+            self.pad_queue.push(name, slot=slot)
+            self._pad_wait = {"action": name, "seq": None, "at": _time.monotonic()}
+            self._status.setText("★%s: ステート %d の%sを頼みました（結果待ち）"
+                                 % ("LB" if name == "load_state" else "RB", slot,
+                                    "読込" if name == "load_state" else "保存"))
+        elif name in ("auto", "turbo", "mantan"):
+            self.pad_queue.push(name)
 
     def keyPressEvent(self, event) -> None:              # noqa: N802 (Qt の名前)
         """★聞き込み・街移動・補充の途中なら D / B で止める（RX3-0170 / 依頼者 §14）。
@@ -1011,6 +1276,21 @@ class Dq3MainWindow(QWidget):
         super().keyPressEvent(event)
 
     def closeEvent(self, event) -> None:                 # noqa: N802 (Qt の名前)
+        # ★★ ⚠⚠ **控えに終わってもらう**（RX3-0479 / 2026-10-01）★★
+        #
+        #   ⚠ 2026-09-30 の実機で「外から閉じたら控えが止まらなかった」のは、
+        #     ★`_stop_own_backup()` を呼んでいたのが **「終」ボタンだけ**だったためです。
+        #
+        #     ① 「終」ボタン   `_close_all()` → ★呼んでいた
+        #     ② 窓の ×        `closeEvent`  → ⚠⚠ **呼んでいなかった**
+        #     ③ 外から WM_CLOSE `closeEvent` → ⚠⚠ 同じ（★これが実機で出た症状）
+        #     ④ launcher / FCEUX 側         → ⚠ Qt を通らない（★launcher の仕事）
+        #
+        #   → ★`closeEvent` は 4 つのうち 2 つの**合流点**なので、ここで呼びます。
+        #     ⚠ 「終」からは 2 度呼ばれますが、★2 度目は黙って抜けます。
+        self._stop_own_backup()
+        # ★パッドを止めて全部離す（RX3-0486 / ⚠ 押したまま終わらない）
+        self.stop_gamepad()
         # ★窓の位置を覚える（RX3-0200 / ⚠ 別窓を閉じる**前**に）
         self.save_window_positions()
         # ★街の自動操作の途中なら止める（RX3-0170 / ⚠ Turbo・無音のまま FCEUX を残さない）

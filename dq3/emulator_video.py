@@ -38,7 +38,9 @@ import pathlib
 import re
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+from dq3 import paths as _P3
+
+ROOT = _P3.program_root()
 
 #: ★同梱 FCEUX の固定フィルタ（⚠ `src/drivers/win/video.cpp` の並びそのもの / RX-0108）
 FILTERS: dict[str, int] = {
@@ -77,9 +79,44 @@ DEFAULT = "<none>"
 #: ★`work/dq3-ui-settings.json` の置き場所（⚠ 管理画面と起動スクリプトで同じものを見る）
 SECTION, KEY = "emulator", "video_filter"
 
-#: ★同梱 FCEUX の設定（⚠ 書き換えるのはこの行だけ）
-CFG = ROOT / "tools" / "fceux" / "fceux.cfg"
+#: ★FCEUX の設定（⚠ 書き換えるのはこの行だけ）
+#
+#   ⚠⚠ **exe の隣にしか置けません**（`-cfg` で渡しても効かない / RX-0108 で実測）。
+#   ★場所は `dq3/paths.py::fceux_cfg()` の 1 本から（RX3-0468 / 2026-09-29）。
+#     ⚠ 使う瞬間に引き直します（★import で固めない / 設定を変えたら追いつく）。
+CFG = _P3.LazyResolved(lambda: _P3.fceux_cfg() or (ROOT / "tools" / "fceux" / "fceux.cfg"))
 CFG_KEY = "winspecial"
+
+
+#: ★★ 初めての FCEUX だけ、窓の倍率を縦横 2 倍にする（RX3-0483 / 2026-10-02 依頼者）★★
+#
+#   ⚠⚠ **`fceux.cfg` がまだ無いときだけ**です（= その FCEUX を 1 度も起こしていない）。
+#     ★cfg が在れば 1 バイトも触りません（⚠ 利用者が決めた倍率を上書きしない / 毎回 2 倍へ戻さない）。
+#   ★倍率は `winsizemulx` / `winsizemuly`（8 バイトの小数を base64 / `retroux/tools/fceux_scale.py`）。
+#     ⚠ `--xscale` は窓の大きさを変えません（★DQ2 で実測）。
+#   ★FCEUX は残りの行を初回の終了時に埋めます（⚠ DQ2 の launcher が同じ形で作っていた）。
+NEW_CFG_SCALE = 2.0
+SCALE_KEYS = ("winsizemulx", "winsizemuly")
+
+
+def seed_new_cfg(cfg_path: pathlib.Path | None = None, scale: float = NEW_CFG_SCALE) -> bool:
+    """★cfg が**無いときだけ**倍率の 2 行で作る。戻り値は「作ったか」。
+
+    ⚠ FCEUX の場所が分からない・フォルダが無いときは何もしません（★知らない場所に作らない）。
+    """
+    from retroux.tools.fceux_scale import encoded
+
+    if cfg_path is None:
+        cfg_path = _P3.fceux_cfg()
+        if cfg_path is None:
+            return False
+    path = pathlib.Path(cfg_path)
+    if path.exists() or not path.parent.is_dir():
+        return False
+    value = encoded(scale)
+    # ★FCEUX 自身も LF で書きます（★同梱 cfg を実測 / 改行を混ぜない）
+    path.write_bytes("".join("%s %s\n" % (key, value) for key in SCALE_KEYS).encode("ascii"))
+    return True
 
 
 class VideoFilterError(ValueError):
@@ -137,6 +174,12 @@ def main(argv=None) -> int:
     from .ui.ui_settings import UiSettings
 
     name = argv[0] if argv else chosen(UiSettings())
+    try:
+        if seed_new_cfg():
+            print("★初めての FCEUX なので、窓を縦横 %g 倍にしました（⚠ 次からは FCEUX の設定のまま）"
+                  % NEW_CFG_SCALE)
+    except OSError as err:
+        print("⚠ FCEUX の窓の倍率を用意できませんでした: %s" % err)
     try:
         changed = apply_to_cfg(name)
     except (VideoFilterError, OSError) as err:

@@ -542,9 +542,8 @@ def _master_row(enemy_id, rom_path=None):
         from dq3rom import profile as dq3
     except ImportError:
         return None
-    target = pathlib.Path(rom_path) if rom_path else (
-        pathlib.Path(__file__).resolve().parents[2] / "work" / "rom"
-        / "DQ3_J.nes")
+    # ⚠ 解決は `dq3/paths.py::rom()` の 1 本（RX3-0467）
+    target = pathlib.Path(rom_path) if rom_path else paths.rom_or_legacy()
     try:
         rows = en.read_all(dq3.load_and_identify(target))
     except Exception:                                  # noqa: BLE001
@@ -566,9 +565,8 @@ def details_of(enemy_id, rom_path=None):
         from dq3rom import profile as dq3
     except ImportError:
         return None
-    target = pathlib.Path(rom_path) if rom_path else (
-        pathlib.Path(__file__).resolve().parents[2] / "work" / "rom"
-        / "DQ3_J.nes")
+    # ⚠ 解決は `dq3/paths.py::rom()` の 1 本（RX3-0467）
+    target = pathlib.Path(rom_path) if rom_path else paths.rom_or_legacy()
     try:
         rows = en.read_all(dq3.load_and_identify(target))
     except Exception:                                  # noqa: BLE001

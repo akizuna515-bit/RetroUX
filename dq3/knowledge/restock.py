@@ -71,7 +71,8 @@ HOLY_WATER = 103    #: せいすい
 WING = 104          #: キメラのつばさ
 
 #: ★目標の数（⚠ 人が決めるもの / Non-Goals。★ここは既定値だけ）
-DEFAULT_WANTS = ((HERB, 6), (ANTIDOTE, 2), (WING, 1))
+#:   ★RX3-0482: `dq3.ui.town_bar.DEFAULT_WANTS` と同じ値（★画面と実際に使う値を揃える）
+DEFAULT_WANTS = ((HERB, 3), (ANTIDOTE, 1), (WING, 1))
 
 #: ★安全停止の理由（⚠ **内部の語**。人へはこのまま出さない）
 NO_WANTS = "no_wants"
@@ -249,7 +250,7 @@ def carriers(members, n: int) -> list:
 
     ⚠⚠ 以前は `carrier()` の **1 人**を全部の購入に使っていました。
       ★その人が途中で満杯になると、実機は
-      「でも ○○さんは それいじょう ものを もてないようですよ。」と聞き返し、
+      **その人はもう持てない**と聞き返し（⚠ 照合に使う語は `もてない` / 下の `full`）、
       ⚠ Lua はそれを知らずに `not_bought` で止まっていました。
 
     ★DQ2 の `_pick_carrier`（`retroux/plugins/dq2/restock.lua`）と同じ決まりを、
@@ -385,8 +386,8 @@ def to_params(plan: Plan, members=None, *, carrier_pos=None, trade_word: str = "
 
     ## ⚠⚠ 持ち主は「空きがいちばん多い人」
 
-      ★先頭のまま押すと、実機はこう言いました（2026-09-08 実測）:
-      「でも あかりさんは それいじょう ものを もてないようですよ。」
+      ★先頭のまま押すと、⚠ 実機は**その人はもう持てない**と聞き返しました
+      （2026-09-08 実測 / ★照合に使う語は `もてない`）。
 
     ## ⚠⚠ 持ち主は **1 個ごとに**選び直す（RX3-0202 / 2026-09-12）
 

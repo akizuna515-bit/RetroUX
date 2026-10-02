@@ -52,9 +52,9 @@ def _values(table) -> dict:
 
 
 def test_既定の目標で開く(tmp_path):
-    """★RX3-0258 §5: やくそう 6 / どくけしそう 2 / キメラのつばさ 2 / まんげつそう 2 / せいすい 2（★保存が無いとき）。"""
+    """★RX3-0482（2026-10-02 依頼者）: やくそう 3 / どくけしそう 1 / キメラのつばさ 1（★保存が無いとき / 他は 0）。"""
     table, _settings = _table(tmp_path)
-    assert _values(table) == {101: 6, 102: 2, 104: 2, 108: 2, 103: 2, 116: 0, 115: 0, 86: 0}
+    assert _values(table) == {101: 3, 102: 1, 104: 1, 108: 0, 103: 0, 116: 0, 115: 0, 86: 0}
 
 
 def test_先頭5件の順_名前は道具辞書から(tmp_path):
@@ -102,8 +102,8 @@ def test_数を変えると同じ欄へ保存し_補充の計画が読む(tmp_pa
     table, settings = _table(tmp_path)
     table.spins[103].setValue(3)                     # ★せいすい 3 個
     text = settings.get("admin", "restock_wants")
-    assert "せいすい:3" in text and "やくそう:6" in text, text
-    assert (103, 3) in TB.restock_wants(settings) and (101, 6) in TB.restock_wants(settings), \
+    assert "せいすい:3" in text and "やくそう:3" in text, text
+    assert (103, 3) in TB.restock_wants(settings) and (101, 3) in TB.restock_wants(settings), \
         "⚠ 補充の計画が読む値と表の値がずれている"
 
 
@@ -126,7 +126,7 @@ def test_保存を開き直しても同じ数(tmp_path):
     table.spins[108].setValue(4)
     again = RestockTable(UiSettings(tmp_path / "ui.json"))             # ★再起動したのと同じ（ファイルから読む）
     QApplication.processEvents()
-    assert again.value(108) == 4 and again.value(101) == 6
+    assert again.value(108) == 4 and again.value(101) == 3
 
 
 def _other_item():
@@ -180,7 +180,8 @@ def test_既定に戻す(tmp_path):
     win.reset()
     assert settings.get("admin", "restock_wants") == default_text()
     assert TB.restock_wants(settings) == list(TB.DEFAULT_WANTS)
-    assert win.table.value(101) == 6 and win.table.value(108) == 2
+    # ★RX3-0482: 既定は やくそう 3・どくけしそう 1・キメラのつばさ 1（★まんげつそうは 0）
+    assert _values(win.table) == {101: 3, 102: 1, 104: 1, 108: 0, 103: 0, 116: 0, 115: 0, 86: 0}
 
 
 def test_数の欄は0から9で数字しか入らない(tmp_path):
@@ -217,7 +218,7 @@ def test_選んでいない数の欄のホイールは表のスクロールへ�
     event = QWheelEvent(QPointF(5, 5), QPointF(5, 5), QPoint(0, 0), QPoint(0, 120), Qt.MouseButton.NoButton,
                         Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False)
     spin.wheelEvent(event)
-    assert spin.value() == 6 and not event.isAccepted(), "⚠⚠ 選んでいない数の欄がホイールで変わった"
+    assert spin.value() == 3 and not event.isAccepted(), "⚠⚠ 選んでいない数の欄がホイールで変わった"
 
 
 def test_窓も管理画面と同じ表で_1920x1080に収まる(tmp_path):

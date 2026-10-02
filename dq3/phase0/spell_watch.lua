@@ -22,7 +22,10 @@
 
 local function clean(p) return (p:gsub(string.char(92), "/"):gsub("/$", "")) end
 local root = os.getenv("RETROUX_ROOT")
-if root == nil or root == "" then root = "C:/Projects/260721_RetroUX" end
+-- ⚠⚠ 開発機のパスへ落ちない（RX3-0466 / 2026-09-29）
+if root == nil or root == "" then
+  error("RETROUX_ROOT が立っていません（★起動は DQ3.cmd から / RX3-0466）")
+end
 root = clean(root)
 local write_root = os.getenv("RETROUX_WRITE_ROOT")
 write_root = (write_root ~= nil and write_root ~= "") and clean(write_root) or root

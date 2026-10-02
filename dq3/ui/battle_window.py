@@ -202,14 +202,19 @@ def colour_of(line: str) -> str:
     return PLAIN_COLOR
 
 
+#: ★設定が無いときの「詳しいログ」（★RX3-0482 / 依頼者 2026-10-02: 新規利用は**オフ**）
+#:   ⚠ 保存があれば保存を優先（★入れた人・切った人はそのまま）
+SHOW_DETAIL_DEFAULT = False
+
+
 def show_detail_of(settings) -> bool:
-    """★「詳しいログ」を出すか（⚠ 設定が無ければ出す = いままでどおり）。"""
+    """★「詳しいログ」を出すか（⚠ 設定が無ければ `SHOW_DETAIL_DEFAULT` = 出さない）。"""
     if settings is None:
-        return True
+        return SHOW_DETAIL_DEFAULT
     try:
-        return bool(settings.get(SETTING_SECTION, SETTING_KEY, True))
-    except Exception:                                    # noqa: BLE001 ★読めなければ出す
-        return True
+        return bool(settings.get(SETTING_SECTION, SETTING_KEY, SHOW_DETAIL_DEFAULT))
+    except Exception:                                    # noqa: BLE001 ★読めなければ既定
+        return SHOW_DETAIL_DEFAULT
 
 
 class Dq3BattleWindow(QWidget):

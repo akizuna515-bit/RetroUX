@@ -78,9 +78,13 @@ def memo_text(item_name: str | None, place: str | None = None) -> str:
     """★勇者メモの 1 行（★宝箱と同じ形 / `chest_book.memo_text`）。
 
     ```text
-    場所　しらべる：いのちのきのみ を入手
+    場所　しらべる：<道具の名前> を入手
     ```
     ⚠ 場所の名前が無ければ「しらべる：…」だけ（★名前を推測しない）。
+
+    ⚠⚠ **見本に原作の道具名を書きません**（RX3-0433 / 2026-10-01）。
+      ★`docs/00-project-policy.md` §3 で「原作テキストを配布物に焼かない」と
+      決めており、⚠ この docstring は配布物に入ります。
     """
     what = "しらべる：%s を入手" % (item_name or "？")
     return ("%s　%s" % (place, what)) if place else what

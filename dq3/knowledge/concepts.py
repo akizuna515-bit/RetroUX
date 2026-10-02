@@ -54,6 +54,7 @@ import unicodedata
 
 from dq3.knowledge import rom_names
 
+from .. import ownership as _own
 from .. import paths
 
 #: ★1 発話の区切り（⚠ DQ3 は「＊」で次の発話に移る）
@@ -112,6 +113,18 @@ FACT_MIN_CONFIDENCE = 0.8
 
 KINDS = ("monster", "item", "spell")
 
+#: ★「聞いた」Fact にする Concept の型（⚠ `place_type` / `direction` は入れない）
+#:
+#:   ⚠⚠ 2026-09-27（RX3-0432）: ★`obtain_hint` だけでは**会話 884 件で 1 種**しか
+#:     立ちませんでした（`OBTAIN_HINT_PHRASES` が `てにいれ` の 1 語だけで、
+#:     ★同じ発話に実体名と両方要るため）。
+#:   → ★「勇者がその名前を会話で**聞く機会があった**」を `heard` として出します。
+#:     ⚠ 攻略ヒントかどうかは判定しません（★指示書 §6 / 依頼者 2026-09-27）。
+HEARD_TYPES = KINDS + ("location", "word")
+
+#: ★境目の印（⚠ 本文には出ない字）。`fold_marked` が `DROP` の字をこれに置き換える
+BOUNDARY = "\x00"
+
 
 def fold(text: str) -> str:
     """★照合のための正規化。⚠ カタカナを ひらがな に畳み、飾りを落とす。
@@ -128,6 +141,35 @@ def fold(text: str) -> str:
             continue
         code = ord(ch)
         # ⚠ カタカナ → ひらがな（★濁点つきも同じだけずれる）
+        if 0x30A1 <= code <= 0x30F6:
+            ch = chr(code - 0x60)
+        out.append(ch)
+    return "".join(out)
+
+
+def fold_marked(text: str) -> str:
+    """★`fold` と同じだが、⚠ 落とす字を**境目の印に置き換える**（消さない）。
+
+    ## ⚠⚠ なぜ要るか（2026-09-27 / RX3-0432 の実測）
+
+    ★`fold` は空白を**消す**ので、⚠ 離れた 2 語がつながって別の名前を作ります。
+
+    ```text
+    「はるか にし…」 → fold → "はるかにし"  ⚠⚠ ここに呪文 `ルカニ`（るかに）が入る
+    ```
+
+    ⚠ 実測: 会話 884 件で **2 件**がこれで誤爆していました。
+    ★境目を残すと、⚠ **本物の当たりは 1 件も失わずに**（312→312）この 2 件だけ消えます。
+
+    ⚠ 名前の側は `fold` のままにします（★印は名前に出ないので、
+      境目をまたぐ当たりが自然に成立しなくなります）。
+    """
+    out = []
+    for ch in unicodedata.normalize("NFKC", text or ""):
+        if ch in _DROP_SET:
+            out.append(BOUNDARY)
+            continue
+        code = ord(ch)
         if 0x30A1 <= code <= 0x30F6:
             ch = chr(code - 0x60)
         out.append(ch)
@@ -227,6 +269,106 @@ class Fact:
         return got
 
 
+# --- ★場所の名前（⚠ ROM のルーラ表 ＋ 人が承認した表）-------------------------
+
+#: ★人が `name` を書く表（⚠ 由来は実プレイ / RX3-0432）
+#:
+#:   ⚠⚠ `locations.NAMES_PATH` が**同じ表を別に持っています**。
+#:     ★どちらも `ownership.lazy_resolve()` を通すので、user 側の上書きが
+#:     ⚠ **片方だけ効く**ことはありません（2026-10-01 / `RX3-0472`）。
+LOCATION_NAMES = _own.lazy_resolve("data/dq3/location-names.csv")
+
+
+#: ★ふつうの語で「話題」として聞いたか見る語（RX3-0436 / 例: オーブ）
+#:   ⚠ 品・敵・呪文・場所の**名前ではない**一般の語だけ。★人が 1 行ずつ足す（推測で増やさない）
+CONCEPT_WORDS = pathlib.Path(__file__).resolve().parents[2] / "data" / "dq3" / "concept-words.csv"
+
+
+def word_aliases(path=None) -> list[tuple[str, str]]:
+    """★(畳んだ語, 書いた語) の並び。⚠ 3 文字未満は当てない（`MIN_ALIAS`）。"""
+    import csv
+
+    got: dict[str, tuple[str, str]] = {}
+    try:
+        with open(path or CONCEPT_WORDS, encoding="utf-8-sig", newline="") as f:
+            for row in csv.DictReader(f):
+                word = (row.get("word") or "").strip()
+                folded = fold(word)
+                if word and len(folded) >= MIN_ALIAS:
+                    got.setdefault(folded, (folded, word))
+    except (OSError, ValueError):                   # ⚠ 無ければ語は無し
+        pass
+    return list(got.values())
+
+
+#: ★利用者が**ゲームを遊びながら自分で付けた**地名（RX3-0432 / 2026-09-27 に気づいた）
+#:  ⚠ `work/` にある実行時の記録。★repo には入りません。
+PLAYER_KNOWLEDGE = paths.lazy_work("dq3-knowledge", "player-knowledge.json")
+
+
+def place_aliases(rom_path=None, knowledge_path=None,
+                  min_len: int = MIN_ALIAS) -> list[tuple[str, str, str]]:
+    """★(畳んだ名前, `L<map 番号>`, 元の名前) の並び。⚠ 由来が明らかなものだけ。
+
+    `min_len` … ★何文字から採るか（⚠ 既定は会話の照合と同じ `MIN_ALIAS`）。
+
+    ## ⚠⚠ 2026-09-28（RX3-0442）: 「照合する」と「名前で書ける」を分けました
+
+    ★短い名前を落とすのは**会話の中で誤って当たる**のを避けるためです（`MIN_ALIAS`）。
+    ⚠ ところが同じ表を「勇者メモに名前で書けるか」にも使っていたため、
+      ★**2 文字の地名は書きようがありませんでした**（実測: ルーラ表の 1 件）。
+    → ★名前 → `location_id` を**引くだけ**の用（`hero_memo` / 門番）は `min_len=1` で呼びます。
+      ⚠ 会話の照合（`Matcher.places`）は既定のままです。
+
+    ```text
+    ★ROM のルーラ表         利用者の ROM から（⚠ 20 件）
+    ★location-names.csv     人が書いた表（⚠ 推測は書かない約束）
+    ★player-knowledge.json  ⚠⚠ **利用者が遊びながら自分で付けた名前**
+    ```
+
+    ⚠⚠ **攻略サイト由来の名前は 1 つも入りません**（★どれも出どころが明らか）。
+
+    ## ⚠⚠ 3 つめに気づくのが遅れました（2026-09-27）
+
+    ★「地名が無い場所が 152 か所ある」と数えていましたが、⚠ **利用者は既に
+    57 か所に名前を付けていました**（`player-knowledge.json` の `location_names`）。
+    ★`LocationCatalog` は前から読んでいたのに、⚠ こちらが読んでいませんでした。
+
+    ⚠ 同じ場所に複数の綴りが付くことがあります（★`ナジミの塔` と `ナジミのとう`）。
+      → ★どちらも別の別名として入れます（⚠ 会話の照合は**ゲームの綴り**が要る）。
+    """
+    got: dict[str, tuple[str, str, str]] = {}
+
+    def put(name, location_id):
+        folded = fold(name or "")
+        if name and len(folded) >= min_len:
+            got.setdefault(folded, (folded, str(location_id), name))
+
+    try:
+        for index, map_id in enumerate(rom_names.place_maps(rom_path)):
+            put(rom_names.place(index, rom_path), "L%d" % int(map_id))
+    except Exception:                              # noqa: BLE001 - ★ROM が無ければ飛ばす
+        pass
+    try:
+        import csv
+
+        with open(LOCATION_NAMES, encoding="utf-8-sig", newline="") as f:
+            for row in csv.DictReader(f):
+                put((row.get("name") or "").strip(), row["location_id"])
+    except (OSError, ValueError, KeyError):         # ⚠ 無ければ ROM の分だけ
+        pass
+    try:
+        import json as _json
+
+        target = pathlib.Path(knowledge_path) if knowledge_path else PLAYER_KNOWLEDGE
+        raw = _json.loads(pathlib.Path(target).read_text(encoding="utf-8"))
+        for location_id, name in (raw.get("location_names") or {}).items():
+            put(str(name).strip(), location_id)
+    except (OSError, ValueError, TypeError):       # ⚠ 記録が無ければ飛ばす
+        pass
+    return list(got.values())
+
+
 # --- ★Matcher -----------------------------------------------------------------
 
 class Matcher:
@@ -236,10 +378,17 @@ class Matcher:
       ★repo には 1 語も持ちません。
     """
 
-    def __init__(self, rom_path=None, kinds=KINDS) -> None:
+    def __init__(self, rom_path=None, kinds=KINDS, places=True) -> None:
         self.rom_path = rom_path
         #: ★畳んだ名前 → (kind, id, 元の名前)。⚠ 長いものから当てる
         self.aliases: list[tuple[str, str, int, str]] = []
+        #: ★場所（⚠ id ではなく `L<map 番号>` を持つ / RX3-0432）
+        #:  → ★`Concept(type="location", value="L68")` になり、
+        #:    ⚠ `concept_id` が `location:L68` = **`visit` の Fact と同じ形**になる。
+        self.places: list[tuple[str, str, str]] = place_aliases(rom_path) if places else []
+        self.places.sort(key=lambda row: -len(row[0]))
+        #: ★一般の語（`concept-words.csv` / RX3-0436）
+        self.topic_words: list[tuple[str, str]] = word_aliases()
         data = rom_names._load(rom_path)
         if data is None:
             return
@@ -249,26 +398,72 @@ class Matcher:
                 if len(folded) < MIN_ALIAS:
                     continue                      # ⚠ 短すぎる名前は当てない
                 self.aliases.append((folded, kind, int(key), name))
+        self._add_concept_aliases(places)
         self.aliases.sort(key=lambda row: -len(row[0]))
+        self.places.sort(key=lambda row: -len(row[0]))
+
+    def _add_concept_aliases(self, places: bool) -> None:
+        """★ゲーム内の言い回しを、**正規の Concept の名前**として足す（RX3-0440）。
+
+        ★別名が当たったら、⚠ Concept は**正規の品**の id になる（⚠ 例の語はここに書かない / 本文と名前はソースに置かない）。
+        → heard Fact に残るのは正規の Concept だけ（★別名の表現は Fact にならない）。
+        ⚠ 正規の名前が引けない別名は足さない（★検査が ERROR にする / `concept_aliases.problems`）。
+        """
+        from dq3.knowledge import concept_aliases as CA
+
+        by_name = {(kind, folded): (entity_id, name)
+                   for folded, kind, entity_id, name in self.aliases}
+        by_place = {folded: (location_id, name) for folded, location_id, name in self.places}
+        for kind, canonical, alias in CA.entries(CA.load()):
+            folded = fold(alias)
+            if len(folded) < MIN_ALIAS:
+                continue
+            if kind == "place":
+                hit = by_place.get(fold(canonical)) if places else None
+                if hit:
+                    self.places.append((folded, hit[0], hit[1]))
+                continue
+            hit = by_name.get((kind, fold(canonical)))
+            if hit:
+                self.aliases.append((folded, kind, int(hit[0]), hit[1]))
 
     @property
     def available(self) -> bool:
         return bool(self.aliases)
 
     def entities(self, utterance: str, index: int) -> tuple[list[Concept], list[tuple[int, int]]]:
-        """★発話の中の実体と、その占めた範囲（⚠ 長い名前を先に取る）。"""
-        folded = fold(utterance)
+        """★発話の中の実体と、その占めた範囲（⚠ 長い名前を先に取る）。
+
+        ⚠⚠ 2026-09-27（RX3-0432）: 干し草の側を `fold_marked` にしました。
+          ★離れた 2 語がつながって別の名前になる誤爆を消すためです（⚠ 実測 2 件）。
+        """
+        folded = fold_marked(utterance)
         got: list[Concept] = []
         taken: list[tuple[int, int]] = []
-        for alias, kind, entity_id, name in self.aliases:
+
+        def take(alias: str) -> tuple[int, int] | None:
             at = folded.find(alias)
-            if at < 0:
-                continue
-            span = (at, at + len(alias))
-            if any(a < span[1] and span[0] < b for a, b in taken):
-                continue                          # ⚠ もっと長い名前に含まれている
-            taken.append(span)
-            got.append(Concept(type=kind, entity_id=entity_id, alias=name, utterance=index))
+            while at >= 0:
+                span = (at, at + len(alias))
+                if not any(a < span[1] and span[0] < b for a, b in taken):
+                    taken.append(span)
+                    return span
+                at = folded.find(alias, at + 1)    # ⚠ もっと長い名前に含まれていた
+            return None
+
+        for alias, kind, entity_id, name in self.aliases:
+            if take(alias):
+                got.append(Concept(type=kind, entity_id=entity_id,
+                                   alias=name, utterance=index))
+        for alias, location_id, name in self.places:
+            if take(alias):
+                got.append(Concept(type="location", value=location_id,
+                                   alias=name, utterance=index))
+        # ★一般の語は**名前の中に出ても当てる**（⚠ `taken` を見ない / 場所も取らない）。
+        #   ★語を含む品名を聞いたなら、その語が指すものも知った、とみなす（RX3-0436）。
+        for alias, word in self.topic_words:
+            if alias in folded:
+                got.append(Concept(type="word", value=word, alias=word, utterance=index))
         return got, taken
 
     @staticmethod
@@ -278,13 +473,17 @@ class Matcher:
         ⚠⚠ 素の部分一致は誤ります（★2026-09-03 の実測）。
           品名の先頭 2 字が場所の型と同じ / 動詞の中に場所の型が入る、の 2 件。
         ★① 名前に重なっていない ② うしろが助詞か区切り、の両方を見ます。
+
+        ⚠⚠ 2026-09-27（RX3-0432）: 渡される `folded` は `fold_marked` の結果です。
+          ★`entities()` の `taken` と**同じ座標系**でないと重なりを見誤ります
+          （⚠ 実際に取りこぼしました）。境目の印は「うしろが区切り」として扱います。
         """
         at = folded.find(word)
         while at >= 0:
             span = (at, at + len(word))
             overlapped = any(a < span[1] and span[0] < b for a, b in taken)
             after = folded[span[1]] if span[1] < len(folded) else ""
-            if not overlapped and (after == "" or after in FOLLOWERS):
+            if not overlapped and (after in ("", BOUNDARY) or after in FOLLOWERS):
                 return True
             at = folded.find(word, at + 1)
         return False
@@ -292,8 +491,11 @@ class Matcher:
     @classmethod
     def words(cls, utterance: str, index: int,
               taken: list[tuple[int, int]] | None = None) -> list[Concept]:
-        """★方角と場所の型（⚠ id を持たない Concept）。"""
-        folded = fold(utterance)
+        """★方角と場所の型（⚠ id を持たない Concept）。
+
+        ⚠ `entities()` と**同じ座標系**で見る（★`fold_marked`）。
+        """
+        folded = fold_marked(utterance)
         taken = taken or []
         got = []
         for table, kind in ((DIRECTIONS, "direction"), (PLACE_TYPES, "place_type")):
@@ -323,6 +525,17 @@ def analyse(observation: Observation, matcher: Matcher | None = None) -> dict:
         entities = [c for c in here if c.entity_id is not None]
         directions = [c for c in here if c.type == "direction"]
         places = [c for c in here if c.type == "place_type"]
+
+        # --- ★「聞いた」（2026-09-27 / RX3-0432）-----------------------------
+        #   ⚠⚠ 言い回しは**見ません**。★名前が会話に出たら「知る機会があった」。
+        #     ⚠ 攻略ヒントかどうかの判定はしません（★依頼者 2026-09-27）。
+        #   ★実測: これで 1 種 → **103 種**になりました（会話 884 件）。
+        for concept in here:
+            if concept.type in HEARD_TYPES:
+                candidates.append(Fact(subject=concept.concept_id, predicate="heard",
+                                       object=None,
+                                       source_observation_id=observation.observation_id,
+                                       confidence=1.0))
 
         # --- Pattern A: 実体 ＋「てにいれ」→ obtain_hint -----------------------
         phrase = next((p for p in OBTAIN_HINT_PHRASES if p in folded), None)
@@ -381,6 +594,42 @@ def fact_id_of(subject, predicate, obj, observation_id) -> str:
     """★Fact の番号（⚠ 作り方は 1 か所 / RX3-0235 の移し替えでも同じ式を使う）。"""
     raw = "%s|%s|%s|%s" % (subject, predicate, obj, observation_id)
     return "fact-" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+
+
+def logical_fact_id(subject, predicate, obj) -> str:
+    """★論理 Fact の番号（⚠ 観測を含めない = 同じ知識は 1 つ / RX3-0436）。"""
+    raw = "%s|%s|%s" % (subject, predicate, obj)
+    return "lfact-" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+
+
+def logical_facts(facts) -> tuple[list[dict], dict[str, str]]:
+    """★観測ごとの Fact → 論理 Fact（RX3-0436）。
+
+    ```text
+    Observation   複数あってよい（★同じ名前を 4 人から聞いた）
+    Fact          論理的に 1 つ（subject / predicate / object で決まる）
+    ```
+
+    ⚠ 履歴は消しません。論理 Fact は `source_observation_ids`（聞いた順）・
+    `observation_fact_ids`・`count` を持ちます（★最初と最後は並びの両端）。
+
+    戻り値: (論理 Fact の並び（最初に出た順）, 観測ごとの fact_id → 論理 fact_id)
+    """
+    got: dict[str, dict] = {}
+    renames: dict[str, str] = {}
+    for fact in facts:
+        key = logical_fact_id(fact.get("subject"), fact.get("predicate"), fact.get("object"))
+        renames[fact.get("fact_id")] = key
+        one = got.get(key)
+        if one is None:
+            one = got[key] = dict(fact, fact_id=key, source_observation_ids=[],
+                                  observation_fact_ids=[], count=0)
+        if fact.get("fact_id") in one["observation_fact_ids"]:
+            continue                                  # ⚠ 同じ観測の同じ Fact（発話 2 つ）は 1 回
+        one["observation_fact_ids"].append(fact.get("fact_id"))
+        one["source_observation_ids"].append(fact.get("source_observation_id"))
+        one["count"] += 1
+    return list(got.values()), renames
 
 
 def _memo_observation_id(row: dict, n: int) -> str:

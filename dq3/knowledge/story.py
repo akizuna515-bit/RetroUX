@@ -40,6 +40,25 @@ ASLEEP, AWAKE = "asleep", "awake"
 SLEEP_LINE = "ぐうぐう"
 
 
+#: ★「この敵を倒した」を意味する旗（RX3-0451 / 2026-09-28）
+#:
+#:   ⚠⚠ ボスの撃破は**戦闘の記録だけでは取りこぼします**（★経験値 0 / 姿が変わる）。
+#:   ★ゲーム自身の旗があるものは、それも「倒した」の証拠にします。
+#:   ⚠ 勇者メモには `倒した: <敵の名前>` と書くだけでよく、★RAM 番地も id も書きません。
+#:   ⚠ 旗が**確かめられているものだけ**を入れます（★推測で増やさない）。
+#:     ゾーマには永続する旗がありません（★逆アセンブルで確認 / RX3-0447）。
+DEFEAT_FLAGS: dict[str, str] = {"バラモス": "baramos_defeated"}
+
+
+def defeat_flag_of(monster_name: str, flags=None) -> str | None:
+    """★その敵の「倒した」を意味する旗（⚠ 無ければ None / 表に無ければ None）。"""
+    want = DEFEAT_FLAGS.get(str(monster_name or "").strip())
+    if not want:
+        return None
+    known = {f.flag_id for f in (flags if flags is not None else load_flags())}
+    return want if want in known else None
+
+
 def state_key(address: int) -> str:
     """★state.json の欄の名前（★`story_60b7` / ⚠ DQ2 の reader の欄とぶつけない）。"""
     return "story_%04x" % int(address)

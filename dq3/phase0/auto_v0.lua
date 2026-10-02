@@ -41,12 +41,19 @@
 --   （`research/probes/reusable/lua_run.py` の作法）。
 local function clean(p) return (p:gsub("\\", "/"):gsub("/$", "")) end
 local root = os.getenv("RETROUX_ROOT")
-if root == nil or root == "" then root = "C:/Projects/260721_RetroUX" end
+-- ⚠⚠ 開発機のパスへ落ちない（RX3-0466 / 2026-09-29）
+if root == nil or root == "" then
+  error("RETROUX_ROOT が立っていません（★起動は DQ3.cmd から / RX3-0466）")
+end
 root = clean(root)
 local write_root = os.getenv("RETROUX_WRITE_ROOT")
 write_root = (write_root ~= nil and write_root ~= "") and clean(write_root) or root
 
-package.path = root .. "/work/generated/?.lua;" .. package.path
+-- ★生成物は **write_root 側を先に**見る（RX3-0466 / 2026-09-29）。
+--   ⚠ 隔離した検査では書き込みだけ隔離先へ向く（★上のコメントのとおり）。
+--   ⚠⚠ 書くのは write_root だけ（★program 側には作らない）。
+package.path = write_root .. "/work/generated/?.lua;"
+             .. root .. "/work/generated/?.lua;" .. package.path
 local ok_cfg, CFG = pcall(require, "dq3_phase0")
 if not ok_cfg or CFG == nil then
   error("設定が読めません。★先に `python -m dq3.phase0.generate_lua` を実行してください")

@@ -102,7 +102,8 @@ def test_聞き込み_窓が閉じないときは何が起きたか言う(town):
     vm.window_open = True                            # ★「はい / いいえ」が残っている
     vm.nav = {"seq": ctl.seq, "active": False, "phase": "done", "reason": "talk_done"}
     vm.talk = {"slot": 5, "talk_id": 11}
-    vm.last_talk_text = "＊「あたらしいひとを めいぼに とうろくしますか？"
+    # ★文の中身はこの検査で使いません（⚠ 窓が閉じないことだけを見る）→ 架空の文 / RX3-0433
+    vm.last_talk_text = "＊「ここに なまえを かきますか？"
     ctl.poll()
     clock[0] += 60                                    # ★待ちきった
     ctl.poll()

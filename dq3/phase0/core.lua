@@ -76,6 +76,13 @@ function M.new_buttons(opts)
   B.blocked = 0
   --: ⚠ 同じフレームで 2 回 `tick` されないための目印
   B.ticked_at = -1
+  --: ★★ 人のパッド（RX3-0486 / 2026-10-02）。⚠ `dev.lua` が `pad_input` の読み手の `tick` を入れる
+  --   ★返すのは「いま押しているボタン」の表（true だけ）か nil。
+  --   ⚠⚠ 自動の機能が握っている（owner ~= nil）間は**渡しません**（依頼者 2026-10-02 §3: 自動を優先）。
+  --   ★`joypad.set` を呼ぶのはこの `tick` の 1 か所のまま（⚠ 書き手を 2 つにしない / 後勝ちで消える）。
+  B.pad = nil
+  --: ★人の入力を渡したフレーム数 / ⚠ 自動が握っていて渡さなかったフレーム数
+  B.human_frames, B.human_blocked = 0, 0
   --: ★★ 押し方の注文（⚠ 押すたびに決める / 既定は今までどおり）
   --
   --   ⚠⚠ **歩くときは決まりが違います**（2026-09-01 実機）。
@@ -140,7 +147,24 @@ function M.new_buttons(opts)
     if now >= 0 and now == B.ticked_at then return end
     B.ticked_at = now
 
-    if B.holding == nil then return end
+    -- ★人のパッドは**毎フレーム**読む（⚠ 自動が押している間も = 古い入力の見張りを止めない）
+    local human = nil
+    if B.pad ~= nil then
+      local ok, got = pcall(B.pad)
+      if ok then human = got end
+    end
+    if B.holding == nil then
+      if human ~= nil then
+        if B.owner == nil then
+          joypad.set(1, human)               -- ★true だけの表（⚠ false は強制的に離す意味になる）
+          B.human_frames = B.human_frames + 1
+        else
+          B.human_blocked = B.human_blocked + 1
+        end
+      end
+      return
+    end
+    if human ~= nil then B.human_blocked = B.human_blocked + 1 end
     if B.held_for > 0 and memory.readbyte(B.latch) ~= 0 then
       -- ★ゲームが受け取った。⚠ すぐ離す（離さないと 8 フレームで 2 回目）
       if B.held_for > 2 then

@@ -85,7 +85,9 @@ NEARBY_WORD = "近辺"
 UNSURE_HEAD = "未確認の"
 
 #: ★名前が確かだと言える出どころ（⚠ 仮名は入れない）
-KNOWN_SOURCES = ("rom", "dialogue", "manual")
+#: ★`data/dq3/location-names.csv` の `name`（人が表に書いた名前 / RX3-0439）
+TABLE = "table"
+KNOWN_SOURCES = ("rom", "dialogue", "manual", TABLE)
 
 #: ★仮名の付け方（⚠ `Location.name_rule` に残す / RX3-0122）
 PARENT_RULE = "parent"
@@ -248,7 +250,7 @@ class Location:
     @property
     def known(self) -> bool:
         """★正式な名前が分かっているか（⚠ 仮名は「分かっている」ではない）。"""
-        return bool(self.display_name) and self.name_source in ("rom", "dialogue", "manual")
+        return bool(self.display_name) and self.name_source in KNOWN_SOURCES
 
     @property
     def is_base(self) -> bool:
@@ -281,12 +283,38 @@ class Location:
         return got
 
 
+#: ★`location-names.csv` の読み込み（⚠ 書き換えたら読み直す / 更新時刻で見る）
+_TABLE_CACHE: dict = {}
+
+
+def table_names(path=None) -> dict[str, str]:
+    """★location_id → 表の `name`（⚠ 空の行は入れない / 無ければ空）。"""
+    from dq3.knowledge import locations as LOCS
+
+    target = pathlib.Path(path) if path else LOCS.NAMES_PATH
+    try:
+        stamp = target.stat().st_mtime_ns
+    except OSError:
+        return {}
+    cached = _TABLE_CACHE.get(str(target))
+    if cached and cached[0] == stamp:
+        return cached[1]
+    got = {loc: str(row.get("name") or "").strip()
+           for loc, row in LOCS.read_names_table(target).items()}
+    got = {loc: name for loc, name in got.items() if name}
+    _TABLE_CACHE[str(target)] = (stamp, got)
+    return got
+
+
 class LocationBook:
     """★Master ＋ 実行時。⚠ 地名を出すのはここだけ。"""
 
     def __init__(self, master: LM.LocationMaster | None = None, path=None,
-                 rom_place_name=None, heard_place_name=None) -> None:
+                 rom_place_name=None, heard_place_name=None, names_path=None) -> None:
         self.master = master if master is not None else LM.LocationMaster({})
+        #: ★`location-names.csv`（RX3-0439）。⚠ **渡されたときだけ**読む
+        #:   （★検査が本物の表の名前を拾わないように / 画面は `NAMES_PATH` を渡す）
+        self.names_path = names_path
         self.path = pathlib.Path(path) if path is not None else BOOK_PATH
         #: ★map 番号 → ROM の地名（⚠ 検査で差し替える。★既定はユーザーの ROM / RX3-0092）
         self.rom_place_name = rom_place_name if rom_place_name is not None else _rom_place_name
@@ -306,9 +334,9 @@ class LocationBook:
 
     @classmethod
     def load(cls, master_path=None, path=None, strict: bool = False,
-             rom_place_name=None, heard_place_name=None) -> "LocationBook":
+             rom_place_name=None, heard_place_name=None, names_path=None) -> "LocationBook":
         master = LM.load(master_path, strict=strict) if LM.resolve_path(master_path) else LM.LocationMaster({})
-        got = cls(master, path, rom_place_name, heard_place_name)
+        got = cls(master, path, rom_place_name, heard_place_name, names_path=names_path)
         try:
             data = json.loads(got.path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -420,9 +448,31 @@ class LocationBook:
                 loc.location_type = row.location_type
             if row.parent_location_id:
                 loc.parent_location_id = row.parent_location_id
+        if not (row is not None and row.named) and loc.name_source != "manual":
+            self._apply_table_name(loc, self.names_path)
         # ★suffix は map ごと（⚠ Master にあればそれ、無ければ 2 つ目以降に連番）
         loc.suffix = self.suffix_for(loc, map_id)
         return loc
+
+    @staticmethod
+    def _apply_table_name(loc: Location, names_path) -> None:
+        """★`location-names.csv` の `name` を既定の名前にする（RX3-0439 / 2026-09-27 依頼者）。
+
+        ```text
+        人が画面で付けた名前（manual）   ★いちばん強い（⚠ ここでは触らない）
+        location-names.csv の name       ★ここ（⚠ review_status は見ない。表示の既定なので）
+        ROM の地名 / 会話で覚えた名前 / 仮名
+        ```
+
+        ★命名の窓の既定の文字も `display_name` なので、これで表の名前になる。
+        ⚠ 表から名前が消えたら、表から来た名前も消す（★次に入ったときに付け直す）。
+        """
+        name = table_names(names_path).get(loc.location_id, "") if names_path else ""
+        if name:
+            if loc.display_name != name or loc.name_source != TABLE:
+                loc.display_name, loc.name_source, loc.confidence = name, TABLE, "CONFIRMED"
+        elif loc.name_source == TABLE:
+            loc.display_name, loc.name_source, loc.confidence = "", PROVISIONAL, ""
 
     def suffix_for(self, loc: Location, map_id: int | None) -> str:
         """★同じ場所の中で map を見分ける印（指示書 §7）。
@@ -864,7 +914,7 @@ class LocationBook:
         #   ★`RX3-0093` で復号器を直しても、⚠ すでに保存された名前は古いままでした
         #     （`name_source: rom` を付け直しの対象にしていなかったため）。
         #   ★ROM は正本で、引くのは安い。⚠ 人が付けた名前（manual）だけは触りません。
-        if loc.name_source != "manual":
+        if loc.name_source not in ("manual", TABLE):
             # ★入った場所だけ ROM の地名を引く（⚠ ネタバレを出さない / RX3-0092）
             from_rom = self.rom_place_name(map_id)
             if from_rom:
@@ -874,7 +924,7 @@ class LocationBook:
         #   ★`learn_from_text` は「既に覚えていれば触らない」ので、⚠ 一度
         #   `player-knowledge.json` に入ると**二度と promote されません**。
         #   → ★入るたびに記録からも取り直します（⚠ 聞き直さなくてよい）。
-        if loc.name_source not in ("rom", "manual", "dialogue"):
+        if loc.name_source not in ("rom", "manual", "dialogue", TABLE):
             heard = self.heard_place_name(map_id)
             if heard and heard[0]:
                 self.promote(loc.location_id, heard[0], source="dialogue",
@@ -925,7 +975,7 @@ class LocationBook:
         loc = self.locations.get(location_id)
         if loc is None:
             return False
-        if loc.name_source in ("rom", "manual") and source == "dialogue":
+        if loc.name_source in ("rom", "manual", TABLE) and source == "dialogue":
             return False                                 # ⚠ 人と ROM のほうが強い
         if location_type and not loc.location_type:
             loc.location_type = location_type
@@ -965,7 +1015,11 @@ class LocationBook:
     # --- ★出す -------------------------------------------------------------
 
     def all_locations(self) -> list[Location]:
-        return [self._merge_master(v) for _k, v in sorted(self.locations.items())]
+        from dq3.knowledge.locations import sort_key
+
+        # ★数の順（RX3-0438 / 管理画面の場所の一覧 / ⚠ 文字列の順だと L10 が L1 の直後に来る）
+        return [self._merge_master(v) for _k, v in sorted(self.locations.items(),
+                                                           key=lambda kv: sort_key(kv[0]))]
 
     def stats(self) -> dict:
         rows = self.all_locations()
@@ -994,7 +1048,9 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="場所の名前（★唯一の入口）")
     parser.add_argument("--map", type=int, default=None, help="★その map の場所を見る")
     args = parser.parse_args(argv)
-    book = LocationBook.load()
+    from dq3.knowledge.locations import NAMES_PATH
+
+    book = LocationBook.load(names_path=NAMES_PATH)
     if args.map is not None:
         loc = book.get_location(args.map)
         print("map %d → %s / %s（%s / %s）"

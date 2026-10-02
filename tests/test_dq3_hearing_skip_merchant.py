@@ -19,7 +19,10 @@ from dq3.knowledge import npc_heard as H
 from dq3.knowledge import town_service as TS
 from dq3.testing import passability as P
 
-MERCHANT_TEXT = "＊「おお！ わたしの ともだち！＊「うっているものを みますか？＊「まあ そういわずに"
+#: ★架空の文（⚠ 原作の会話は公開物に入れません / RX3-0433）。
+#:   ⚠⚠ 見分けに使う語（`そういわずに` = `town_service.LOOP_TALK_WORDS`）だけは本物と同じ
+#:   （★ここを外すと検査が空回りします）。
+MERCHANT_TEXT = "＊「やあ おきゃくさん！＊「しなものを ごらんに なりませんか？＊「まあ そういわずに"
 
 
 @pytest.fixture(autouse=True)

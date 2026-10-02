@@ -30,13 +30,23 @@ import pathlib
 
 from dq3rom import item_meta as IM
 
-_ROOT = pathlib.Path(__file__).resolve().parents[2]
-DEFAULT_ROM = _ROOT / "work" / "rom" / "DQ3_J.nes"
+from dq3 import paths as P3
+
+_ROOT = P3.program_root()
+#: ★DQ3 の ROM（⚠ 解決は `dq3/paths.py::rom()` の 1 本 / RX3-0467）
+DEFAULT_ROM = P3.lazy_rom()
 
 _rows: dict | None = None
 _shops: list | None = None
 _tried = False
 last_error: str | None = None
+
+
+def _names_path():
+    """★場所の表（`location-names.csv` / RX3-0439）。⚠ 場所の名前は画面と同じにする。"""
+    from dq3.knowledge.locations import NAMES_PATH
+
+    return NAMES_PATH
 
 
 def _load(rom_path=None):
@@ -417,7 +427,7 @@ def visited_shops(book=None, rom_path=None) -> list:
     if book is None:
         from dq3.knowledge.location_book import LocationBook
 
-        book = LocationBook.load()
+        book = LocationBook.load(names_path=_names_path())
     out = []
     for map_id, rows in sorted(shops_by_map(rom_path).items()):
         loc = book.get_location(map_id)
@@ -435,7 +445,7 @@ def all_shops(book=None, rom_path=None) -> list:
     if book is None:
         from dq3.knowledge.location_book import LocationBook
 
-        book = LocationBook.load()
+        book = LocationBook.load(names_path=_names_path())
     out = []
     for map_id, rows in sorted(shops_by_map(rom_path).items()):
         loc = book.get_location(map_id)

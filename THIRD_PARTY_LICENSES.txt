@@ -1,0 +1,76 @@
+﻿同梱している第三者ソフトウェアのライセンス（RetroUX DQ3 配布版）
+Third-party software notices
+
+RetroUX 本体（RetroUX のコード）のライセンスは LICENSE（MIT License）です。
+
+この配布物の runtime\python\ には、RetroUX を動かすために、
+RetroUX とは別の第三者ソフトウェアを同梱しています。
+★これらは RetroUX の一部ではありません。それぞれの著作権者のライセンスに従います。
+⚠ RetroUX の MIT License は、これらのソフトウェアには及びません。
+
+ライセンス本文は licenses\ フォルダに、配布元のものをそのまま入れています。
+
+======================================================================
+1. PySide6 6.11.1 / shiboken6 6.11.1（Qt for Python）
+======================================================================
+
+  パッケージ    PySide6 6.11.1（PySide6_Essentials / PySide6_Addons 6.11.1 を含む）
+                shiboken6 6.11.1
+                ★PySide6 には Qt 6.11.1 のライブラリ（Qt6*.dll・plugins など）が含まれます
+  作成者        Qt for Python Team / The Qt Company および貢献者
+  ライセンス    GNU Lesser General Public License version 3（LGPL-3.0-only）
+                ★この配布物は、PySide6・shiboken6・Qt を LGPLv3 の条件で再配布しています。
+                （配布元の表示: LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only /
+                  The Qt Company の商用ライセンス）
+  本文          licenses\LGPL-3.0.txt
+                licenses\GPL-3.0.txt
+                ★LGPLv3 は GPLv3 に追加の許可を加えたものなので、GPLv3 の本文もあわせて入れています。
+  同梱の場所    runtime\python\Lib\site-packages\PySide6\
+                runtime\python\Lib\site-packages\shiboken6\
+  入手元        https://pypi.org/project/PySide6/6.11.1/
+                https://pypi.org/project/shiboken6/6.11.1/
+                https://pyside.org
+  ソースコード  PySide6 / shiboken6
+                  https://code.qt.io/cgit/pyside/pyside-setup.git/ （タグ v6.11.1）
+                Qt 6.11.1
+                  https://code.qt.io/cgit/qt/ （例: qtbase.git のタグ v6.11.1）
+  改変          ★RetroUX は PySide6・shiboken6・Qt のソースもバイナリも改変していません。
+                ⚠ 配布物を小さくするため、RetroUX が使わない部分のファイル
+                  （WebEngine・QML・Qt 自身の翻訳ファイル・開発用ツール・一部の plugin など）を
+                  同梱から外しています。
+  置き換え      ★上の 2 つのフォルダは、そのまま別の互換な版に置き換えられます
+                （RetroUX は通常の Python の import で読み込んでいます）。
+
+======================================================================
+2. PyYAML 6.0.3（libyaml 0.2.5 を含む）
+======================================================================
+
+  パッケージ    PyYAML 6.0.3
+                ★C 拡張（_yaml.cp312-win_amd64.pyd）に libyaml が組み込まれています
+  ライセンス    MIT License（PyYAML / libyaml とも）
+  著作権表示    PyYAML   Copyright (c) 2017-2021 Ingy döt Net
+                         Copyright (c) 2006-2016 Kirill Simonov
+                libyaml  Copyright (c) 2017-2020 Ingy döt Net
+                         Copyright (c) 2006-2016 Kirill Simonov
+  本文          licenses\PyYAML-LICENSE.txt   （PyYAML 6.0.3 の LICENSE）
+                licenses\libyaml-License.txt  （libyaml 0.2.5 の License）
+  同梱の場所    runtime\python\Lib\site-packages\yaml\
+                runtime\python\Lib\site-packages\_yaml\
+  入手元        https://pypi.org/project/PyYAML/6.0.3/
+  ソースコード  https://github.com/yaml/pyyaml （タグ 6.0.3）
+                https://github.com/yaml/libyaml （タグ 0.2.5）
+
+======================================================================
+3. Python 3.12（embeddable package）
+======================================================================
+
+  ライセンス    Python Software Foundation License ほか
+  本文          runtime\python\LICENSE.txt（Python の配布物に入っていたものをそのまま）
+  入手元        https://www.python.org/
+
+  ★Python と shiboken6 に入っている Microsoft Visual C++ ランタイムの DLL
+    （vcruntime140.dll・msvcp140.dll など）は、それぞれの配布物に含まれていたものを
+    そのまま再配布しています。
+
+----------------------------------------------------------------------
+★RetroUX は FCEUX と ROM を同梱していません（README.md「はじめに」）。

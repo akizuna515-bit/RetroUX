@@ -30,11 +30,21 @@ PINNED = ROOT / "work" / "test-savestates"
 #: ⚠ 依頼者が遊ぶ本物（★写しが無いときだけ）
 LIVE = ROOT / "tools" / "fceux" / "fcs"
 
+#: ★写しが「使える」と言える条件（⚠ **DQ3 のセーブがあること** / RX3-0461）
+#:
+#:   ⚠⚠ ここは長らく `*.fc*` でした。★その形は **DQ2 のセーブにも当たります**。
+#:   ⚠ `work/test-savestates/` には DQ2 が 22 本・DQ3 が 20 本あります（実測）。
+#:   → ★DQ3 のぶんだけ消えても `PINNED` を返し続け、`LIVE` へ落ちません。
+#:   ⚠⚠ そうなると DQ3 のセーブを使う検査が **module ごと静かに skip** します
+#:     （★`dq3_states.py` の `pick()` は `allow_module_level=True` で skip する）。
+#:   → ★「入れ物があるか」ではなく「**中身があるか**」で見ます。
+DQ3_GLOB = "DQ3_J*.fc*"
+
 
 def states_dir() -> pathlib.Path:
     """★セーブを読む場所（⚠ 写しがあれば写し）。"""
     try:
-        if PINNED.is_dir() and any(PINNED.glob("*.fc*")):
+        if PINNED.is_dir() and any(PINNED.glob(DQ3_GLOB)):
             return PINNED
     except OSError:
         pass

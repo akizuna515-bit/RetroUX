@@ -273,6 +273,66 @@ class Dq3ViewModel:
     #: ★経験値が書かれるのを待つ回数（RX3-0303 / ⚠ 画面の更新ごとに 1 減る ≒ 秒 2〜3 回）
     BATTLE_SETTLE_TICKS = 24
 
+    def _exp_can_grow(self, groups) -> bool:
+        """★この戦闘で経験値が増えるはずか（RX3-0450 / 2026-09-28）。
+
+        ## ⚠⚠ ROM の経験値が **0** の相手がいる
+
+          ★実測（ROM の敵の表）:
+
+          ```text
+          132 バラモス   EXP 65535
+          133 ゾーマ     EXP 0      ⚠⚠ 増えない
+          134 ゾーマ     EXP 0      ⚠⚠ 増えない
+          135 オルテガ   EXP 0      ⚠⚠ 増えない
+          136 カンダタ   EXP 2200   ★増える（だから記録に入っていた）
+          ```
+
+          ⚠ 「勝ったか」を**経験値が増えたか**だけで見ていたので、★この 3 匹は
+            どれだけ待っても「倒した」になりませんでした（⚠ 待ち時間を延ばしても直りません）。
+
+        → ★経験値が増え得ない戦闘では、⚠ **生き残ったか**で見ます（下の `_party_alive`）。
+        """
+        known = False
+        for one in groups or ():
+            if not isinstance(one, dict):
+                continue
+            try:
+                exp = self._enemy_exp(int(one.get("id")))
+            except (TypeError, ValueError):
+                continue
+            if exp is None:
+                return True                    # ⚠ 分からないなら今までどおり経験値で見る
+            known = True
+            if int(exp) > 0:
+                return True
+        return not known                       # ★全部 0 なら増えない（⚠ 空なら今までどおり）
+
+    @staticmethod
+    def _enemy_exp(enemy_id: int):
+        """★その敵の ROM の経験値（⚠ 分からなければ None / ★検査は差し替える）。"""
+        from dq3.knowledge import enemies_seen as ES
+
+        try:
+            row = ES.master_of(int(enemy_id))
+        except Exception:                                  # noqa: BLE001 - ★ROM が無い環境
+            return None
+        return dict(row or ()).get("EXP") if row is not None else None
+
+    def _party_alive(self) -> bool:
+        """★誰か生きているか（⚠ 全滅と見分けるため / RX3-0450）。"""
+        for row in self._raw_party():
+            if not isinstance(row, dict):
+                continue
+            if not (row.get("max_hp") or row.get("hp_max") or 0):
+                continue                       # ⚠ 居ない枠
+            try:
+                if int(row.get("hp") or 0) > 0:
+                    return True
+            except (TypeError, ValueError):
+                continue
+        return False
+
     def _note_battle_end(self) -> None:
         """★戦闘が終わったら、会った / 倒した を覚える。
 
@@ -297,6 +357,12 @@ class Dq3ViewModel:
         if pending is not None:
             groups, before = pending
             self._pending_battle = None
+            if not self._exp_can_grow(groups):
+                # ★経験値が増え得ない相手（★ゾーマ・オルテガ）→ ⚠ 生き残ったかで見る（RX3-0450）
+                self._battle_settle = None
+                self._finish_battle(groups, self._party_alive())
+                self._note_spells()
+                return
             # ★まず「会った」を覚える（⚠ 勝ったかは、このあと見張る）
             self._finish_battle(groups, self._total_exp() > before)
             if self._total_exp() <= before:
@@ -357,10 +423,29 @@ class Dq3ViewModel:
             self._pending_battle = ([], self._total_exp())
 
     def _note_battle_groups(self, groups) -> None:
-        """⚠ 群が届いたら、覚えている戦闘へ足す。"""
+        """⚠ 群が届いたら、覚えている戦闘へ足す。
+
+        ## ⚠⚠ 上書きしていたので、姿を変える相手が消えていた（RX3-0450 / 2026-09-28）
+
+          ★もとは `self._pending_battle = (groups, ...)` と**置き換えて**いました。
+          ⚠ 画面の更新は 0.5 秒に 1 回なので、★戦闘中に敵の id が変わると
+            **最後に見えた姿だけ**が記録に渡ります。
+          ⚠ 実測: ゾーマ（133 → 134）のうち **133 は「会った」にも入っていませんでした**。
+          → ★戦闘の間に見えた群を**全部ためます**（⚠ 同じ id は 1 回だけ）。
+        """
         pending = getattr(self, "_pending_battle", None)
-        if pending is not None and groups:
-            self._pending_battle = (groups, pending[1])
+        if pending is None or not groups:
+            return
+        seen, before = pending
+        merged = list(seen)
+        known = {g.get("id") for g in merged if isinstance(g, dict)}
+        for one in groups:
+            if not isinstance(one, dict):
+                continue
+            if one.get("id") not in known:
+                merged.append(one)
+                known.add(one.get("id"))
+        self._pending_battle = (merged, before)
 
     # --- ★勇者メモ ------------------------------------------------------
 
@@ -870,7 +955,8 @@ class Dq3ViewModel:
         ```text
         材料   state.json の `chest_bits` の **26 バイト目**（★通し番号 200〜207 / Lua の dev.lua）
         升     `search_spots`（★map / x / y / 品番）→ 場所の名前は場所の台帳から
-        文     `hidden_items.memo_text`（★「テドンの小部屋1　しらべる：いのちのきのみ を入手」）
+        文     `hidden_items.memo_text`（★「<場所>　しらべる：<道具の名前> を入手」）
+               ⚠⚠ 見本に原作の地名・道具名を書きません（RX3-0433 / 2026-10-01）
         見分け event_id = hidden:<通し番号>（⚠ 同じ品が別の升にあっても消えない）
         ```
         ⚠ 初めて印を見たときに既に立っていた分は流しません（★前から取ってあった分）。
@@ -1095,11 +1181,13 @@ class Dq3ViewModel:
           そのまま足すと、**同じ会話が断片で 4 件**入りました。
 
           ```text
-          26 ＊「まちのそとを あるくとき  あやしげな ばしょ
-          27 …しれぬ。＊「とお
-          28 あやしげな ばしょには …そのばしょま      ⚠ 送られて頭が欠けた
-          29 なにか あるかも しれぬ。…いくことだな。
+          26 ＊「ゆうやけの そらを みるとき  あやしげな かげ
+          27 …しれぬ。＊「ちか
+          28 あやしげな かげには …そのかげま          ⚠ 送られて頭が欠けた
+          29 なにか いるかも しれぬ。…ちかづくことだな。
           ```
+
+          ★見本は架空の文です（⚠ 原作の会話は配布物に入れません / RX3-0433）。
 
           → ★出ているあいだは**繋いで持っておき**、窓が消えたときに
             `＊「` ごとに切って足します（⚠ 上の 4 件は 2 件になります）。
@@ -1110,7 +1198,7 @@ class Dq3ViewModel:
             return self._flush_talk()
         # ★★ 聞き込みの会話は、街ナビが話し終えるまで書かない（RX3-0229 / 2026-09-13）。
         #   ⚠ 0.5 秒おきの読みでは Turbo のページが飛び、重ならない断片を「別の文」とみなして
-        #     1 人の話が 3 件に割れていた（依頼者「まごむすめタニアが あくと 以降が残っていない」）。
+        #     1 人の話が 3 件に割れていた（依頼者「2 段目から 以降が残っていない」）。
         #   ★話し終えたら `nav.talk_pages`（Lua が 4 フレームおきに拾ったページ）で 1 件にする。
         waiting = self._nav_talk_running()
         tiles = self._screen_tiles()
@@ -1202,7 +1290,8 @@ class Dq3ViewModel:
 
             # ⚠⚠ RX3-0184（2026-09-12）: ここは `= got` で**上書き**していました。
             #   ★1 人の会話が 2 つ以上の文に分かれると、⚠ 会話の台帳には**最後の文だけ**が残った
-            #   （カザーブの冒険者「わたしは カンダタをおってここまできた。」が消え、後半だけ）。
+            #   （★ある町の人の 2 文のうち**前半が消え**、後半だけになった）。
+            #   ⚠⚠ 註に原作の台詞を書きません（RX3-0433 / 2026-10-01）。
             #   → ★同じ相手の間はつなぐ（★`town_bar` が相手ごとに None へ戻す）
             self.last_talk_text = got if not self.last_talk_text else self.last_talk_text + got
             # ★npc_id も残す（⚠ 2026-09-05 まで null だった。★heard の台帳と突き合わせられるように / RX3-0077）
@@ -1305,8 +1394,11 @@ class Dq3ViewModel:
             # ⚠⚠ 置き場は **`knowledge_path` と同じフォルダ**にします。
             #   ★決め打ちにすると、検査が**本物の記録を書き換え**ます
             #   （2026-09-05 に実際に踏んだ。⚠ `RX3-0053` の「検査が本物のセーブ保護を止めた」と同じ形）。
+            from ..knowledge.locations import NAMES_PATH
+
+            # ★`location-names.csv` の name を既定の名前にする（RX3-0439）
             got = self._location_book = LocationBook.load(
-                path=self.knowledge_path.parent / "location-book.json")
+                path=self.knowledge_path.parent / "location-book.json", names_path=NAMES_PATH)
         return got
 
     def _learn_place_name(self, text: str) -> str | None:

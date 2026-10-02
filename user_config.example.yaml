@@ -3,6 +3,15 @@
 # これをリポジトリ直下に `user_config.yaml` としてコピーして使います。
 # **無くても動きます**（ここに書いてある値が既定値です）。
 #
+# ★★ DQ3 版（配布 ZIP の `DQ3.cmd`）で使う方へ（2026-10-02 / RX3-0488）★★
+#   ★このファイルは DQ2 版と DQ3 版で共通の雛形です。
+#     配布 ZIP では、`DQ3.cmd` と同じフォルダに `user_config.yaml` としてコピーします。
+#   ★DQ3 版が読むのは、主に `paths:` の `dq3_rom` と `fceux` です
+#     （ほかに `logging.mode`）。
+#   ⚠ それ以外の節（`paths.rom`・`gui`・`emulator`・`shutdown`・`map`・`gamepad`・`names` など）は
+#     **DQ2 版の設定**です。DQ3 版では書き換えても効きません。
+#     ★DQ3 のコントローラー・画面の見え方などは、DQ3 の［管理］で変えます。
+#
 # ★このファイルは「あなたの環境の話」だけを持ちます。
 #   ゲームの知識（危険状態のしきい値・倒す順・呪文の指定など）は
 #   retroux/plugins/dq2/config.yaml 側です。混ぜないでください。
@@ -13,6 +22,25 @@
 
 paths:
   rom: work/rom/DQ2_J.nes
+  # ★★ DQ3 の ROM と FCEUX（RX3-0467 / RX3-0468 / 2026-09-29）★★
+  #
+  #   ⚠ 既定は空です。空のときは
+  #        work/rom/DQ3_J.nes            ← ROM
+  #        tools/fceux/fceux64.exe       ← FCEUX
+  #     を順に見ます（★今までどおり）。
+  #
+  #   ★RetroUX の外に置いたままで構いません（⚠ コピーは要りません）。
+  #     動かしたときは、ここを書き換えるだけで戻ります。
+  #
+  #   ⚠⚠ FCEUX を指定すると、**セーブステートも一緒に動きます**
+  #     （★FCEUX は exe の隣の fcs/ に書きます）。世代バックアップも追いかけます。
+  #
+  #   ★fceux は実行ファイルの名前まで書きます（64 bit 版は fceux64.exe / ⚠ fceux.exe でも構いません）。
+  #
+  # dq3_rom: D:/ROM/DQ3_J.nes
+  # fceux: C:/Emulators/FCEUX/fceux64.exe
+  dq3_rom: ""
+  fceux: ""
   db: work/retroux.sqlite3
   events: work/events.jsonl
   command: work/command.json
@@ -140,6 +168,11 @@ map:
 # --- ゲームパッド（XBOX / XInput）------------------------------------
 #
 # ★RetroUX が XInput でパッドを読みます。独自機能（LB/RB/LT/RT/X/Y）は挿すだけ。
+# ⚠⚠ この `gamepad:` は **DQ2 版**の設定です（RX3-0486 / 2026-10-02）。
+#   ★DQ3 版は読みません。DQ3 のコントローラーの設定は DQ3 の［管理］と
+#     `work/dq3-ui-settings.json` の `gamepad`（enabled / swap_ab / mouse / mouse_speed /
+#     force_auto_hold_ms）です（⚠ DQ2 と DQ3 を別々に変えられるように）。
+#   ⚠ DQ3 の LB / RB はステート 0 固定です（★上の `shutdown.save_slot` は DQ2 のもの）。
 gamepad:
   # パッドを読むか。false ならキーボードのみ（環境変数 RETROUX_NO_GAMEPAD でも OFF）。
   enabled: true

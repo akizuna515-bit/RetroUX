@@ -26,6 +26,13 @@ ROM = PROJECT_ROOT / "work" / "rom" / "DQ2_J.nes"
 PALETTE = PROJECT_ROOT / "tools" / "fceux" / "palettes" / "FCEUX.pal"
 
 needs_rom = pytest.mark.skipif(not ROM.exists(), reason="ROM が無い")
+# ★★ この表の絵は FCEUX に付属するパレットで色を付けます（RX3-0489 / 2026-10-02）★★
+#   ⚠ ROM も FCEUX も利用者が置くものです。★公開版を clone して ROM だけ置いた人の走行で、
+#     FCEUX のパレットが無いために**赤く**なっていました（★検査の意味は変えていない）。
+#   ⚠ 開発 repo では `tools/fceux/palettes/FCEUX.pal` があるので、今までどおり走ります。
+needs_rom_and_palette = pytest.mark.skipif(
+    not (ROM.exists() and PALETTE.exists()),
+    reason="ROM か FCEUX のパレット（tools/fceux/palettes/FCEUX.pal）が無い")
 
 
 def _packed(cells, radius):
@@ -87,7 +94,7 @@ def test_並びの順は上から下_左から右():
 
 # --- ★★ ROM から絵を作る ★★ -----------------------------------------
 
-@needs_rom
+@needs_rom_and_palette
 def test_見たマスの絵をROMから作れる(tmp_path):
     """★★ **これで採取が要らなくなる。**"""
     live = _live(tmp_path)
@@ -99,7 +106,7 @@ def test_見たマスの絵をROMから作れる(tmp_path):
     assert live.tally.made == 1
 
 
-@needs_rom
+@needs_rom_and_palette
 def test_同じ組み合わせは作り直さない(tmp_path):
     live = _live(tmp_path)
     a = live.key_for(0x3F, (0xA1, 0xA5, 0xA0, 0xA4), 3)
@@ -109,7 +116,7 @@ def test_同じ組み合わせは作り直さない(tmp_path):
     assert live.tally.reused == 1
 
 
-@needs_rom
+@needs_rom_and_palette
 def test_城も描けるようになった(tmp_path):
     """★★ 2026-08-03 / Phase 1。
 
@@ -122,7 +129,7 @@ def test_城も描けるようになった(tmp_path):
     assert live.tally.no_tileset == 0
 
 
-@needs_rom
+@needs_rom_and_palette
 def test_表の外のmap_idは描かない(tmp_path):
     """⚠⚠ **推測で描かない。** ★理由は数に残る（黙って捨てない）。"""
     live = _live(tmp_path)
@@ -133,7 +140,7 @@ def test_表の外のmap_idは描かない(tmp_path):
     assert live.tally.no_tileset == 2
 
 
-@needs_rom
+@needs_rom_and_palette
 def test_黒観測は保存しない(tmp_path):
     """⚠⚠ 指示書 §11.2。★暗転中や未描画のものを地形にしない。"""
     live = _live(tmp_path)
@@ -144,7 +151,7 @@ def test_黒観測は保存しない(tmp_path):
     assert not live._known
 
 
-@needs_rom
+@needs_rom_and_palette
 def test_見えている範囲をまとめて作れる(tmp_path):
     live = _live(tmp_path)
     packed = _packed({(0, 0): "A1A5A0A43",
@@ -156,7 +163,7 @@ def test_見えている範囲をまとめて作れる(tmp_path):
     assert live.tally.unreadable == 9 - 2
 
 
-@needs_rom
+@needs_rom_and_palette
 def test_描けなかったマスは入らない(tmp_path):
     """⚠ 「入っていない」ことが「まだ描けない」の意。空で埋めない。"""
     live = _live(tmp_path)

@@ -145,7 +145,7 @@ NAV_TEXT = {
     "window_will_not_close": "会話の窓が閉じませんでした",
     # ★RX3-0170: 遭遇したら止める（★Lua がそのフレームで Turbo を切る / 依頼者 §15）
     "battle": "戦闘になりました",
-    # ⚠⚠ RX3-0194: 「また すぐに たびだつ つもりか？」に答えられず、窓を開けたまま止めた（★B は押していない）
+    # ⚠⚠ RX3-0194: **すぐ旅立つかを尋ねる窓**に答えられず、窓を開けたまま止めた（★B は押していない）
     "depart_question_unanswered": "「はい」で答えてください",
     # ⚠ RX3-0241: 宿屋の問いと確かめられない / はい／いいえ が出ない（★Lua は はい を押さずに止めた）
     "inn_question_unanswered": "宿屋の問いは人が答えてください",
@@ -159,8 +159,10 @@ END_WHY = {_AL.SUCCESS: "DONE", _AL.PARTIAL: "DONE", _AL.CANCELLED: "CANCEL"}
 
 #: ★補充の目標（⚠ 人が決めるもの。★ここは既定値だけ / RX3-0066）
 #:   ★RX3-0258（2026-09-14 依頼者）: やくそう 6・どくけしそう 2・キメラのつばさ 2・まんげつそう 2・せいすい 2。
+#:   ★RX3-0482（2026-10-02 依頼者）: 新規利用の既定を やくそう 3・どくけしそう 1・キメラのつばさ 1 に（★まんげつそう・せいすいは 0）。
 #:   ★道具番号で持つ（⚠ 名前は ROM の道具辞書から / UI に名前を書かない）。⚠ 保存があれば保存を優先（★旧い既定のままの人もそのまま）
-DEFAULT_WANTS = ((101, 6), (102, 2), (104, 2), (108, 2), (103, 2))
+#:   ⚠ `dq3.knowledge.restock.DEFAULT_WANTS` と同じ値（★検査が突き合わせる）
+DEFAULT_WANTS = ((101, 3), (102, 1), (104, 1))
 
 
 def parse_wants(text: str) -> list:
@@ -1412,7 +1414,7 @@ class TownNavController:
         self._handled_seq = self.seq
         npc = (self.target or {}).get("npc") or {}
         if reason == "depart_question_unanswered":
-            # ⚠⚠ 「また すぐに たびだつ つもりか？」の窓が開いたまま（RX3-0194）。★人が「はい」で答える
+            # ⚠⚠ **すぐ旅立つかを尋ねる窓**の窓が開いたまま（RX3-0194）。★人が「はい」で答える
             #   （⚠ B / いいえ はゲームが終わる。★Lua は B を押さずに止めている）
             self._finish("⚠ " + NAV_TEXT[reason], status=_AL.FAILED, reason=reason)
             return

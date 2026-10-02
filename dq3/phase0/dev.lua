@@ -38,12 +38,22 @@
 
 local function clean(p) return (p:gsub(string.char(92), "/"):gsub("/$", "")) end
 local root = os.getenv("RETROUX_ROOT")
-if root == nil or root == "" then root = "C:/Projects/260721_RetroUX" end
+-- ⚠⚠ 開発機のパスへ落ちない（RX3-0466 / 2026-09-29）。
+--   ★以前は開発機の絶対パスを既定にしていた。配布 Runtime では
+--   ⚠ **他人の PC に無い場所**を黙って見に行き、原因の分からない失敗になる。
+if root == nil or root == "" then
+  error("RETROUX_ROOT が立っていません（★起動は DQ3.cmd から / RX3-0466）")
+end
 root = clean(root)
 local write_root = os.getenv("RETROUX_WRITE_ROOT")
 write_root = (write_root ~= nil and write_root ~= "") and clean(write_root) or root
 
-package.path = root .. "/work/generated/?.lua;" .. package.path
+-- ★生成物は **write_root 側を先に**見る（RX3-0466 / 2026-09-29）。
+--   ⚠ 隔離した検査では書き込みだけ隔離先へ向き、★生成物は本物の場所にある。
+--     だから root を控えに残す（`ai/pipeline.lua:52-61` と同じ作法）。
+--   ⚠⚠ 書くのは write_root だけ（★program 側には作らない）。
+package.path = write_root .. "/work/generated/?.lua;"
+             .. root .. "/work/generated/?.lua;" .. package.path
 local ok_cfg, CFG = pcall(require, "dq3_phase0")
 if not ok_cfg or CFG == nil then
   error("設定が読めません。★先に `python -m dq3.phase0.generate_lua` を実行してください")
@@ -235,6 +245,34 @@ local town_speed = TownSpeed.new({
 })
 HOST.town_speed = town_speed
 HOST.on_load[#HOST.on_load + 1] = function() town_speed.stop("LOAD") end
+
+--: ★★ 人のパッド（RX3-0486 / 2026-10-02）。
+--   ★RetroUX が `work/dq3-gamepad.txt` に書いた NES のボタンを読み、`B.tick` が渡す。
+--   ⚠ `joypad.set` は `B.tick` の 1 か所のまま（★自動が握っている間は渡さない）。
+local PadInput = dofile(root .. "/dq3/phase0/pad_input.lua")
+local HumanState = dofile(root .. "/dq3/phase0/human_state.lua")
+local pad_reader = PadInput.new({path = write_root .. "/work/dq3-gamepad.txt"})
+HOST.buttons.pad = pad_reader.tick
+local pad_last_save = nil
+function HOST.pad_status()
+  return {human_frames = HOST.buttons.human_frames, human_blocked = HOST.buttons.human_blocked,
+          stale_releases = pad_reader.stale_releases, saved = pad_last_save}
+end
+--- ★RB の保存（★頼み `save_state` / params.slot）。⚠ 結果は state.json の pad.saved に出す
+local function pad_save(req)
+  local slot = tonumber((((req or {}).params) or {}).slot or "")
+  local ok, why = HumanState.save(slot)
+  pad_last_save = {slot = slot, ok = ok, why = why, frame = emu.framecount(),
+                   seq = (req or {}).seq}
+  say(string.format("★セーブ %s に保存: %s", tostring(slot), ok and "OK" or tostring(why)))
+end
+--: ★セーブを読んだら（LB / RX3-0486 依頼者 §4）: ⚠ 押しかけと人の入力を捨て、街の自動を止める
+HOST.on_load[#HOST.on_load + 1] = function()
+  pad_reader.reset()
+  HOST.buttons.holding, HOST.buttons.held_for = nil, 0
+  HOST.push("restock_stop")
+  HOST.push("walk_stop")
+end
 
 ----------------------------------------------------------------------
 -- ★機能を読む（⚠ ここで `HOST.features` に自分を足してくる）
@@ -820,6 +858,8 @@ local state = StateWriter.new({
       battle_speed = HOST.battle_speed_status,
       -- ⚠ 戦闘の Turbo（★右画面の「タ」）。⚠ 街の自動操作の Turbo は入れない（RX3-0170 / 依頼者 §3）
       turbo_enabled = HOST.speed.manual or HOST.speed.wanted,
+      -- ★人（T / ターボボタン / パッド RT）が入れたターボだけ（RX3-0486 / ⚠ 戦闘の自動の高速化 wanted を含まない）
+      turbo_manual = HOST.speed.manual and true or false,
       -- ★FCEUX にいま送っている語（turbo / normal）と、normal を送った回数（RX3-0170）。
       --   ⚠ normal で FCEUX は 100% に戻るので、画面はこれが増えたら人の倍率を送り直す
       speed_mode = HOST.speed.mode,
@@ -839,6 +879,8 @@ local state = StateWriter.new({
       restock = HOST.restock_status,
       -- ★道具を使う進み具合（RX3-0159）
       item = HOST.item_status,
+      -- ★人のパッド（RX3-0486）: 渡した / 自動を優先して渡さなかったフレーム数・古い入力で離した回数・最後のセーブ
+      pad = HOST.pad_status ~= nil and HOST.pad_status() or nil,
       last_talk = HOST.last_talk,
       time_byte = memory.readbyte(0x06DF),
       -- ★窓の色（RX3-0225 / $06E0）: $27 オレンジ（死者あり）/ $2A 緑（HP 1/4 未満）/ $21 夜 / $30 白。
@@ -1010,6 +1052,12 @@ emu.registerafter(function()
     end
   end
 
+  -- ★RB の保存（RX3-0486）。⚠ 頼みを受け取ったフレームで（★`last_request` がその頼みのうちに）
+  if HOST.wants("save_state") then
+    local ok_sv, err_sv = pcall(pad_save, HOST.last_request)
+    if not ok_sv then say("⚠ セーブを保存できませんでした: " .. tostring(err_sv)) end
+  end
+
   -- ★戦闘の段階の変わり目を覚える（⚠ 機能より先 / RX3-0166）
   local ok_b, err_b = pcall(battle.tick)
   if not ok_b then say("⚠ 戦闘の段階を読めませんでした: " .. tostring(err_b)) end
@@ -1052,6 +1100,8 @@ emu.registerexit(function()
   end
   -- ⚠⚠ ターボのまま返さない（★人がまともに操作できなくなる）
   HOST.speed.reset()
+  -- ★パッドのファイルを掴んだままにしない（⚠ Windows では開いたままだと消せない）
+  pcall(pad_reader.close)
   say(string.format("=== DEV end blocked=%d missed=%d state=%d/%d ===",
     HOST.buttons.blocked, HOST.buttons.missed, state.wrote, state.failed))
   say("★MAP の材料: " .. map_art.report())

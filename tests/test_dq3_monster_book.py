@@ -579,9 +579,19 @@ def test_絵が枠いっぱいに拡大される(app):
     from dq3.knowledge import monster_art
     from dq3.ui.monster_book_window import DETAIL_H, DETAIL_W, art_scale
 
+    # ★★ ⚠⚠ 絵は**この検査が作る**（RX3-0472 / 2026-10-01）★★
+    #
+    #   ⚠ 以前は `monster_art.path_of()` を直に呼び、無ければ skip していました。
+    #     ⚠⚠ そのころ `ART_DIR` は `program_root` 基準で、★**依頼者の本物の
+    #       `work/dq3-monster-art/` を読んでいました**（= 隔離をすり抜けていた）。
+    #   ★`lazy_work` に寄せたので、いまは隔離先を見ます。⚠ そこには絵が無いので、
+    #     そのままだと**この検査は永久に skip** になります（★「まっさらな環境の緑」）。
+    #   → ★だから作ります。⚠ 実測 **139 枚 / 0.42 秒**なので待ち時間になりません。
+    made = monster_art.ensure()
     big = monster_art.path_of(133)          # ★80x64 の大物
-    if big is None:
-        pytest.skip("絵がまだ作られていない")
+    assert big is not None, (
+        "⚠⚠ 絵を作れませんでした（作った枚数 %d / 理由 %s）"
+        % (made, monster_art.last_error))
     pix = QPixmap(str(big))
     scale = art_scale(pix)
     assert pix.width() * scale == DETAIL_W, (

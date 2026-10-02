@@ -3,14 +3,29 @@
 ★★ LLM は使いません。作文もしません ★★
 
 ```text
-Guide Master（人が精査 / input/）
-  + Mapping Rule（明示 / data/dq3/topic-rules.csv）
-  + 弱い Rule（Guide Master の関連名を ROM の id へ解いたもの / guide_mapping）
+勇者メモ（人が書く / data/dq3/hero-memo.yaml）  ★Topic と Rule はここから組む
   + Fact（実際に聞いた会話から / concepts）
   + Topic State（このプレイの進み具合 / work/）
         ↓ ここ
 次に追う Topic（Head）／その理由／最近動いた Topic
 ```
+
+⚠⚠ 2026-09-28（RX3-0455）: 旧経路（`input/` の Guide Master ＋
+`data/dq3/topic-rules.csv` ＋ `guide_mapping` の弱い Rule）は**退役しました**。
+
+★呼ぶ側 5 か所は**全部 `use_hero_memo=True` を明示**しています。
+
+```text
+dq3/ui/council_window.py            ★窓
+dq3/knowledge/council.py  main()    ★CLI
+scripts/dq3_capture_shorts.py       ★道具
+scripts/dq3_council_evidence.py     ★道具（2 か所）
+```
+
+⚠ ただし **`__init__` の既定は今も `False`** です（★切り替えを 1 か所に集めるため /
+`tests/test_dq3_hero_memo_council.py` がその既定を固定しています）。
+→ ⚠⚠ **新しい呼び出しを書くときは `use_hero_memo=True` を忘れないでください**
+（★忘れると黙って旧経路に落ち、表が無いので Topic 0 件になります）。
 
 ## ★Head の決め方（指示書 §12〜§13）
 
@@ -169,20 +184,21 @@ def location_marks(topic: GM.Topic, catalog=None) -> list[str]:
 
 
 def nav_target_of(topic: GM.Topic, catalog=None) -> str | None:
-    """★[ここへ向かう] の行き先（⚠ 証拠で解けた場所だけ / §26-27）。
+    """★[ここへ向かう] の行き先（⚠ **明示された場所だけ** / §26-27）。
 
-    ★Master に location_id が書いてあればそれ、無ければ関連する場所のうち
-    **名前が解けた最初のもの**。⚠ 解けていなければ None。
+    ## ⚠⚠ 2026-09-27（RX3-0432 / 依頼者の判断「案 A」）に変えました
+
+    ★もとは `location_id` が空なら **関連する場所（`related_location_names`）の
+    名前が解けた最初のもの**を行き先にしていました。
+    ⚠ そこは勇者メモの `about`（＝ ただのコメント）が入る欄で、
+      ★「メモに地名が書いてある」から「そこへ行け」を導いていました。
+
+    > 依頼者（2026-09-27）「関連を勇者が把握しきるのはイベント終了後。単にコメントと思っていた」
+
+    → ★行き先は **`location_id` に明示されたときだけ**にします。
+      ⚠ 関連する場所は「関連する場所」欄に**表示するだけ**（`location_marks`）。
     """
-    if topic.location_id:
-        return topic.location_id
-    if catalog is None:
-        return None
-    for written in topic.related_location_names:
-        loc = catalog.resolve(written)
-        if loc is not None:
-            return loc
-    return None
+    return topic.location_id or None
 
 
 #: ★名前の分からない場所の見せ方（RX3-0248 / 依頼者の案「不明（L23)とか？」）
@@ -322,6 +338,9 @@ class CouncilView:
     reachable: list = dataclasses.field(default_factory=list)
     #: ⚠ ゲームの `$0750` とこちらの記録の食い違い（★`reachable.compare_visited`）
     visited_diff: dict = dataclasses.field(default_factory=dict)
+    #: ★勇者メモの scenario（`scenario_view.ScenarioView` / RX3-0434）
+    #:   ⚠ 見えているカードがある scenario だけ。★勇者メモでないとき（旧経路）は空
+    scenarios: list = dataclasses.field(default_factory=list)
 
 
 class Council:
@@ -329,10 +348,15 @@ class Council:
 
     def __init__(self, state_path=None, rules_path=None, master_path=None, rom_path=None,
                  knowledge_path=None, progress_path=None, game_state_path=None,
-                 vm=None, catalog=None) -> None:
+                 vm=None, catalog=None, hero_memo_path=None, use_hero_memo=False) -> None:
         self.state_path = state_path
         self.rules_path = rules_path
         self.master_path = master_path
+        #: ★人が書く新しい原本（RX3-0432 / `data/dq3/hero-memo.yaml`）
+        #:  ⚠ `use_hero_memo=True` のときだけ使います。★既定は今までどおり
+        #:    Guide Master（⚠ 旧経路を壊さないため / 切り替えは 1 か所）。
+        self.hero_memo_path = hero_memo_path
+        self.use_hero_memo = use_hero_memo
         self.rom_path = rom_path
         #: ★場所の名前・行った場所（player-knowledge.json）
         self.knowledge_path = knowledge_path
@@ -382,14 +406,41 @@ class Council:
 
     def evaluate(self, save: bool = True) -> CouncilView:
         view = CouncilView()
-        try:
-            master = GM.load(self.master_path, strict=True)
-        except GM.GuideMasterError as exc:
-            view.ok = False
-            view.error = str(exc)
-            return view
-        view.master_path = str(master.path)
-        view.topic_count = len(master.topics)
+        #: ★新しい原本から作った Topic / Rule（⚠ 使わないときは None）
+        memo_topics: dict | None = None
+        memo_rules: list | None = None
+        built = None
+        if self.use_hero_memo:
+            # ★人が書いた「気になること」から作る（RX3-0432）。
+            #   ⚠ 攻略チャート（Guide Master）は読みません。
+            from dq3.knowledge import hero_memo as HM
+
+            try:
+                built = HM.build(self.hero_memo_path, rom_path=self.rom_path)
+            except HM.HeroMemoError as exc:
+                view.ok = False
+                view.error = str(exc)
+                return view
+            memo_topics, memo_rules = built.topics, built.rules
+            # ★下流（`card_of` / `reachable`）は `GuideMaster` を要るので同じ形で渡す
+            master = built.as_master()
+            view.master_path = str(built.path or "")
+            view.topic_count = len(memo_topics)
+            # ⚠ 解けなかった条件は**黙って捨てない**（★`resolution_summary` に残す）
+            #   ★`resolution_summary` は辞書なので、⚠ 型を合わせる
+            view.resolution_summary = {
+                "unresolved": len(built.unresolved),
+                "details": ["%s `%s: %s`（%s）" % row for row in built.unresolved[:10]],
+            }
+        else:
+            try:
+                master = GM.load(self.master_path, strict=True)
+            except GM.GuideMasterError as exc:
+                view.ok = False
+                view.error = str(exc)
+                return view
+            view.master_path = str(master.path)
+            view.topic_count = len(master.topics)
 
         # ★場所（RX3-0076）: 実プレイで覚えた名前 ＋ 人が承認した表 ＋ ルーラ表
         from dq3.knowledge import locations as LOC
@@ -401,10 +452,18 @@ class Council:
         catalog = self.catalog if self.catalog is not None else LOC.LocationCatalog.load(
             knowledge_path=self.knowledge_path, rom_path=self.rom_path)
         self.last_catalog = catalog
-        explicit = G.load_rules(self.rules_path)
-        rules, resolutions = GMAP.all_rules(master, explicit, rom_path=self.rom_path, catalog=catalog)
-        view.resolution_summary = GMAP.summary(resolutions)
-        book = G.TopicBook.load(master=master.topics, rules=rules, path=self.state_path)
+        if memo_topics is not None:
+            # ★新しい原本は**名前をもう解いてある**（⚠ 弱い Rule の自動生成もしない）
+            topics, rules = memo_topics, memo_rules
+        else:
+            explicit = G.load_rules(self.rules_path)
+            rules, resolutions = GMAP.all_rules(master, explicit, rom_path=self.rom_path,
+                                                catalog=catalog)
+            view.resolution_summary = GMAP.summary(resolutions)
+            topics = master.topics
+        # ★勇者メモは「出る条件が成立したカードだけ」を見せる（⚠ 片づいただけでは出さない / RX3-0436）
+        book = G.TopicBook.load(master=topics, rules=rules, path=self.state_path,
+                                require_appear=built is not None)
 
         facts, texts = self._facts()
         # ★起きたこと（手に入れた / 倒した / 行った）も Fact にする（RX3-0076）
@@ -413,9 +472,21 @@ class Council:
         view.progress = {"items": len(progress.items_ever), "defeated": len(progress.defeated),
                          "visited": len(progress.visited)}
         facts = facts + progress_facts
-        view.fact_count = len(facts)
         # ★先に Fact の番号を付け替える（⚠ 当て直しで Topic の更新回数を進めない / RX3-0235）
         book.rename_facts(getattr(self, "legacy_fact_ids", None) or {})
+        if built is not None:
+            # ★★ 勇者メモでは Fact を**論理的に 1 つ**にする（RX3-0436）★★
+            #   ⚠ 同じ名前を 4 人から聞くと、観測ごとに 4 つの Fact になり、
+            #     詳細に「まほうのカギ heard」が 4 行並んでいた。
+            #   ★観測（誰から / いつ）は `source_observation_ids` に残す。
+            from dq3.knowledge import concepts as C
+
+            facts, renames = C.logical_facts(facts)
+            texts = {fact["fact_id"]: [texts[f] for f in fact["observation_fact_ids"] if texts.get(f)]
+                     for fact in facts}
+            # ★保存済みの状態も論理 Fact の番号へ（⚠ 付け替えないと当て直しで「更新」になる）
+            book.rename_facts(renames)
+        view.fact_count = len(facts)
         view.moved = book.apply_all(facts)
         if save:
             book.save()
@@ -428,10 +499,18 @@ class Council:
             name = rom_names.name(kind, int(ident)) if kind in ("item", "monster", "spell") and ident.isdigit() else None
             if kind == "location":
                 name = catalog.place(ident).name
+            elif kind == "word":
+                name = ident
+            got_text = texts.get(fact["fact_id"], "")
+            if isinstance(got_text, list):
+                # ★論理 Fact: 同じ文は 1 回だけ（⚠ 全部の観測は `observations` に残る）
+                got_text = "\n".join(dict.fromkeys(got_text))
             view.facts[fact["fact_id"]] = {
                 "subject": fact.get("subject"), "predicate": fact.get("predicate"),
                 "name": name, "observation": fact.get("source_observation_id"),
-                "text": texts.get(fact["fact_id"], ""),
+                "observations": list(fact.get("source_observation_ids") or []),
+                "count": int(fact.get("count") or 1),
+                "text": got_text,
             }
 
         # ★★ ⚠⚠ ここが Player Knowledge の濾し器（RX3-0117 / 2026-09-08）★★
@@ -448,6 +527,8 @@ class Council:
         view.resolved = [card_of(t, s, master, catalog, known) for t, s in book.ordered(("resolved",))]
         #: ⚠⚠ **空**（★件数も出さない。⚠ 「N 件ある」だけでも先が読めます）
         view.unknown = []
+        if built is not None:
+            view.scenarios = self._scenarios(built, book, view, facts)
 
         # ★★ 行ってみる？（RX3-0113 / 2026-09-10）★★
         #
@@ -456,6 +537,24 @@ class Council:
         #   ⚠ 材料が無くても画面は続けます（★落とさない）。
         view.reachable, view.visited_diff = self._reachable(book, master)
         return view
+
+    @staticmethod
+    def _scenarios(built, book, view: CouncilView, facts: list) -> list:
+        """★見えているカードを scenario で束ねる（RX3-0434 / ⚠ 状態は保存しない）。
+
+        ★各カードに `scenario_id` を添えます（⚠ 単独のカードは空文字）。
+        """
+        from dq3.knowledge import scenario_view as SV
+
+        cards = {card["topic_id"]: card for card in view.recent + view.resolved}
+        for topic_id, card in cards.items():
+            card["scenario_id"] = built.scenario_of.get(topic_id, "")
+            # ★片づいたカードだけに「分かったこと」の文を添える（RX3-0437）。
+            #   ⚠ 対応中のカードには渡さない（★まだ知らないことを先に見せない）
+            card["done_text"] = (built.done_of.get(topic_id, "")
+                                 if card.get("status") == "resolved" else "")
+        positions = {fact.get("fact_id"): i for i, fact in enumerate(facts)}
+        return SV.build(built.scenarios, built.scenario_of, book, cards, positions)
 
     def _reachable(self, book, master) -> tuple:
         """★勇者が知っていて、まだ行っていない場所と、⚠ ゲームの記録との食い違い。"""
@@ -483,7 +582,9 @@ class Council:
 
         base = (pathlib.Path(self.knowledge_path).parent if self.knowledge_path
                 else paths.work("dq3-knowledge"))
-        return LocationBook.load(path=base / "location-book.json")
+        from dq3.knowledge.locations import NAMES_PATH
+
+        return LocationBook.load(path=base / "location-book.json", names_path=NAMES_PATH)
 
     def _rura_bits(self):
         """★`state.json` の `rura`（⚠ Lua が載せていなければ None）。"""
@@ -506,11 +607,12 @@ def main(argv=None) -> int:
     parser.add_argument("--state", default=None)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
-    view = Council(state_path=args.state).evaluate(save=not args.dry_run)
+    # ★勇者メモを正本にする（RX3-0454 / ⚠ 旧 Guide Master の経路は使わない）
+    view = Council(state_path=args.state, use_hero_memo=True).evaluate(save=not args.dry_run)
     if not view.ok:
         print("⚠⚠ " + view.error, file=sys.stderr)
         return 1
-    print("★Guide Master %s / Topic %d 件 / Fact %d 件" % (view.master_path, view.topic_count, view.fact_count))
+    print("★勇者メモ %s / カード %d 件 / Fact %d 件" % (view.master_path, view.topic_count, view.fact_count))
     print("★解決: %s" % json.dumps(view.resolution_summary, ensure_ascii=False))
     for topic_id, fact_ids in view.moved.items():
         print("  ★動いた %s ← %s" % (topic_id, fact_ids))

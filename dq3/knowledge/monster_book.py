@@ -29,6 +29,8 @@ import dataclasses
 import functools
 import pathlib
 
+from .. import paths as _P3
+
 #: ★一覧に出す並び順の既定（⚠ 敵 ID 順が ROM の並びで、だいたい強さ順）
 ORDER_BY_ID = "id"
 
@@ -98,10 +100,11 @@ class EnemyBookEntry:
 
 
 def _rom_of(rom_path=None) -> pathlib.Path:
-    """★読む ROM（⚠ 省けば `work/rom/DQ3_J.nes`）。"""
-    return pathlib.Path(rom_path) if rom_path else (
-        pathlib.Path(__file__).resolve().parents[2] / "work" / "rom"
-        / "DQ3_J.nes")
+    """★読む ROM。⚠ 省けば `dq3/paths.py::rom()` が決める（RX3-0467）。
+
+    ★user_config.yaml の `paths.dq3_rom` →（無ければ）従来の `work/rom/DQ3_J.nes`。
+    """
+    return pathlib.Path(rom_path) if rom_path else _P3.rom_or_legacy()
 
 
 def _detail_of(enemy_id: int, rom_path=None):

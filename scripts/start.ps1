@@ -21,7 +21,11 @@
 # 検証用スクリプトを流すときにも使える（-Lua で差し替える）。
 
 param(
-    [string]$Root = "F:\Projects\260721_RetroUX",
+    # ★既定は「このスクリプトの親フォルダ」（RX3-0466 / 2026-09-29）。
+    #   ⚠⚠ 以前は開発機の絶対パス（F:\Projects\...）でした。配布物では
+    #     **他人の PC に無い場所**を指すので、置いた場所から決めます
+    #     （★`start-dq3.ps1:17` と同じ形）。
+    [string]$Root = (Split-Path -Parent $PSScriptRoot),
     [string]$Lua = "retroux\emulator\fceux\run.lua",
     [string]$Rom = "work\rom\DQ2_J.nes",
     [int]$FocusTimeoutSeconds = 8

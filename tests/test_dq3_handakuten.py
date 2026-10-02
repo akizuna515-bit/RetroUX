@@ -2,12 +2,12 @@
 
 ## ⚠⚠ 実機で出ていた形
 
-依頼者の聞き込みで、`work/dq3-knowledge/npc-conversations.json` に
-**そのまま**残っていた 1 件:
+依頼者の聞き込みで `work/dq3-knowledge/npc-conversations.json` に残っていた 1 件を、
+★**同じ形の架空の文**へ置き換えたもの（⚠ 原作の会話は公開物に入れません / RX3-0433）:
 
 ```text
-＊「あなたが あの ゆうかんだったオルテガの むすこさんか？<6B>゛  ゛おちちうえは りっはでしたぞ！
-                                                        ~~~~        ~~~~~~ ⚠ りっぱ にならない
+＊「あなたが あの いさましかったせんしの むすこさんか？<6B>゛  ゛たいへん りっはなものたそ！
+                                                        ~~~~        ~~~~ ⚠ りっぱ にならない
 ```
 
 ★原因は 1 つでした。⚠ `dq3rom/screen.py` の `HANDAKUTEN` が **`0x169`** のままで、
@@ -93,12 +93,14 @@ def _screen_with_window(lines, marks, rev):
     return bytes(scr)
 
 
-#: ★実機で出ていた並び。⚠ 印の行（1 行目）は **下の行**（2 行目）に効く
-#:   `おちちうえは りっはでしたぞ！`
+#: ★実機で出ていた**並び**（⚠ 文は架空 / RX3-0433）。印の行（1 行目）は **下の行**（2 行目）に効く
+#:   ⚠⚠ 架空にしてよいのは、★この検査が見ているのが
+#:   「印のマスが**下の行の何文字目**に効くか」だけだからです（★文の意味は使いません）。
+#:   `たいへん りっはなものたそ！`
 #:      0123456789...
-#:   ★9 = は（→ ぱ）/ 10 = て（→ で）/ 13 = そ（→ ぞ）
-REAL_LINES = ["                            ", "おちちうえは りっはてしたそ！"]
-REAL_MARKS_INDEX = {9: "handaku", 10: "daku", 13: "daku"}
+#:   ★7 = は（→ ぱ）/ 11 = た（→ だ）/ 12 = そ（→ ぞ）
+REAL_LINES = ["                            ", "たいへん りっはなものたそ！"]
+REAL_MARKS_INDEX = {7: "handaku", 11: "daku", 12: "daku"}
 
 
 def _real_screen(rev):
@@ -119,7 +121,7 @@ def test_半濁点が合成されて本文に印が残らない(charset, rev):
     """★これが依頼者の会話そのもの（⚠ りっぱ / で / ぞ が揃うこと）。"""
     text, unknown = _only_window_text(_real_screen(rev), charset)
     assert "りっぱ" in text, "⚠ 半濁点が合成されていない: %r" % text
-    assert "でしたぞ" in text, "⚠ 濁点が合成されていない: %r" % text
+    assert "ものだぞ" in text, "⚠ 濁点が合成されていない: %r" % text
     assert "<6B>" not in text, "⚠⚠ 印が本文に漏れた: %r" % text
     assert "゛" not in text and "゜" not in text, repr(text)
     assert not unknown, "⚠ 読めないタイルが残った: %s" % [hex(u) for u in unknown]
@@ -178,7 +180,7 @@ def test_画面まるごと読む側でも印は文字にならない(charset, r
     lines = sc.read_screen(raw, charset)
     body = [ln for ln in lines if "りっ" in ln.text]
     assert len(body) == 1, repr([ln.text for ln in lines])
-    assert "りっぱでしたぞ" in body[0].text, repr(body[0].text)
+    assert "りっぱなものだぞ" in body[0].text, repr(body[0].text)
     # ⚠ 印の行は空白だけになる（★窓の枠は別物なので、内側だけを見る）
     mark_row = lines[body[0].row - 1]
     inside = mark_row.text.replace("␣", " ")[3:3 + len(REAL_LINES[0])]

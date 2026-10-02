@@ -30,12 +30,18 @@
 
 local function clean(p) return (p:gsub(string.char(92), "/"):gsub("/$", "")) end
 local root = os.getenv("RETROUX_ROOT")
-if root == nil or root == "" then root = "C:/Projects/260721_RetroUX" end
+-- ⚠⚠ 開発機のパスへ落ちない（RX3-0466 / 2026-09-29）
+if root == nil or root == "" then
+  error("RETROUX_ROOT が立っていません（★起動は DQ3.cmd から / RX3-0466）")
+end
 root = clean(root)
 local write_root = os.getenv("RETROUX_WRITE_ROOT")
 write_root = (write_root ~= nil and write_root ~= "") and clean(write_root) or root
 
-package.path = root .. "/work/generated/?.lua;" .. package.path
+-- ★生成物は **write_root 側を先に**見る（RX3-0466 / 2026-09-29）。
+--   ⚠⚠ 書くのは write_root だけ（★program 側には作らない）。
+package.path = write_root .. "/work/generated/?.lua;"
+             .. root .. "/work/generated/?.lua;" .. package.path
 local ok_cfg, CFG = pcall(require, "dq3_phase0")
 if not ok_cfg or CFG == nil then
   error("設定が読めません。★先に `python -m dq3.phase0.generate_lua` を実行してください")
@@ -408,7 +414,12 @@ local MX = {mi = dofile(root .. "/dq3/phase0/mantan_items.lua"), plan = nil, bef
 --: ★★ まんたん v1（RX3-0161 / 0163 / 0162 / 2026-09-12）: 覚えている呪文と呪文の表
 --   （★戦闘 AI と同じ生成物 `dq3_ai.lua`）。⚠ 読めなければ v0（今までの決め方）のまま動く
 MX.Catalog = dofile(root .. "/dq3/phase0/ai/catalog.lua")
-MX.cat = MX.Catalog.load(root .. "/work/generated/dq3_ai.lua")
+-- ★生成物は **write_root 側を先に**見る（RX3-0466 / 2026-09-29）。
+--   ⚠ 隔離して動かす検査では、書き込みだけ隔離先へ向き、★生成物は本物の場所にある
+--     （`dq3/phase0/ai/pipeline.lua:52-61` と同じ作法）。だから root を控えに残す。
+--   ⚠⚠ 配布 Runtime では program 側に生成物が無いので、★控えは空振りするだけで害はない。
+MX.cat = MX.Catalog.load(write_root .. "/work/generated/dq3_ai.lua")
+      or MX.Catalog.load(root .. "/work/generated/dq3_ai.lua")
 
 --- ★その人がフィールドで唱えられる呪文（★ページ 3）。⚠ 材料が無ければ nil（= v0）
 function MX.field_of(m)

@@ -24,12 +24,15 @@ from __future__ import annotations
 
 import pathlib
 
+from dq3 import paths as P3
 from dq3rom import collision as col
 from dq3rom import profile as dq3
 from dq3rom import world_map as wm
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-OUT = ROOT / "work" / "generated" / "dq3_walkmap.lua"
+#: ★生成物の置き場（⚠ **write_root 側** / RX3-0466 / 2026-09-29）。
+#   ⚠⚠ 以前は `ROOT / "work" / "generated" / ...` で program 側に書いていた。
+OUT = P3.lazy_generated("dq3_walkmap.lua")
 NEWLINE = chr(10)
 
 #: 通行できないとみなすビット。⚠ `RX3-0010` で裏を取るまでは仮説
@@ -51,7 +54,9 @@ def build(rom: pathlib.Path) -> dict:
             "blocked_tiles": sorted(blocked)}
 
 
-def write_lua(data: dict, out: pathlib.Path = OUT) -> pathlib.Path:
+def write_lua(data: dict, out: pathlib.Path | P3.LazyPath = OUT) -> pathlib.Path:
+    # ⚠ 既定の `OUT` は `LazyPath`（★使う瞬間に書き先を引き直す / RX3-0466）
+    out = pathlib.Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
         "-- 自動生成ファイル。直接編集しないこと。" + NEWLINE
@@ -73,7 +78,8 @@ def write_lua(data: dict, out: pathlib.Path = OUT) -> pathlib.Path:
 
 
 def main() -> int:
-    data = build(ROOT / "work" / "rom" / "DQ3_J.nes")
+    # ⚠ 解決は `dq3/paths.py::rom()` の 1 本（RX3-0467）
+    data = build(P3.rom_or_legacy())
     path = write_lua(data)
     ok = data["cells"].count(".")
     total = data["width"] * data["height"]

@@ -225,14 +225,57 @@ def test_メモの行数で高さを変えない():
 
 # --- ★retroux を変更していないこと -------------------------------------
 
+#: ★DQ3 の作業で触ることを**明示して認めた** `retroux/` のファイル（⚠ 理由つき）
+#
+#   ⚠⚠ ここを増やすときは、必ず「DQ2 の挙動が変わらない」ことを確かめてください。
+#     ★`RX3-0011`（DQ3 は dev-only）の前提は `RX3-0431` で反転しましたが、
+#     ⚠ 「DQ3 の都合で DQ2 を書き換えない」という歯止め自身は生かします。
+ALLOWED_RETROUX_CHANGES = {
+    "retroux/core/config/user_config.py": (
+        "★`paths.dq3_rom` / `paths.fceux` を足した（RX3-0467 / RX3-0468）。"
+        "⚠ `user_config.yaml` の読み手を 1 本に保つため（★別の reader を足すと、"
+        "知らない項目として警告が出るか、同じファイルを 2 か所が別々に解釈する）。"
+        "⚠ 既定は空文字で、DQ2 の挙動は変わりません"),
+    "retroux/version.py": (
+        "★`build-info.json` / `source_commit()` / `build_id()` / `stamp()` を足した"
+        "（RX3-0464）。⚠ 配布 Runtime には `pyproject.toml` が入らないので、"
+        "そこが無いと版が `0.0.0+unknown` になる。⚠⚠ 版の正本は pyproject のまま"
+        "（★build-info は pyproject の**後**に読む）。DQ2 の表示は変わりません"),
+}
+
+
 def test_retrouxを変更していない():
-    """⚠⚠ `RX3-0011` の前提。★import するだけ。"""
+    """⚠⚠ DQ3 の都合で DQ2 のコードを書き換えないための歯止め。
+
+    ★`RX3-0011` の前提（DQ3 は dev-only）は `RX3-0431` で反転しましたが、
+    ⚠ 「持ち出し」を止める役目は残します。★認めた変更は
+    `ALLOWED_RETROUX_CHANGES` に**理由を書いて**並べます。
+    """
     done = subprocess.run(
         ["git", "status", "--porcelain", "retroux/"],
         cwd=str(ROOT), capture_output=True, text=True,
         encoding="utf-8", errors="replace")
-    changed = [ln for ln in (done.stdout or "").splitlines() if ln.strip()]
-    assert not changed, "⚠⚠ retroux/ を変更しています:\n" + "\n".join(changed)
+    changed = []
+    for line in (done.stdout or "").splitlines():
+        if not line.strip():
+            continue
+        # ★`git status --porcelain` は先頭 2 文字が状態、3 文字目から道
+        path = line[3:].strip().strip('"')
+        if path in ALLOWED_RETROUX_CHANGES:
+            continue
+        changed.append(line)
+    assert not changed, (
+        "⚠⚠ retroux/ を変更しています（★認めるなら "
+        "`ALLOWED_RETROUX_CHANGES` に理由を書く）:\n" + "\n".join(changed))
+
+
+def test_認めたretroux変更に理由が書いてある():
+    """⚠ 許可リストが「とりあえず足す」置き場にならないように。"""
+    assert ALLOWED_RETROUX_CHANGES, "★空なら項目を消してください"
+    for path, why in ALLOWED_RETROUX_CHANGES.items():
+        assert (ROOT / path).is_file(), f"⚠ 認めた道が実在しません: {path}"
+        assert len(why) >= 40, f"⚠ 理由が短すぎます: {path}"
+        assert "RX" in why, f"⚠ 理由に Work Item 番号がありません: {path}"
 
 
 def test_使い回した部品をimportしている():

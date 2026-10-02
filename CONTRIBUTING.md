@@ -30,7 +30,7 @@ Issue・Pull Request どちらも歓迎です。ただしこのリポジトリ�
 ## Pull Request の作法
 
 - **小さく**。1 PR = 1 目的。
-- **テストを回す**: `uv run pytest --extra dev`（初回だけ `uv sync --extra dev`）。
+- **テストを回す**: `uv run pytest`（初回だけ `uv sync --extra dev`）。
   ★ROM や FCEUX が無くても**全部緑**になります（要るものは自動で skip）。
   ⚠ このリポジトリには、開発側だけにある道具（調査用スクリプト・研究用の
   Lua ハーネス・内部の台帳）を検査するものは**同梱していません**。

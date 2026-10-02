@@ -171,7 +171,10 @@ class Dq3MapBrowser(QWidget):
 
     def reload(self) -> None:
         """★行った地図を並べ直す。⚠ 記録がある地図だけ。"""
-        keys = sorted(k for k, m in self.vm.seen.maps.items() if m.cells)
+        from dq3.knowledge.locations import sort_key
+
+        # ★数の順（L1 → L2 → … → L10）。⚠ 文字列の順だと L10 が L1 の直後に来る（RX3-0438）
+        keys = sorted((k for k, m in self.vm.seen.maps.items() if m.cells), key=sort_key)
         before = self.current_key()
         self.list.blockSignals(True)
         self.list.clear()

@@ -33,8 +33,11 @@ DEFAULT_COMMAND = paths.lazy_work("dq3-command.json")
 #:   load_state は開発用（★実機確認の driver がセーブを読むだけ / 書かない）
 #:   walk_stop / screenshot は管理画面（RX3-0059）: 止めるだけ / ゲーム画面を撮る（証跡）
 #:   town_end は街の自動操作の終わり（RX3-0170）: ★Turbo を切り、動いている nav / restock も止める
+#:   save_state はパッドの RB（RX3-0486）: ★人のスロットへ保存（`dq3/phase0/human_state.lua`）
+#:   ⚠ load_state はパッドの LB でも使う（★同じ入口 = `nav_v0.lua` / 止める・`HOST.loaded`）
 ACTIONS = ("auto", "turbo", "mantan", "navigate", "nav_stop", "load_state", "walk", "walk_stop",
-           "screenshot", "restock", "restock_stop", "ai_reload", "use_item", "town_end")
+           "screenshot", "restock", "restock_stop", "ai_reload", "use_item", "town_end",
+           "save_state")
 
 
 class CommandWriter:

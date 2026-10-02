@@ -76,7 +76,16 @@ def test_戻す世代の指定を世代数と読み違えない() -> None:
 
 
 def test_入口はDQ2の道具に100世代を渡して呼ぶ(monkeypatch: pytest.MonkeyPatch) -> None:
-    """★`with_generations` が正しくても、呼ばれていなければ意味がない。"""
+    """★`with_generations` が正しくても、呼ばれていなければ意味がない。
+
+    ⚠ 2026-09-29（RX3-0468）: `--src`（★FCEUX の `fcs/`）も足すようになりました。
+      ⚠⚠ これが無いと、FCEUX を外部指定したときに**あちらの既定**（同梱の
+        `tools/fceux/fcs`）を見続け、★控えが静かに空振りします。
+    """
+    import pathlib
+
+    from dq3 import paths as P3
+
     seen: list[list[str]] = []
 
     def fake_main() -> int:
@@ -87,7 +96,20 @@ def test_入口はDQ2の道具に100世代を渡して呼ぶ(monkeypatch: pytest
     rc = dq3sb.main(["--once"])
 
     assert rc == 0
-    assert seen == [["--generations", "100", "--once"]]
+    assert len(seen) == 1
+    got = seen[0]
+    # ★100 世代が渡っている（⚠ ここを戻すと 90 世代が黙って消える / RX3-0307）
+    assert "--generations" in got
+    assert got[got.index("--generations") + 1] == "100"
+    # ★人の引数はそのまま後ろに残る
+    assert got[-1] == "--once"
+    # ★FCEUX の fcs を `--src` で渡している（⚠ 場所が分かるときだけ）
+    expected = P3.fceux_fcs()
+    if expected is None:
+        assert "--src" not in got, "⚠ 場所が分からないのに --src を渡している"
+    else:
+        assert got[0] == "--src"
+        assert pathlib.Path(got[1]) == expected
 
 
 def test_入口は呼び出しのあとsys_argvを戻す(monkeypatch: pytest.MonkeyPatch) -> None:

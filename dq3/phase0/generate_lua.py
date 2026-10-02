@@ -22,13 +22,33 @@ import pathlib
 
 import yaml
 
+from dq3 import ownership as _own
+from dq3 import paths as P3
 from dq3rom.screen import PATTERN_BASE, unvoice
 from retroux.core.config.generate_lua import source_fingerprint, to_lua
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-CONFIG = ROOT / "config" / "dq3_phase0.yaml"
+
+#: ★★ 設定の正本（⚠⚠ **キー割り当ては利用者がここを直接書き換えます**）★★
+#
+#   ★**user 側にあればそれを読みます**（案 A / `RX3-0472` / 2026-10-01）:
+#
+#     <write_root>/work/user-data/config/dq3_phase0.yaml   ★在ればこちら
+#     <program_root>/config/dq3_phase0.yaml                ★無ければ見本
+#
+#   ⚠ ファイルの冒頭に「GUI はありません。ここを直接書き換えてください」と
+#     書いてあるので、★3 つの override 対象の中で**いちばん触られます**。
+#   ⚠⚠ 配布 ZIP はこの見本を毎回入れ替えるので、★書き換えを残したい人は
+#     user 側へ置いてください（⚠ 初回に自動で写しません）。
+CONFIG = _own.lazy_resolve("config/dq3_phase0.yaml")
 PROFILE = ROOT / "dq3rom" / "profiles" / "dq3_fc_jp_rev0a.json"
-OUT_DIR = ROOT / "work" / "generated"
+#: ★生成物の置き場（⚠ **write_root 側** / RX3-0466 / 2026-09-29）。
+#
+#   ⚠⚠ 以前は `ROOT / "work" / "generated"` でした。★program 側に書いていたので、
+#     配布 Runtime では**書けない場所**を指していました。
+#   ★`lazy_generated()` なので、⚠ 使う瞬間に `RETROUX_WRITE_ROOT` を引き直します
+#     （既定引数に固めない / RX3-0215）。
+OUT_DIR = P3.lazy_generated()
 MODULE = "dq3_phase0"
 NEWLINE = chr(10)
 
@@ -574,13 +594,16 @@ def same_text(out_path, body: str) -> bool:
         return False
 
 
-def write_lua(data: dict, out_dir: pathlib.Path = OUT_DIR,
+def write_lua(data: dict, out_dir: pathlib.Path | P3.LazyPath = OUT_DIR,
               src: pathlib.Path = CONFIG) -> pathlib.Path:
     """Lua モジュールとして書き出す。
 
     ⚠ DQ2 の `write_lua_module` は見出しに DQ2 のパスを固定で書くので使わない。
     ★`to_lua` と `source_fingerprint`（どちらも純粋な関数）だけ借りる。
+
+    ⚠ 既定の `OUT_DIR` は `LazyPath` です（★使う瞬間に書き先を引き直す / RX3-0466）。
     """
+    out_dir = pathlib.Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{MODULE}.lua"
     # ★★ ⚠⚠ **書きかけを読ませない**（RX-0114 / 2026-08-30）★★

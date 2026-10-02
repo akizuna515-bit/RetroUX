@@ -36,6 +36,17 @@ class PathsConfig:
     """work/ 配下の出力先。既定のままで動く。"""
 
     rom: str = "work/rom/DQ2_J.nes"
+    # ★★ DQ3 の ROM と FCEUX の置き場（RX3-0467 / RX3-0468 / 2026-09-29）★★
+    #
+    #   ⚠⚠ **空が既定**です。空のときは `dq3/paths.py` が
+    #     `<書き先>/work/rom/DQ3_J.nes` → `<program>/work/rom/DQ3_J.nes` を順に見ます
+    #     （★固定配置を必須にしない / 後方互換は残す）。
+    #   ★ここに置く理由: `user_config.yaml` の読み手を**1 本**にするため。
+    #     ⚠ 別の reader を足すと、知らない項目として警告が出るか、
+    #       ★同じファイルを 2 か所が別々に解釈して必ず食い違います。
+    #   ⚠ DQ2 の挙動は変わりません（★既定が空で、DQ2 は `rom` を使う）。
+    dq3_rom: str = ""
+    fceux: str = ""
     db: str = "work/retroux.sqlite3"
     events: str = "work/events.jsonl"
     command: str = "work/command.json"

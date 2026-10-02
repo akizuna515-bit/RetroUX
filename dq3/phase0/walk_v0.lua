@@ -17,7 +17,11 @@
 --   （`tests/dq3_states.py` が中身で選ぶ材料）。⚠ 上書きすると消えます。
 --   → ★書くかどうかは、`RX3-0031` で依頼者に確かめてから決めます。
 
-local root = os.getenv("RETROUX_ROOT") or "F:/Projects/260721_RetroUX"
+-- ⚠⚠ 開発機のパスへ落ちない（RX3-0466 / 2026-09-29）
+local root = os.getenv("RETROUX_ROOT")
+if root == nil or root == "" then
+  error("RETROUX_ROOT が立っていません（★起動は DQ3.cmd から / RX3-0466）")
+end
 local write_root = os.getenv("RETROUX_WRITE_ROOT") or root
 
 local Core = dofile(root .. "/dq3/phase0/core.lua")

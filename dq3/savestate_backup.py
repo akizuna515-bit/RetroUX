@@ -42,8 +42,10 @@
 
 from __future__ import annotations
 
+import datetime
 import sys
 
+from dq3 import paths as P3
 from retroux.tools import savestate_backup as _dq2
 
 #: ★DQ3 で保つ世代数（依頼者 2026-09-20「保持 100」/ RX3-0307）。
@@ -52,6 +54,87 @@ DQ3_GENERATIONS = 100
 
 #: ⚠ 世代数を指定する引数の書き方（★argparse は前置きの省略も受ける）。
 _GENERATIONS_FLAG = "--generations"
+
+#: ⚠ セーブステートの元を指定する引数（★`retroux/tools/savestate_backup.py:277`）
+_SRC_FLAG = "--src"
+
+#: ⚠⚠ 控えが空振りしたことを残す場所（★画面に出ない起動でも後から分かるように）
+WARN_LOG = P3.lazy_work("dq3-log", "savestate-backup.log")
+
+
+def with_src(argv: list[str]) -> list[str]:
+    """★FCEUX の `fcs/` を `--src` に足す（RX3-0468 / 2026-09-29）。
+
+    ⚠⚠ **FCEUX を外部指定すると、セーブステートも一緒に動きます**
+      （★FCEUX は exe の隣の `fcs/` に書く / RX-0108）。
+      ⚠ ここを足さないと、あちらの既定（同梱 `tools/fceux/fcs`）を見続け、
+        **控えが静かに空振りします**。
+
+    ★人が自分で `--src` を書いていたら触りません（⚠ 意図を上書きしない）。
+    ⚠ 場所が分からないときは足しません（★でたらめな道を渡さない）。
+    """
+    for arg in argv:
+        if arg.split("=", 1)[0] == _SRC_FLAG:
+            return list(argv)
+    fcs = P3.fceux_fcs()
+    if fcs is None:
+        return list(argv)
+    return [_SRC_FLAG, str(fcs), *argv]
+
+
+def warn_if_no_savestates(write=None) -> str | None:
+    """⚠⚠ 控えの元が取れないときに**必ず知らせる**（依頼者 2026-09-29 §7）。
+
+    ★「成功したように見えるがバックアップしていない」を禁止するための入口です。
+    ⚠ 画面の無い起動（`pythonw`）でも後から分かるように、**記録にも残します**。
+
+    戻り値: 出した言葉（⚠ 問題が無ければ `None`）。
+    """
+    message = P3.fcs_warning()
+    if message is None:
+        return None
+    line = "%s %s" % (datetime.datetime.now().isoformat(timespec="seconds"), message)
+    print(line, file=sys.stderr)
+    try:
+        target = (write if write is not None else WARN_LOG)
+        import pathlib
+
+        target = pathlib.Path(target)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # ⚠ 改行は LF で足す（★元の改行を混ぜない / RX-0121）
+        with open(target, "a", encoding="utf-8", newline="") as fh:
+            fh.write(line + "\n")
+    except OSError:
+        pass                                   # ⚠ 記録できなくても起動は止めない
+    return message
+
+
+def note(line: str, write=None) -> str:
+    """★控えまわりの出来事を 1 行残す（RX3-0479 / 2026-10-01）。
+
+    ## ⚠⚠ なぜ要るか
+
+    `dq3/ui/main_window.py::_stop_own_backup()` は **3 つの道すべてで
+    静かに `False` を返して**いました。★そのため「止めようとしたが止めなかった」と
+    「そもそも止める相手が居なかった」を、⚠ **あとから区別できません**でした
+    （2026-09-30 の実機で控えが止まらなかった件 / `RX3-0479`）。
+
+    ⚠ 画面の無い起動（`pythonw`）では標準出力が捨てられるので、★記録に残します。
+    ⚠⚠ ここで落ちても**閉じることは続けます**（★後始末で落ちない）。
+    """
+    stamp = datetime.datetime.now().isoformat(timespec="seconds")
+    body = "%s %s" % (stamp, line)
+    try:
+        import pathlib
+
+        target = pathlib.Path(write if write is not None else WARN_LOG)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # ⚠ 改行は LF で足す（★元の改行を混ぜない / RX-0121）
+        with open(target, "a", encoding="utf-8", newline="") as fh:
+            fh.write(body + "\n")
+    except OSError:
+        pass                                   # ⚠ 記録できなくても止めない
+    return body
 
 
 def with_generations(argv: list[str], generations: int = DQ3_GENERATIONS) -> list[str]:
@@ -78,8 +161,10 @@ def main(argv: list[str] | None = None) -> int:
       そのままにします）。→ ★ここで `sys.argv` を差し替えて呼び、必ず戻します。
     """
     given = list(sys.argv[1:] if argv is None else argv)
+    # ⚠⚠ 先に知らせる（★空振りしていることに気づけないのが一番悪い / RX3-0468）
+    warn_if_no_savestates()
     saved = sys.argv
-    sys.argv = [saved[0], *with_generations(given)]
+    sys.argv = [saved[0], *with_src(with_generations(given))]
     try:
         return _dq2.main()
     finally:

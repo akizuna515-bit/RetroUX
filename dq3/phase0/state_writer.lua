@@ -31,8 +31,12 @@ local M = {}
 local RENAMED = {slot = true, hp_max = true, mp_max = true, name = true}
 
 --: ★共有部分（⚠ JSON はここに 1 つだけ / RX3-0031）
-local Core = dofile((os.getenv("RETROUX_ROOT") or "C:/Projects/260721_RetroUX")
-                    :gsub(string.char(92), "/"):gsub("/$", "")
+-- ⚠⚠ 開発機のパスへ落ちない（RX3-0466 / 2026-09-29）
+local _root = os.getenv("RETROUX_ROOT")
+if _root == nil or _root == "" then
+  error("RETROUX_ROOT が立っていません（★起動は DQ3.cmd から / RX3-0466）")
+end
+local Core = dofile((_root:gsub(string.char(92), "/"):gsub("/$", ""))
                     .. "/dq3/phase0/core.lua")
 
 --- ★書き出す道具を 1 つ作る。

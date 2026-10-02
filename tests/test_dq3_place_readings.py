@@ -5,7 +5,7 @@
 
 ```text
 名簿   岬の洞窟 / ナジミの塔 / 幽霊船 …        ★人が書いた漢字まじり
-会話   ＊「うわさでは みさきのどうくつから …   ★ゲームの本文は全部かな
+会話   ＊「みさきのどうくつには …           ★ゲームの本文は全部かな（⚠ 文は架空）
 照合   `fold` はカタカナ → ひらがなだけ       ⚠⚠ 漢字は**永久に当たらない**
 ```
 
@@ -23,9 +23,12 @@ from dq3.knowledge import reachable as RE
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-#: ★ゲームの会話（★実データと同じ形 = 全部かな）
-TALK = ("＊「うわさでは みさきのどうくつから ナジミのとうに いけるとか。"
-        "＊「きたのやまおくには てんしょくをおこなう だーまのしんでんが あるそうだ。")
+#: ★ゲームの会話と**同じ形**の架空の文（★全部かな / ⚠ 原作の会話は公開物に入れません / RX3-0433）。
+#:   ⚠⚠ 地名と、★名前のすぐ後ろの助詞（`に`）だけは本物と同じにしてあります
+#:   （★`reachable.spoken` は後ろの 1 字を見るので、ここを変えると検査の意味が変わります）。
+TALK = ("＊「みさきのどうくつには ぬけみちが あるらしい。"
+        "＊「ナジミのとうに のぼると とおくまで みえるぞ。"
+        "＊「きたのやまおくに だーまのしんでんが あるそうだ。")
 
 
 def _table(tmp_path, rows) -> pathlib.Path:
@@ -89,7 +92,7 @@ def test_会話に無ければ当たらない():
 
 def test_助詞の見張りは効いたまま():
     """⚠ RX3-0178: 「まいられた」が「マイラ」に当たるのを止める決まりを壊さない。"""
-    assert not RE.spoken("マイラ", "＊「アりアハンから まいられた おかたでは?")
+    assert not RE.spoken("マイラ", "＊「とおくから まいられた おかたですね?")
     assert RE.spoken("マイラ", "＊「まいらへ いきました。")
 
 
@@ -133,9 +136,19 @@ def test_読みが無い名前は出ない(tmp_path, monkeypatch):
     """⚠ 読みを入れるまでは今までどおり（★勝手に当てない）。"""
     monkeypatch.setattr(PR, "MASTER_PATH", tmp_path / "ない.csv")
     monkeypatch.setattr(PR, "DRAFT_PATH", tmp_path / "ない2.csv")
+    # ⚠⚠ 2026-09-27（RX3-0432）: `all_place_names` が**本物の記録**
+    #   （`player-knowledge.json` の 57 件）も語彙に入れるようになりました。
+    #   ★空の master だけでは語彙が空にならないので、⚠ 記録の側も隔離します。
     got = RE.collect(_Book(), None, _Master(), conversations={"9/1": [{"text": TALK}]},
-                     rom_path=tmp_path / "ない.nes")
-    assert [r.name for r in got] == []
+                     rom_path=tmp_path / "ない.nes",
+                     knowledge_path=tmp_path / "ない.json")
+    # ⚠⚠ 2026-09-27: もとは `== []` でした。★それは**たまたま**真だっただけで、
+    #   ⚠ かなの名前が語彙に入ると破れます（★`location-names.csv` に
+    #     `ナジミのとう` を足したら実際に破れた）。
+    #   → ★見たいのは「**読みが無い漢字の名前**が当たらないこと」だけ。
+    names = [r.name for r in got]
+    assert "岬の洞窟" not in names, "⚠⚠ 読みが無いのに漢字の名前が当たった: %s" % names
+    assert "幽霊船" not in names, names
 
 
 def test_下書きが用意されている():

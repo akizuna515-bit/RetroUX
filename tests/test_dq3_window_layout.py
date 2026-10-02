@@ -149,11 +149,17 @@ def test_勇者会議は2つ開かない(win):
 # --- ★窓の名前 -----------------------------------------------------------
 
 def test_窓の名前は中身で分かる(win, app):
-    """★依頼者「左：地図、勇者メモ 右：RetroUX DQ3 下：ログ」。"""
+    """★依頼者「左：地図、勇者メモ 右：RetroUX DQ3 下：ログ」。
+
+    ⚠ 2026-09-29（RX3-0464）: 親の題名に**版**が付きました（例 `RetroUX DQ3 1.1.0`）。
+      ★数字は `pyproject.toml` の 1 か所から来るので、ここには書き写しません。
+    """
     from dq3.ui.battle_window import Dq3BattleWindow
+    from retroux import version as V
 
     assert win.map_window.windowTitle() == "地図、勇者メモ"
-    assert win.windowTitle() == "RetroUX DQ3"
+    assert win.windowTitle() == "RetroUX DQ3 " + V.get_version()
+    assert win.windowTitle().startswith("RetroUX DQ3")
     assert Dq3BattleWindow(win.vm).windowTitle() == "ログ"
 
 

@@ -153,8 +153,14 @@ def test_札が多いとき全部にたどり着ける(qapp):
         assert (strip.horizontalScrollBar().maximum() > 0) == wide
 
 
-def test_中身を窓に押し込めない():
-    """⚠ 直し方そのものを見る（★`True` に戻したら赤くなる）。"""
+def test_中身を窓に押し込めない(qapp):
+    """⚠ 直し方そのものを見る（★`True` に戻したら赤くなる）。
+
+    ⚠⚠ `qapp` は 2026-10-01 に足しました（RX3-0453）。★無いと `QApplication` が
+    居ない状態で widget を作り、⚠ **プロセスごと落ちます**（★出力ごと消えて rc=127）。
+    ⚠ ほかの検査が先に走って `QApplication` を作っていると**偶然通る**ので、
+    ★この 1 件だけを走らせて確かめます。
+    """
     strip = bm.BattleMonsterStrip()
     assert strip.widgetResizable() is False, (
         "⚠⚠ 中身が窓の幅に押し込められる（★札が切れる）")

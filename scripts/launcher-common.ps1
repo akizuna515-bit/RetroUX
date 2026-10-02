@@ -157,10 +157,71 @@ function Get-PythonText {
 # ⚠⚠ **pythonw.exe では標準出力・標準エラーが消える**（仕様書 4.1）。
 #   だから Python 側で例外を必ずログへ書くこと。
 #   `retroux/gui.py` と `retroux/tools/savestate_backup.py` はそうしてある。
+# ★★ Python の置き場を決めるのは**ここ 1 か所**（RX3-0473 / 2026-09-29）★★
+#
+#   ⚠⚠ 以前は各 launcher が `.venv\Scripts\python.exe` を独立に組み立てていました
+#     （start-dq3.ps1 / start-retroux.ps1 / launcher-common.ps1）。
+#     ★配布 Runtime には `.venv` が無いので、全部を直す必要がありました。
+#
+#   ★解決の順番:
+#
+#       1. <root>\runtime\python\python.exe     ★製品 Runtime（同梱）
+#       2. <root>\.venv\Scripts\python.exe      ★開発環境
+#       3. 見つからない → $null（⚠ 呼ぶ側が案内を出す）
+#
+#   ⚠⚠ **PATH の python.exe / py.exe へは落ちません**（依頼者 2026-09-29 §2）。
+#     ★利用者の PC に偶然入っている Python に依存する Runtime にしないため。
+#     ⚠ 依存パッケージ（PySide6 ほか）はその Python の中にしか無いので、
+#       別の Python を拾うと「起動したのに import で落ちる」になります。
+$script:RetroUXPythonLayouts = @(
+    # (相対フォルダ, コンソール版, 窓なし版)
+    @("runtime\python", "python.exe", "pythonw.exe"),
+    @(".venv\Scripts", "python.exe", "pythonw.exe")
+)
+
+function Get-RetroUXPython {
+    <#
+    .SYNOPSIS
+      同梱 Runtime → .venv の順に Python を探す。見つからなければ $null。
+    .PARAMETER Quiet
+      ★窓を出さない版（pythonw.exe）を優先する。⚠ 無ければ python.exe。
+    #>
+    param([Parameter(Mandatory = $true)][string]$Root, [switch]$Quiet)
+    foreach ($layout in $script:RetroUXPythonLayouts) {
+        $dir = Join-Path $Root $layout[0]
+        $console = Join-Path $dir $layout[1]
+        $windowless = Join-Path $dir $layout[2]
+        if ($Quiet -and (Test-Path -LiteralPath $windowless)) { return $windowless }
+        if (Test-Path -LiteralPath $console) { return $console }
+        # ⚠ python.exe が無く pythonw.exe だけある形も拾う（★embeddable の作り方次第）
+        if (Test-Path -LiteralPath $windowless) { return $windowless }
+    }
+    return $null
+}
+
+function Get-RetroUXPythonHint {
+    <#
+    .SYNOPSIS
+      ★見つからなかったときに人へ出す案内（⚠ 探した場所を必ず並べる）。
+    #>
+    param([Parameter(Mandatory = $true)][string]$Root)
+    $lines = @("Python が見つかりません。探した場所:")
+    foreach ($layout in $script:RetroUXPythonLayouts) {
+        $lines += ("  " + (Join-Path (Join-Path $Root $layout[0]) $layout[1]))
+    }
+    $lines += ""
+    $lines += "★開発環境では次で作れます:"
+    $lines += "  uv venv --python 3.12"
+    $lines += "  uv pip install -e ."
+    return ($lines -join "`n")
+}
+
 function Get-PythonForGui {
     param([string]$Root, [switch]$Quiet)
-    $pythonw = Join-Path $Root ".venv\Scripts\pythonw.exe"
-    if ($Quiet -and (Test-Path -LiteralPath $pythonw)) { return $pythonw }
+    # ★判定は `Get-RetroUXPython` の 1 か所に寄せた（RX3-0473）。
+    #   ⚠ 見つからないときは**従来どおりの道**を返す（★呼ぶ側の Test-Path が判断する）。
+    $got = Get-RetroUXPython -Root $Root -Quiet:$Quiet
+    if ($got) { return $got }
     return (Join-Path $Root ".venv\Scripts\python.exe")
 }
 

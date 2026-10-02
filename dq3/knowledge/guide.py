@@ -6,14 +6,23 @@
     ★Fact 側から新しい Topic を勝手に作りません。
 
 ```text
-Guide Topic Master（人が編集 / data/dq3/guide-topics.csv）   ＝ 設計情報
-      ↑
-Mapping Rule（人が編集 / data/dq3/topic-rules.csv）
-      ↑
+勇者メモ（人が書く / data/dq3/hero-memo.yaml）               ＝ 設計情報
+      ↓ hero_memo.build() が Topic と Rule に組み替える
 Fact（RX3-0070 が実際の冒険から起こす）
       ↓
 Topic State（work/ / ⚠ このプレイの進み具合）                ＝ 進行状況
 ```
+
+⚠⚠ 2026-09-28（RX3-0455）: **旧経路は退役しました**。
+
+```text
+⚠ 旧 data/dq3/topic-rules.csv                 ★人が書いていた Rule 表
+⚠ 旧 input/dq3_guide_topic_master*.csv        ★第三者の攻略情報から起こした Topic 表
+```
+
+★`RULES_PATH` / `MASTER_PATH` という**定数だけ**が残っています。
+⚠ ファイルが無くても落ちません（★`load_master` / `load_rules` が空を返す）。
+→ ⚠ 新しい Topic をここに足さないでください。**勇者メモに書きます**。
 
 ## ⚠ 守ること
 
@@ -122,6 +131,9 @@ class Rule:
         if self.entity_kind == "location":
             # ★場所は `location:L<map_id>`（⚠ 名前ではなく id / RX3-0076）
             return "location:%s" % self.location_id if self.location_id else None
+        if self.entity_kind == "word":
+            # ★一般の語（`concept-words.csv` / RX3-0436）は書いた語そのもの
+            return "word:%s" % self.entity_name if self.entity_name else None
         if self.entity_kind and self.entity_id is not None:
             return "%s:%d" % (self.entity_kind, self.entity_id)
         if self.place_type:
@@ -199,6 +211,9 @@ class TopicState:
     first_seen_at: str | None = None
     last_updated_at: str | None = None
     update_count: int = 0
+    #: ★片づいた時刻（RX3-0434 / 勇者メモの scenario で「分かったこと」を新しい順に並べる）
+    #:  ⚠ 片づいた後に同じ話をまた聞くと `last_updated_at` は進むので、★別に持つ
+    resolved_at: str | None = None
 
     def to_json(self) -> dict:
         return dataclasses.asdict(self)
@@ -213,13 +228,18 @@ class TopicState:
             best_weight=int(data.get("best_weight") or 0),
             first_seen_at=data.get("first_seen_at"),
             last_updated_at=data.get("last_updated_at"),
-            update_count=int(data.get("update_count") or 0))
+            update_count=int(data.get("update_count") or 0),
+            resolved_at=data.get("resolved_at"))
 
 
 class TopicBook:
     """★Fact を Topic へ当て、進み具合を覚える。"""
 
-    def __init__(self, master=None, rules=None, path=None) -> None:
+    def __init__(self, master=None, rules=None, path=None, require_appear: bool = False) -> None:
+        #: ★出る条件が 1 度も成立していない Topic は、片づいても見せない（RX3-0436 / 勇者メモ）。
+        #:   ⚠ 片づく条件だけ先に成立すると「分かったこと」に出て、**出ていないカードが漏れる**。
+        #:   ★旧 Guide Master の経路は今までどおり（何か 1 本当たれば見える）
+        self.require_appear = require_appear
         self.master = master if master is not None else load_master()
         self.rules = rules if rules is not None else load_rules()
         self.path = pathlib.Path(path) if path is not None else STATE_PATH
@@ -247,7 +267,9 @@ class TopicBook:
                 continue
             state = self.states.get(rule.topic_id)
             if state is None:
-                state = TopicState(topic_id=rule.topic_id, first_seen_at=_now())
+                # ⚠ `first_seen_at` は**見えた瞬間**に刻む（`_set_status` / RX3-0436）。
+                #   ★AND の組の 1 本目が当たっただけでは、まだ勇者はこの話を知らない
+                state = TopicState(topic_id=rule.topic_id)
                 self.states[rule.topic_id] = state
             if fact_id in state.matched_fact_ids and rule.rule_id in state.matched_rule_ids:
                 continue                      # ⚠ 同じ Rule で二度目は数えない
@@ -259,10 +281,14 @@ class TopicBook:
             if rule.rule_id not in state.matched_rule_ids:
                 state.matched_rule_ids.append(rule.rule_id)
             state.best_weight = max(state.best_weight, rule.weight)
+            self._set_status(state, self._status_of(rule.topic_id, state))
+            self._dirty = True
+            if state.status == "unknown":
+                # ⚠⚠ まだ見えない（AND の組が途中）→ 数えない・動いたと言わない（RX3-0436）。
+                #   ★数えると、見えた瞬間に NEW ではなく「更新」になる / ⚠ moved から題名が漏れる
+                continue
             state.update_count += 1
             state.last_updated_at = _now()
-            state.status = self._status_of(rule.topic_id, state)
-            self._dirty = True
             moved.append(rule.topic_id)
         if moved:
             self._refresh_statuses()
@@ -277,11 +303,16 @@ class TopicBook:
         n = 0
         for state in self.states.values():
             ids = state.matched_fact_ids
-            for i, fid in enumerate(ids):
-                new = mapping.get(fid)
-                if new is not None and new not in ids:
-                    ids[i] = new
+            fresh: list[str] = []
+            for fid in ids:
+                new = mapping.get(fid, fid)
+                if new != fid:
                     n += 1
+                # ★2026-09-27（RX3-0436）: 観測ごとの Fact を論理 Fact へ畳むと、
+                #   ★複数の番号が同じ番号になる → ⚠ 1 つに畳む（並びは最初に出た位置）
+                if new not in fresh:
+                    fresh.append(new)
+            state.matched_fact_ids = fresh
         if n:
             self._dirty = True
         return n
@@ -299,8 +330,22 @@ class TopicBook:
                 continue
             fresh = self._status_of(topic_id, state)
             if fresh != state.status:
-                state.status = fresh
+                self._set_status(state, fresh)
                 self._dirty = True
+
+    @staticmethod
+    def _set_status(state: TopicState, status: str) -> None:
+        """★状態を変える（⚠ 片づいた瞬間だけ `resolved_at` を刻む / 戻ったら消す）。
+
+        ★見えた瞬間（`unknown` 以外になった最初）に `first_seen_at` を刻む（RX3-0436）。
+        """
+        if status != "unknown" and state.first_seen_at is None:
+            state.first_seen_at = _now()
+        if status == "resolved" and state.status != "resolved":
+            state.resolved_at = _now()
+        elif status != "resolved":
+            state.resolved_at = None
+        state.status = status
 
     def apply_all(self, facts) -> dict[str, list[str]]:
         got: dict[str, list[str]] = {}
@@ -335,10 +380,38 @@ class TopicBook:
                 return True
         return False
 
+    def appeared(self, topic_id: str, state: TopicState) -> bool:
+        """★見えてよいか（RX3-0436 / 勇者メモの `all_of`）。
+
+        ```text
+        出る側に ALL の組が無い Topic   ★今までどおり（何か 1 本当たれば見える）
+        ALL の組がある Topic            ★ANY の出る Rule が当たった / ALL の組が全部当たった
+                                        ⚠ 片づく Rule の途中（retires_all の 1 本目）では見せない
+        ```
+        ⚠ 片づいたかどうかは先に `completed` が見る（★片づいた話は「分かったこと」に出る）。
+        """
+        rules = [r for r in self.rules if r.topic_id == topic_id and not r.completes]
+        if not self.require_appear and not any(r.match_mode == "ALL" for r in rules):
+            return True
+        matched = set(state.matched_rule_ids)
+        groups: dict[str, dict[str, bool]] = {}
+        for rule in rules:
+            if rule.match_mode != "ALL":
+                if rule.rule_id in matched:
+                    return True
+                continue
+            base = rule.rule_id.split("#", 1)[0]
+            conds = groups.setdefault(rule.group or base, {})
+            conds[base] = conds.get(base, False) or (rule.rule_id in matched)
+        return any(conds and all(conds.values()) for conds in groups.values())
+
     def _status_of(self, topic_id: str, state: TopicState) -> str:
         """★状態を決める（指示書 §10）。"""
-        if self.completed(topic_id, state):
+        appeared = self.appeared(topic_id, state)
+        if self.completed(topic_id, state) and (appeared or not self.require_appear):
             return "resolved"                 # ★完了条件が成立した
+        if not appeared:
+            return "unknown"                  # ⚠ 出る条件が未成立（★まだ勇者は知らない）
         topic = self.master[topic_id]
         for need in topic.prerequisite_topic_ids:
             done = self.states.get(need)
@@ -396,8 +469,8 @@ class TopicBook:
         return True
 
     @classmethod
-    def load(cls, master=None, rules=None, path=None) -> "TopicBook":
-        got = cls(master, rules, path)
+    def load(cls, master=None, rules=None, path=None, require_appear: bool = False) -> "TopicBook":
+        got = cls(master, rules, path, require_appear=require_appear)
         try:
             data = json.loads(got.path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -407,6 +480,9 @@ class TopicBook:
                 got.states[topic_id] = TopicState.from_json(row)
             except (KeyError, TypeError, ValueError):
                 continue                      # ⚠ 壊れた行は捨てて、残りは読む
+        if require_appear:
+            # ★保存された状態は古い規則で決めたもの → ⚠ 今の規則で決め直す（RX3-0436）
+            got._refresh_statuses()
         return got
 
 
@@ -418,24 +494,26 @@ def main(argv=None) -> int:
 
     from dq3.knowledge import concepts as C
 
-    parser = argparse.ArgumentParser(description="Fact → Guide Topic → Topic State")
+    parser = argparse.ArgumentParser(description="Fact → 勇者メモのカード → Topic State")
     parser.add_argument("--state", default=None, help="進み具合の置き場（⚠ work/ 配下）")
     parser.add_argument("--dry-run", action="store_true", help="★書かずに見るだけ")
     args = parser.parse_args(argv)
 
-    from dq3.knowledge import guide_mapping
+    # ★2026-09-28（RX3-0455）: 旧 Guide Master / topic-rules.csv をやめ、**勇者メモ**を読む。
+    #   ⚠ 旧 2 表は第三者の攻略サイト由来で、★公開物にも入りません。
+    from dq3.knowledge import hero_memo as HM
 
     try:
-        master = GM.load(strict=True)
-    except GuideMasterError as exc:
+        built = HM.build(HM.DEFAULT_PATH)
+    except HM.HeroMemoError as exc:
         print("⚠⚠ %s" % exc, file=sys.stderr)
         return 1
-    if not master.topics:
-        print("⚠ Guide Topic Master がありません: %s" % MASTER_PATH, file=sys.stderr)
+    if not built.topics:
+        print("⚠ 勇者メモの原本がありません: %s" % HM.DEFAULT_PATH, file=sys.stderr)
         return 1
-    # ★明示 Rule ＋ Guide Master の関連名から作った弱い Rule（⚠ 明示が先）
-    rules, _resolutions = guide_mapping.all_rules(master, load_rules())
-    book = TopicBook.load(master=master.topics, rules=rules, path=args.state)
+    master, rules = built.as_master(), built.rules
+    book = TopicBook.load(master=master.topics, rules=rules, path=args.state,
+                          require_appear=True)
     if book.orphan_rules:
         print("⚠ 正本に無い Topic を指す規則: %s" % book.orphan_rules, file=sys.stderr)
 

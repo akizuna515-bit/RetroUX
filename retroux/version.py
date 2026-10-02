@@ -12,11 +12,29 @@
 
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 
 #: 読めなかったときに出す文字列。★**数字を偽らない**
 UNKNOWN = "0.0.0+unknown"
+
+#: ★配布物に焼く断面の記録（RX3-0464 / 2026-09-29）。
+#
+#   ⚠⚠ 配布 Runtime には `pyproject.toml` が**入りません**（開発の設定なので）。
+#     ★そのままだと `get_version()` が `UNKNOWN` を返します。
+#   ★だから export のときに `build-info.json` を作って同梱します。
+#
+#   ```json
+#   {"product": "retroux-dq3", "version": "1.1.0",
+#    "source_commit": "0123456789abcdef", "exported_at": "2026-09-29T.."}
+#   ```
+#
+#   ⚠ 開発 repo では**作りません**（`.gitignore` 済み）。★正本は pyproject のまま。
+BUILD_INFO_NAME = "build-info.json"
+
+#: ★断面が分からないときの札（⚠ 数字を偽らないのと同じ考え）
+UNKNOWN_BUILD = "dev"
 
 _PATTERN = re.compile(r'^version\s*=\s*"([^"]+)"', re.MULTILINE)
 
@@ -53,6 +71,82 @@ def _from_pyproject() -> str | None:
     return None
 
 
+def _roots():
+    """★`build-info.json` を探す場所（⚠ 近いほうから）。"""
+    here = pathlib.Path(__file__).resolve()
+    return (here.parent, *here.parents)
+
+
+def build_info() -> dict:
+    """★同梱された断面の記録（⚠ 無ければ空の dict / 例外は投げない）。
+
+    ⚠ 壊れた JSON でも落ちません（★版が出ないより、起動するほうが害が小さい）。
+    """
+    for parent in _roots():
+        path = parent / BUILD_INFO_NAME
+        if not path.is_file():
+            continue
+        try:
+            got = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        return got if isinstance(got, dict) else {}
+    return {}
+
+
+def _from_build_info() -> str | None:
+    """★`build-info.json` から読む（⚠ 配布 Runtime の受け皿）。"""
+    got = build_info().get("version")
+    return str(got) if got else None
+
+
+def _commit_from_git() -> str | None:
+    """★`.git` から HEAD の commit を読む（⚠ `git` を起こさない）。
+
+    ⚠⚠ `subprocess` で `git rev-parse` を呼ぶと、★起動が遅くなり、
+      `git` が無い環境で余計な失敗が出ます。→ ★ファイルを直接読みます。
+    ⚠ worktree（`.git` がファイル）には対応しません（★その時は `None`）。
+    """
+    for parent in _roots():
+        git = parent / ".git"
+        if not git.is_dir():
+            continue
+        try:
+            head = (git / "HEAD").read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        if not head.startswith("ref: "):
+            return head or None                 # ★detached HEAD は生の hash
+        ref = git / head[5:].strip()
+        try:
+            return ref.read_text(encoding="utf-8").strip() or None
+        except OSError:
+            # ⚠ packed-refs にしか無いことがある（★そこまでは追わない）
+            return None
+    return None
+
+
+def source_commit() -> str | None:
+    """★この断面の commit（⚠ 分からなければ `None`）。
+
+    ```text
+    1 build-info.json の source_commit   ★配布 Runtime（Git が無くても分かる）
+    2 .git/HEAD から辿る                 ★開発 repo
+    3 None
+    ```
+    """
+    got = build_info().get("source_commit")
+    if got:
+        return str(got)
+    return _commit_from_git()
+
+
+def build_id(length: int = 7) -> str:
+    """★ログや画面に出す短い断面（⚠ 分からなければ `dev`）。"""
+    got = source_commit()
+    return got[:length] if got else UNKNOWN_BUILD
+
+
 def get_version() -> str:
     """バージョン文字列。読めなければ `UNKNOWN`。
 
@@ -62,13 +156,26 @@ def get_version() -> str:
       画面に前のバージョンが出続けた（実例: pyproject 1.0.1 なのに表示 1.0.0）。
       ⚠ 出どころは pyproject の1か所、が本方針。メタデータは
       pyproject が見つからない環境（wheel 配布など）の受け皿にする。
+
+    ★★ `build-info.json` は pyproject の**後**（RX3-0464 / 2026-09-29）★★
+      ⚠⚠ 順番を逆にすると、⚠ 開発 repo に残った古い `build-info.json` が
+        pyproject の編集を**黙って上書き**します（★正本は pyproject のまま）。
+      ★配布 Runtime には pyproject が入らないので、そこでは build-info が使われます。
     """
-    return _from_pyproject() or _from_metadata() or UNKNOWN
+    return _from_pyproject() or _from_build_info() or _from_metadata() or UNKNOWN
 
 
 #: 画面に出す形（例 `RetroUX 0.1.0`）
 def title(prefix: str = "RetroUX") -> str:
     return f"{prefix} {get_version()}"
+
+
+def stamp(prefix: str = "RetroUX") -> str:
+    """★版と断面を 1 行で（例 `RetroUX DQ3 1.1.0 / build 45c3acf`）。
+
+    ⚠ 起動ログに出す形です（★「どの断面の話か」を後から決められるように）。
+    """
+    return f"{title(prefix)} / build {build_id()}"
 
 
 VERSION = get_version()

@@ -82,7 +82,8 @@ def _hearing_fixture(tmp_path):
     d = tmp_path / "dq3-knowledge"
     d.mkdir(parents=True, exist_ok=True)
     (d / "npc-conversations.json").write_text(json.dumps({
-        "70/3": [{"npc_id": 3, "talk_id": 565, "text_hash": "aaaa", "text": "＊「おひめさまを みませんでした？",
+        # ★文の中身はこの検査で使いません（⚠ 件数と鍵だけを見る）→ 架空 / RX3-0433
+        "70/3": [{"npc_id": 3, "talk_id": 565, "text_hash": "aaaa", "text": "＊「だれかを さがしているのか？",
                   "first_heard_at": "2026-09-05T09:12:48", "last_heard_at": "2026-09-05T09:12:48", "count": 1}],
         "70/7": [{"npc_id": 7, "talk_id": 570, "text_hash": "bbbb", "text": "＊「とうぞくバコタの カギ。",
                   "first_heard_at": "2026-09-05T09:14:10", "last_heard_at": "2026-09-05T09:14:10", "count": 1}],

@@ -169,6 +169,12 @@ def test_戦闘の終わりの流れで呪文の結果をまとめる_倒した�
     #   ★`_finish_battle` / `_settle_battle` も借りる（⚠ 呼ぶ順は変えていない）
     fake._finish_battle = lambda groups, won: Dq3ViewModel._finish_battle(fake, groups, won)
     fake._settle_battle = lambda: Dq3ViewModel._settle_battle(fake)
+    # ⚠ 2026-09-28（RX3-0450）: 経験値が増え得ない相手の見分けも借りる（★呼ぶ順は変えていない）
+    fake._exp_can_grow = lambda groups: Dq3ViewModel._exp_can_grow(fake, groups)
+    fake._party_alive = lambda: Dq3ViewModel._party_alive(fake)
+    fake._raw_party = lambda: [{"hp": 10, "max_hp": 20}]
+    # ⚠ ROM を読まない（★公開木には ROM が無い / 見本の敵 id は 0）
+    fake._enemy_exp = lambda enemy_id: 100
     Dq3ViewModel._note_battle_end(fake)
     assert order == [("battle", True), "spells"], order
 
