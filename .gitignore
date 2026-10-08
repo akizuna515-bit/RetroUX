@@ -32,6 +32,8 @@ Thumbs.db
 # ★同梱しません（既定値がコード側にあるので無くても動きます）。
 #   カスタムしたいときは user_config.example.yaml をコピーして作ってください。
 user_config.yaml
+# ★DQ2 専用の設定（RX-0147 / RX3-0528）。雛形は dq2_user_config.example.yaml
+dq2_user_config.yaml
 
 # --- 実行時データ（生成物・状態・ログ）---
 work/*
