@@ -266,7 +266,9 @@ def test_入力ファイルはDQ2と同じ形で開いたまま上書きする(t
 def test_入力ファイルは引き継がない生成物(tmp_path):
     from dq3 import ownership as OW
 
-    got = [o for o in OW.DERIVED if o.rel == "work/dq3-gamepad.txt"]
+    # ★RX3-0493: 置き場は work/runtime/（区分ごと derived）
+    assert OW.classify("work/runtime/dq3-gamepad.txt") == OW.KIND_DERIVED
+    got = [o for o in OW.DERIVED if o.rel == "work/runtime"]
     assert got and got[0].kind == OW.KIND_DERIVED, "⚠⚠ ownership に無い（★分類外になる / 引き継がれる）"
 
 

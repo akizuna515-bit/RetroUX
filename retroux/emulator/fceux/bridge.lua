@@ -47,10 +47,22 @@ local ALLY_TARGET_MENU  = 0x0B   -- 味方の対象選択（回復・補助を�
 -- パス解決とモジュール読み込み
 ----------------------------------------------------------------------
 
+-- ★根: RETROUX_ROOT（起動スクリプトが立てる）→ 無ければ**このファイルの置き場**から（RX-0160）。
+--   ⚠ 以前は開発機の絶対パス（F: の Projects）を既定にしていて、配布物では存在しない場所を見ていた。
+--   ★FCEUX の Lua 窓からこのファイルを直接開いても、自分の場所（retroux/emulator/fceux/ の 3 つ上）で動く。
+local function script_root()
+  local info = debug and debug.getinfo and debug.getinfo(1, "S")
+  local src = (info and info.source or ""):gsub("^@", ""):gsub("\\", "/")
+  return src:match("^(.*)/retroux/emulator/fceux/[^/]+$")
+end
+
 function Bridge.resolve_root()
   local root = os.getenv("RETROUX_ROOT")
   if root == nil or root == "" then
-    root = "F:/Projects/260721_RetroUX"
+    root = script_root()
+  end
+  if root == nil or root == "" then
+    error("RetroUX の場所が分かりません（DQ2.cmd から起動するか、RETROUX_ROOT を設定してください）")
   end
   return (root:gsub("\\", "/"):gsub("/$", ""))
 end
@@ -190,7 +202,10 @@ function Bridge.new(opts)
   self.gamepad_last_seq   = nil
   self.gamepad_stale      = 0
   self.gamepad_mask       = 0
-  self.log_path         = self.write_root .. "/work/retroux.log"
+  -- ★DQ2 のログ（RX-0149）。⚠ 旧 work/retroux.log は DQ3 の控えも書くので離れる（旧ログは動かさない）。
+  --   ⚠ io.open("a") はフォルダが無いと失敗する → ★フォルダは起動スクリプトと GUI が先に作る
+  --     （FCEUX は GUI の後に起動する / 検査は lua_run.py が作る）。
+  self.log_path         = self.write_root .. "/work/runtime/dq2-log/retroux.log"
   -- ★「いまの状態」は events.jsonl へ書かない（MVP2 Phase 2）。
   --   events.jsonl は**起きたこと**の記録で、そのまま DB に入る。
   --   毎秒の HP/MP をそこへ流すと、記録が現在値で埋まって意味が変わるうえ、
@@ -688,7 +703,7 @@ end
 ---   ログは GitHub の Issue などへ貼られる前提。⚠ 絶対パスを出すと
 ---   **利用者名が混ざる**（`C:\Users\<名前>\...` に置いた場合）。
 ---
----   ⚠ この開発環境では `C:\projects\` にあるため名前が出ておらず、
+---   ⚠ 開発環境は利用者名を含まない場所に置いてあるため名前が出ておらず、
 ---     **grep だけでは危険が見えない**（実測 0 件）。
 ---   ★危険が「出ていない」のは置き場所のおかげであって、直ったからではない。
 ---
@@ -2256,7 +2271,7 @@ end
 ---
 --- ★★ 実機で確かめられるようにするのが目的です。
 ---   ⚠ 「作ったけれど一度も通っていない」を避けます
----     （`docs/design/handoff-20260807.md` §5 の1番・6番）。
+---     （`docs/history/handoff/handoff-20260807.md` §5 の1番・6番）。
 function Bridge:_log_support(assessment)
   if self.support_plan == nil or self.battle_types == nil then return end
   local cfg = self.support_config or {}
@@ -5017,7 +5032,7 @@ end
 --- ⚠⚠ **数字は「まんたん」の設定を borrow します**（★測り方を2か所に書かない）。
 ---   依頼者の言葉が「９割（満タン設定）」だったとおり、⚠ 戦闘と戦闘外で
 ---   目標が食い違うのは分かりにくいためです。
----   ★`config/mantan.yaml` の `target_hp_percent` を変えれば両方動きます。
+---   ★まんたんの設定（`work/dq2-settings/mantan.yaml`）の `target_hp_percent` を変えれば両方動きます。
 ---
 --- ⚠ 「いつ回復に動くか」（`heal.threshold`）とは**別の数**です。混ぜないこと。
 function Bridge:_heal_goal_ratio()
@@ -7246,7 +7261,7 @@ function Bridge:step()
   --
   -- 補足: 自動入力はフェーズ（$0073）に依存しない。当初は $0073 が COMMAND の
   -- ときだけ押す実装にしていたが、実機でコマンドウィンドウ表示中も 0 のままに
-  -- なる場合があり、入力されずに戦闘が停止した（docs/memory_map.md の注記）。
+  -- なる場合があり、入力されずに戦闘が停止した（docs/design/dq2-memory-map.md の注記）。
   self:_apply_input()
 
   -- ★演出のイベントは毎フレーム見る。

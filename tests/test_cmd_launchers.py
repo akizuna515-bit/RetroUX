@@ -1,10 +1,11 @@
-"""ダブルクリックの入口（`RetroUX.cmd` / `DQ3.cmd`）— RX3-0459 / 2026-09-28。
+"""ダブルクリックの入口（`DQ2.cmd` / `DQ3.cmd`）— RX3-0459 / 2026-09-28（★RX-0154 で RetroUX.cmd → DQ2.cmd）。
 
 ★★ **開発版と配布版で、利用者から見た起動の仕方を分けない。** ★★
 
 ```text
-開発 repo   RetroUX.cmd  ダブルクリック → DQ2
-配布物      RetroUX.cmd  ダブルクリック → DQ2     ★同じ名前・同じ挙動
+開発 repo   DQ2.cmd      ダブルクリック → DQ2
+配布物      DQ2.cmd      ダブルクリック → DQ2     ★同じ名前・同じ挙動
+（互換）    RetroUX.cmd  → DQ2.cmd を呼ぶだけ（★1 リリースだけ残す / RX-0154）
 開発 repo   DQ3.cmd      ダブルクリック → DQ3
 配布物      DQ3.cmd      ダブルクリック → DQ3
 ```
@@ -38,7 +39,7 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 #: ★入口 → 渡す先（⚠ 増やしたらここに足す / RX3-0122「見張る対象を足し忘れる」）
 LAUNCHERS = {
-    "RetroUX.cmd": "scripts/start-retroux.ps1",
+    "DQ2.cmd": "scripts/start-dq2.ps1",
     "DQ3.cmd": "scripts/start-dq3.ps1",
 }
 
@@ -125,8 +126,8 @@ def test_DQ2だけQuietを渡す():
 
     ⚠ DQ3 の `start-dq3.ps1` に `-Quiet` は**無い**（★渡すと引数エラーで落ちる）。
     """
-    assert any("-Quiet" in line for line in _code_lines("RetroUX.cmd")), \
-        "⚠⚠ RetroUX.cmd が -Quiet を渡していない"
+    assert any("-Quiet" in line for line in _code_lines("DQ2.cmd")), \
+        "⚠⚠ DQ2.cmd が -Quiet を渡していない"
     assert not any("-Quiet" in line for line in _code_lines("DQ3.cmd")), \
         "⚠⚠ DQ3.cmd が -Quiet を渡している（★start-dq3.ps1 に無い引数）"
 
@@ -180,7 +181,7 @@ def test_空白入りのパスで正しいrootを渡す(rel, script):
 
     assert text.startswith("root=%s|" % home), \
         "⚠⚠ 自分の置き場を root にしていない: %s（★期待 %s）" % (text, home)
-    want_quiet = "True" if rel == "RetroUX.cmd" else "False"
+    want_quiet = "True" if rel == "DQ2.cmd" else "False"
     assert text.endswith("quiet=%s" % want_quiet), text
 
 
@@ -202,3 +203,98 @@ def test_渡す先が無ければ理由を出して落ちる(rel):
     out = (done.stdout or b"").decode("ascii", errors="replace")
     assert done.returncode == 1, "⚠⚠ 失敗したのに %d を返した" % done.returncode
     assert "Missing startup script" in out, out[-400:]
+
+
+# --- ★互換 stub（RetroUX.cmd → DQ2.cmd / RX-0154）-------------------------------------
+#
+# 依頼者 2026-10-03「RetroUX.cmd は 1 リリースだけ互換 stub。役割は DQ2.cmd を呼ぶだけ。
+#   古い入口で起動されたことはログへ 1 行残してよいが、警告ダイアログは出さない」
+
+STUB = "RetroUX.cmd"
+
+
+def test_互換stubはASCIIとCRLF():
+    raw = (PROJECT_ROOT / STUB).read_bytes()
+    assert raw.isascii(), "⚠ 日本語が入っている（★コードページに依存させない）"
+    assert raw.count(b"\r\n") == raw.count(b"\n"), "⚠ CRLF ではない"
+    assert not raw.startswith(b"\xef\xbb\xbf")
+
+
+def test_互換stubはDQ2_cmdを呼ぶだけ():
+    code = _code_lines(STUB)
+    calls = [line for line in code if line.lower().startswith("call ")]
+    assert calls == ['call "%~dp0DQ2.cmd" -LegacyEntry %*'], calls
+    # ⚠ 起動の段取り（PowerShell・Python）を自分では持たない
+    assert not any("powershell" in line.lower() or "python" in line.lower() for line in code)
+    # ⚠ 箱・選択肢を出さない（★pause は DQ2.cmd が無いときの 1 か所だけ）
+    for word in ("choice", "set /p", "msgbox"):
+        assert not any(word in line.lower() for line in code), word
+    assert sum("pause" in line.lower() for line in code) <= 1
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="⚠ cmd.exe は Windows だけ")
+def test_互換stubで起動するとDQ2_cmdを通り旧入口の印が届く():
+    """★実際に cmd.exe に食わせる（空白入りの場所 / ★渡す先は引数を書き出すだけの偽物）。"""
+    stub = ("\ufeff# stub\r\n"
+            "param([string]$Root = '', [switch]$Quiet, [switch]$LegacyEntry)\r\n"
+            "$out = Join-Path $PSScriptRoot '..\\got.txt'\r\n"
+            "Set-Content -LiteralPath $out -Value \"root=$Root|quiet=$Quiet|legacy=$LegacyEntry\" "
+            "-Encoding utf8\r\n")
+    with tempfile.TemporaryDirectory() as tmp:
+        home = pathlib.Path(tmp) / "My Games" / "Retro UX"
+        (home / "scripts").mkdir(parents=True)
+        for rel in (STUB, "DQ2.cmd"):
+            (home / rel).write_bytes((PROJECT_ROOT / rel).read_bytes())
+        (home / "scripts" / "start-dq2.ps1").write_bytes(stub.encode("utf-8"))
+
+        done = subprocess.run(["cmd", "/c", str(home / STUB)], cwd=tempfile.gettempdir(),
+                              capture_output=True, timeout=120)
+        assert done.returncode == 0, done.stdout[-400:]
+        got = home / "got.txt"
+        for _ in range(80):
+            if got.exists():
+                break
+            time.sleep(0.25)
+        assert got.exists(), "⚠⚠ DQ2.cmd を通って start-dq2.ps1 が呼ばれていない"
+        text = got.read_text(encoding="utf-8-sig").strip()
+    assert text == "root=%s|quiet=True|legacy=True" % home, text
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="⚠ cmd.exe は Windows だけ")
+def test_互換stubはDQ2_cmdが無ければ理由を出して落ちる():
+    with tempfile.TemporaryDirectory() as tmp:
+        home = pathlib.Path(tmp) / "Retro UX"
+        home.mkdir(parents=True)
+        (home / STUB).write_bytes((PROJECT_ROOT / STUB).read_bytes())
+        done = subprocess.run(["cmd", "/c", str(home / STUB)], cwd=tempfile.gettempdir(),
+                              input=b"\r\n", capture_output=True, timeout=60)
+    assert done.returncode == 1
+    assert b"DQ2.cmd" in done.stdout
+
+
+def test_起動スクリプトは旧入口から来たことを記録に1行残す():
+    text = (PROJECT_ROOT / "scripts" / "start-dq2.ps1").read_text(encoding="utf-8-sig")
+    code = [ln for ln in text.splitlines() if not ln.lstrip().startswith("#")]
+    i = next(i for i, ln in enumerate(code) if "if ($LegacyEntry) {" in ln)
+    assert "Write-LauncherLog" in code[i + 1] and "RetroUX.cmd" in code[i + 1]
+    # ⚠ 箱は出さない（★Show-LauncherError / Stop-Launcher / MessageBox を呼ばない）
+    block = code[i:i + 3]
+    assert not any(w in ln for ln in block for w in ("Show-LauncherError", "Stop-Launcher", "MessageBox"))
+
+
+def test_EmulatorOnlyはFCEUXだけを起こす():
+    """★旧 `scripts/start.ps1 -Lua …` の probe 用途を失わない（RX-0154 / 依頼者 §4）。
+
+    ★FCEUX を起こしてすぐ終わる（⚠ 控え・GUI・製品間排他・ログより**前**で抜ける）。
+    """
+    text = (PROJECT_ROOT / "scripts" / "start-dq2.ps1").read_text(encoding="utf-8-sig")
+    code = [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+    i = code.index("if ($EmulatorOnly) {")
+    block = code[i:code.index("}", i) + 1]
+    assert any(ln.startswith("Start-Dq2Emulator @emuArgs") for ln in block), block
+    assert "exit 0" in block
+    for later in ("$productLaunch = Enter-RetroUXProductLaunch", "Write-LauncherLog \"INFO\" (\"RetroUX DQ2 起動",
+                  "$gui = Start-NoConsole"):
+        j = next(k for k, ln in enumerate(code) if ln.startswith(later))
+        assert i < j, f"⚠ -EmulatorOnly より前に {later} がある（★probe で余計なものが起きる）"
+    assert any("[switch]$EmulatorOnly" in ln for ln in code)

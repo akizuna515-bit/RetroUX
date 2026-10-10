@@ -4,7 +4,7 @@
 
 ```text
 ⚠ 2026-09-23 に踏んだ形:
-   tools/fceux/fcs/DQ3_J.fc3 と work/test-savestates/DQ3_J.fc3 は**別物**なのに
+   tools/fceux/fcs/DQ3_J.fc3 と work/tests/savestates/DQ3_J.fc3 は**別物**なのに
    `path.name` だけを ID にしたので**同じ ID** になり、★片方が黙って消えた。
 ```
 """
@@ -17,7 +17,7 @@ import pathlib
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-PREP = ROOT / "work" / "public-prep"
+PREP = ROOT / "work" / "release" / "public-prep"
 MANUAL = ROOT / "dq3" / "testing" / "map_kind_manual.json"
 
 

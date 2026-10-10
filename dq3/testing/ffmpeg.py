@@ -6,17 +6,17 @@
 ⚠ 指示書 A-1 は「導入できるか確認」なので、★**プロジェクトの中**に置きます。
 
 ```text
-work/tools/ffmpeg/bin/ffmpeg.exe    ★ここ（⚠ Git の外 / 依頼者の PATH を触らない）
+work/research/tools/ffmpeg/bin/ffmpeg.exe    ★ここ（⚠ Git の外 / 依頼者の PATH を触らない）
 ```
 
 ★出どころ: gyan.dev の `ffmpeg-release-essentials.zip`（⚠ ffmpeg.org が案内する Windows 版）。
-★取得時に `.sha256` と突き合わせています（`work/tools/get_ffmpeg.ps1`）。
+★取得時に `.sha256` と突き合わせています（`work/research/tools/get_ffmpeg.ps1`）。
 
 ## ★探す順
 
 ```text
 1  環境変数 RETROUX_FFMPEG（★folder か exe）
-2  work/tools/ffmpeg/**/ffmpeg.exe
+2  work/research/tools/ffmpeg/**/ffmpeg.exe
 3  PATH（⚠ 依頼者が別に入れていれば使う）
 ```
 
@@ -34,7 +34,7 @@ import subprocess
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 #: ★置き場（⚠ Git の外）
-LOCAL_DIR = ROOT / "work" / "tools" / "ffmpeg"
+LOCAL_DIR = ROOT / "work" / "research" / "tools" / "ffmpeg"
 
 #: ★環境変数（★folder でも exe でもよい）
 ENV = "RETROUX_FFMPEG"
@@ -75,7 +75,7 @@ def version(name: str = "ffmpeg") -> tuple[bool, str]:
     """★`-version` の 1 行目。⚠ `(通ったか, 1 行目 or 理由)`。"""
     exe = find(name)
     if exe is None:
-        return False, "⚠ %s が見つかりません（★work/tools/ffmpeg か %s）" % (name, ENV)
+        return False, "⚠ %s が見つかりません（★work/research/tools/ffmpeg か %s）" % (name, ENV)
     try:
         done = subprocess.run([str(exe), "-version"], capture_output=True,
                               timeout=VERSION_TIMEOUT)

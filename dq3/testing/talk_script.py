@@ -412,8 +412,8 @@ def facility_goals(master_map: dict) -> list[dict]:
 
 def write_all(root) -> dict:
     root = pathlib.Path(root)
-    npcs = root / "work" / "dq3-probe" / "npcs"
-    talk = root / "work" / "dq3-probe" / "talk"
+    npcs = root / "work" / "runtime" / "dq3-probe" / "npcs"
+    talk = root / "work" / "runtime" / "dq3-probe" / "talk"
     talk.mkdir(parents=True, exist_ok=True)
     day = json.loads((npcs / "all-maps-day.json").read_text(encoding="utf-8"))
     night = json.loads((npcs / "all-maps-night.json").read_text(encoding="utf-8"))

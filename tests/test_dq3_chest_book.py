@@ -176,7 +176,7 @@ def test_MAPに見つけた宝箱の印を描く(qapp):
 
 # --- ★RX3-0261 宝箱で入手したものを勇者メモへ -------------------------------------------------
 #
-#   依頼者 2026-09-14「DQ3 追加 Work Item 案」WI-1（★正本の写し `docs/design/dq3-wi-batch-20260914-spec.md`）。
+#   依頼者 2026-09-14「DQ3 追加 Work Item 案」WI-1（★正本の写し `docs/requests/260914_dq3-wi-batch.md`）。
 
 def test_いま開いた宝箱だけを受け取れる(tmp_path):
     book = _book(tmp_path)

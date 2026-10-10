@@ -471,7 +471,7 @@ def test_店はROMが無くても開く(app, tmp_path, monkeypatch):
     II.reset()
 
 
-# --- ★お店画面の商品検索（RX3-0254 / 依頼者の小WI / 正本 docs/design/dq3-shop-search-spec.md）---------------
+# --- ★お店画面の商品検索（RX3-0254 / 依頼者の小WI / 正本 docs/requests/260913_dq3-shop-search.md）---------------
 
 def _info(item_id, name, category):
     return II.ItemInfo(item_id=item_id, name=name, category=category,

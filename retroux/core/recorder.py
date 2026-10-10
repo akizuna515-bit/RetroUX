@@ -22,6 +22,12 @@ from .db.database import Database
 
 HEAD_SIGNATURE_MAX_BYTES = 1024
 
+#: ★DQ2 の主 events の論理 ID（RX-0163）。⚠ 物理の場所（`dq2_paths.events()`）は鍵にしない
+#:   = Portable のフォルダを動かしても、同じ流れの続きとして取り込める
+MAIN_STREAM = "dq2:events:main"
+#: ★取り込み済みの末尾の署名に使う長さ（offset の手前）
+TAIL_SIGNATURE_BYTES = 256
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -57,7 +63,85 @@ def _event_time(event: "ev.Event") -> str | None:
         return None
 
 
-def rotate_events(db, events_path: Path | str, **kwargs):
+@dataclass(frozen=True)
+class IngestCheck:
+    """★取り込み位置の確かめ（RX-0163）。problem があれば取り込まない。"""
+
+    key: str
+    offset: int
+    head_sig: str | None
+    problem: str | None = None
+    adopted_from: str | None = None
+
+
+def _tail_signature(path: Path | str, offset: int) -> str | None:
+    """★offset の手前（取り込み済みの末尾）の署名。offset 0 なら None。"""
+    if offset <= 0:
+        return None
+    p = Path(path)
+    if not p.exists() or p.stat().st_size < offset:
+        return None
+    with p.open("rb") as fh:
+        start = max(0, offset - TAIL_SIGNATURE_BYTES)
+        fh.seek(start)
+        return hashlib.sha256(fh.read(offset - start)).hexdigest()
+
+
+def _same_path(a: str, b: str) -> bool:
+    import os
+
+    return os.path.normcase(a) == os.path.normcase(b)
+
+
+def check_ingest_state(db, key: str, events_path: Path | str) -> IngestCheck:
+    """★保存した取り込み位置が、いまの events の続きかを確かめる（RX-0163）。
+
+    ★主 events（MAIN_STREAM）の鍵は論理 ID なので、場所が変わっても見つかる。
+    ⚠ 「同じ ID だから続き」とは扱わない。次のどれかなら problem（★取り込まない = 二重・混ざりを防ぐ）:
+      offset > events の大きさ / 先頭の署名が違う / offset が行の境目でない / 取り込み済みの末尾の署名が違う
+    ★旧版の行（鍵 = 絶対パス）は、**いまの events と同じ場所**のときだけ論理 ID へ移す（★その場の旧版データ）。
+      ⚠ 別の場所の旧い行しか無ければ problem（★フォルダを動かした旧い形式 → 開発用の修理で直す）。
+    """
+    path = Path(events_path)
+    here = str(path.resolve())
+    row = db.get_ingest_row(key)
+    adopted = None
+    if row is None and key == MAIN_STREAM:
+        others = [s for s in db.ingest_sources() if s != key]
+        same = [s for s in others if _same_path(s, here)]
+        if len(same) == 1:
+            row, adopted = db.get_ingest_row(same[0]), same[0]
+        elif others:
+            return IngestCheck(key, 0, None,
+                               "取り込み位置が旧い形式（場所の鍵）で、いまの events の場所と合いません"
+                               f"（{len(others)} 行 / 例 {others[0]}）。"
+                               "python -m retroux.tools.ingest_state status で確かめてください")
+    if row is None:
+        return IngestCheck(key, 0, None)
+    offset, head = int(row["offset"]), row["head_sig"]
+    tail = row["tail_sig"] if "tail_sig" in row.keys() else None
+    return IngestCheck(key, offset, head, position_problem(path, offset, head, tail), adopted)
+
+
+def position_problem(path: Path | str, offset: int, head: str | None, tail: str | None) -> str | None:
+    """★その位置が、この events の続きか（★DB に触らない / 開発用の修理も同じ判定を使う）。"""
+    path = Path(path)
+    size = path.stat().st_size if path.exists() else 0
+    if offset > size:
+        return f"取り込み位置 {offset:,} が events の大きさ {size:,} を超えています（events が短い・別のファイル）"
+    if head is not None and _head_signature(path) != head:
+        return "events の先頭が記録と違います（別の events）"
+    if offset > 0:
+        with path.open("rb") as fh:
+            fh.seek(offset - 1)
+            if fh.read(1) != b"\n":
+                return "取り込み位置が行の途中です（別の events）"
+        if tail is not None and _tail_signature(path, offset) != tail:
+            return "取り込み済みの末尾が記録と違います（別の環境の events / DB）"
+    return None
+
+
+def rotate_events(db, events_path: Path | str, *, stream: str | None = None, **kwargs):
     """`events.jsonl` を世代交代させ、**取り込み位置も一緒に戻す**。
 
     ## ⚠⚠ なぜ関数を分けたか
@@ -80,14 +164,23 @@ def rotate_events(db, events_path: Path | str, **kwargs):
         if result.rotated:
             log.info("%s", result.message())
     """
-    from .events_rotation import rotate
+    from .events_rotation import RotationResult, rotate
 
-    source = str(Path(events_path).resolve())
-    offset, _sig = db.get_ingest_state(source)
+    source = stream or str(Path(events_path).resolve())
+    if stream == MAIN_STREAM:
+        # ★主 events は確かめてから（⚠ 別の環境の位置で「追いついた」と見て回すと、取り込んでいない行を置き去りにする）
+        got = check_ingest_state(db, source, events_path)
+        if got.problem:
+            return RotationResult(False, f"取り込み位置が events と合わないので回しません: {got.problem}")
+        if got.adopted_from:
+            db.rename_ingest_source(got.adopted_from, source)
+        offset = got.offset
+    else:
+        offset, _sig = db.get_ingest_state(source)
     result = rotate(events_path, ingested_offset=offset, **kwargs)
     if result.rotated:
         # ★新しいファイルは空。位置は 0、署名は「まだ無い」
-        db.set_ingest_state(source, 0, None)
+        db.set_ingest_state(source, 0, None, path=str(Path(events_path).resolve()))
     return result
 
 
@@ -165,26 +258,41 @@ class Recorder:
         command_path: Path | str,
         *,
         clock: Callable[[], float] | None = None,
+        stream: str | None = None,
     ) -> None:
         self.db = db
         self.rom_hash = rom_hash
         self.command_path = Path(command_path)
+        self.stats = RecorderStats()
+        #: ★取り込みを止めた理由（RX-0163）。None なら取り込む
+        self.hold: str | None = None
 
         # 前回どこまで読んだかを DB から復元する。
         # Lua はセッションをまたいで events.jsonl に追記し続けるため、
         # 毎回先頭から読むと再起動のたびに過去の戦闘を重複記録してしまう。
-        self._source = str(Path(events_path).resolve())
-        saved_offset, saved_sig = db.get_ingest_state(self._source)
-
-        # ファイルが削除されて作り直された場合、保存済みの位置を使うと
-        # 新しいセッションの先頭を読み飛ばす。先頭の署名で見分ける。
-        # 署名は毎回ファイルから取り直す（起動時点ではまだ空のこともあるため、
-        # 初期化時の値を握り続けると常に空の署名を保存してしまう）。
-        if saved_sig is not None and _head_signature(events_path) != saved_sig:
-            saved_offset = 0
+        # ★鍵: 主 events は論理 ID（MAIN_STREAM / RX-0163）。⚠ 絶対パスにするとフォルダを動かしたとき取り込み直す
+        #   ★stream を渡さない呼び手（検査・分析で別のファイルを読む）は、これまでどおり絶対パス
+        self._path = Path(events_path)
+        self._source = stream or str(self._path.resolve())
+        if stream == MAIN_STREAM:
+            got = check_ingest_state(db, self._source, events_path)
+            if got.problem:
+                self.hold = got.problem
+                self.add_warning("記録の取り込みを止めました（★過去の戦闘を二重に・別の記録と混ぜないため）: "
+                                 + got.problem, code="ingest_hold")
+            elif got.adopted_from:
+                db.rename_ingest_source(got.adopted_from, self._source)
+            saved_offset = got.offset
+        else:
+            saved_offset, saved_sig = db.get_ingest_state(self._source)
+            # ファイルが削除されて作り直された場合、保存済みの位置を使うと
+            # 新しいセッションの先頭を読み飛ばす。先頭の署名で見分ける。
+            # 署名は毎回ファイルから取り直す（起動時点ではまだ空のこともあるため、
+            # 初期化時の値を握り続けると常に空の署名を保存してしまう）。
+            if saved_sig is not None and _head_signature(events_path) != saved_sig:
+                saved_offset = 0
 
         self.tailer = JsonlTailer(events_path, start_offset=saved_offset)
-        self.stats = RecorderStats()
         self._pending: PendingBattle | None = None
         # 戦闘中に溜める出来事（battle_end で battle_id が決まってから書く）
         self._pending_events: list[dict] = []
@@ -205,6 +313,8 @@ class Recorder:
         ⚠ 途中で失敗したら**まとめて捨てる**。半端に取り込むと、
           取り込み位置だけ進んで戦闘が欠ける、という直しにくい壊れ方になる。
         """
+        if self.hold is not None:
+            return 0                    # ★止めている（理由は stats.warnings / RX-0163）
         count = 0
         with self.db.bulk():
             for event in self.tailer.read_new_events():
@@ -213,7 +323,9 @@ class Recorder:
             # 読んだ位置は件数に関わらず保存する。
             # 未完了行を読み飛ばした場合など、件数0でも位置は進みうる。
             self.db.set_ingest_state(self._source, self.tailer.offset,
-                                     _head_signature(self._source))
+                                     _head_signature(self._path),
+                                     tail_sig=_tail_signature(self._path, self.tailer.offset),
+                                     path=str(self._path.resolve()))
         if count:
             self.push_encountered()
         return count

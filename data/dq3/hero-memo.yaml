@@ -360,7 +360,7 @@ leads:
     retires_when:
       - 行った: スー
     done: |
-       スーの西の海の浅瀬で使うようだ
+       スーに到着した。壷の使い方の手掛かりを探そう。
     why:
       kind: game_dialogue
       note: ゲーム内の会話から
@@ -520,7 +520,7 @@ leads:
     retires_when:
       - 聞いた: ラダトーム
     about: アレフガルド
-    done: 地下に別の世界があった
+    done: ラダトームという場所の話を聞いた
     why:
       kind: game_dialogue
       note: ゲーム内の会話から

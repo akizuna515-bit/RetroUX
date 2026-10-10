@@ -49,7 +49,7 @@ MUTED = "color:#8a93a5; font-size:11px;"
 #: ★一覧の列（⚠ 名前 / 性能 / 値段）
 COLUMNS = ("品", "性能", "値段")
 
-#: ★★ 商品の検索（RX3-0254 / 依頼者の小WI「お店画面の商品検索」/ 正本 `docs/design/dq3-shop-search-spec.md`）
+#: ★★ 商品の検索（RX3-0254 / 依頼者の小WI「お店画面の商品検索」/ 正本 `docs/requests/260913_dq3-shop-search.md`）
 #:
 #:   ```text
 #:   検索：[________]   種別：[ すべて ▼ ]     ★商品名の部分一致 AND 種別 / 入力のたびに絞る（実行ボタンなし）

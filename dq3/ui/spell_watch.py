@@ -1,7 +1,7 @@
 """呪文の結果（RX3-0271 / 2026-09-14）― Lua が見たゲーム自身の判定を、戦闘ごとにまとめる。
 
 ```text
-Lua  dq3/phase0/spell_watch.lua   耐性の判定（$A3EF）の入口と出口 → work/dq3-probe/spell_watch.log
+Lua  dq3/phase0/spell_watch.lua   耐性の判定（$A3EF）の入口と出口 → work/runtime/dq3-probe/spell_watch.log
       SPELL_RESULT battle=12 enemy=0 index=6 spell=34 ok=1
 Py   ここ                        戦闘が終わったら読む（view_model._note_battle_end）
       → 図鑑の「あなたの記録」へ回数を足す（EnemyBook.tries）
@@ -25,7 +25,7 @@ from dq3 import events as EV
 from .. import paths
 from .log_tail import LogTail
 
-PROBE = paths.lazy_work("dq3-probe")
+PROBE = paths.lazy_work("runtime", "dq3-probe")
 
 LINE = re.compile(r"^SPELL_RESULT battle=(?P<battle>\d+) enemy=(?P<enemy>\d+) index=(?P<index>\d+) "
                   r"spell=(?P<spell>-?\d+) ok=(?P<ok>[01])\s*$")

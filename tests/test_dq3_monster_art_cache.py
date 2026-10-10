@@ -9,7 +9,7 @@
   ⚠ 中身が同じものは触らない（★動いている画面がこの PNG を読んでいる）
 ```
 
-⚠ 本物の `work/dq3-monster-art` には書きません（★`tmp_path` だけ）。
+⚠ 本物の `work/cache/dq3-monster-art` には書きません（★`tmp_path` だけ）。
 """
 
 from __future__ import annotations

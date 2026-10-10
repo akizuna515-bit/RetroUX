@@ -39,7 +39,7 @@ def _sandbox() -> pathlib.Path:
     """★走行ごとの隔離先（`conftest.py` が決める）。"""
     got = os.environ.get("RETROUX_TEST_SANDBOX")
     return pathlib.Path(got) if got else (
-        PROJECT_ROOT / "work" / "_test_sandbox")
+        PROJECT_ROOT / "work" / "tests" / "lua-sandbox")
 
 # ⚠ 隔離先は**走行ごとに変わる**（RX-0114 / 2026-08-30）。
 #   ★`conftest.py` が `RETROUX_TEST_SANDBOX` を立てる。
@@ -59,14 +59,14 @@ def _prepare() -> None:
     ⚠ Lua はフォルダを作れない。`io.open(..., "a")` はフォルダが無いと
     **nil を返すだけ**で、⚠ そのまま「記録できなかった」が静かに通る。
     """
-    (SANDBOX / "dq3-probe").mkdir(parents=True, exist_ok=True)
-    (SANDBOX / "dq3-world-model").mkdir(parents=True, exist_ok=True)
+    (SANDBOX / "runtime" / "dq3-probe").mkdir(parents=True, exist_ok=True)
+    (SANDBOX / "cache" / "dq3-world-model").mkdir(parents=True, exist_ok=True)
     for name in ("collision_seen.txt", "walkable.txt"):
-        (SANDBOX / "dq3-probe" / name).write_text("", encoding="utf-8")
-    (SANDBOX / "dq3-world-model" / "doors.tsv").write_text(
+        (SANDBOX / "runtime" / "dq3-probe" / name).write_text("", encoding="utf-8")
+    (SANDBOX / "cache" / "dq3-world-model" / "doors.tsv").write_text(
         TAB.join(["9", "21", "5", "any_key", "1"]) + "\n"
         + TAB.join(["9", "4", "19", "any_key", "1"]) + "\n", encoding="utf-8")
-    (SANDBOX / "dq3-world-model" / "chests.tsv").write_text(
+    (SANDBOX / "cache" / "dq3-world-model" / "chests.tsv").write_text(
         TAB.join(["9", "20", "13", "item", "42"]) + "\n", encoding="utf-8")
 
 
@@ -99,7 +99,7 @@ def test_歩いた記録が実際に書かれている(result):
 
     ⚠ 検査の中だけで完結させると、書き出しが壊れても気づけない。
     """
-    text = (SANDBOX / "dq3-probe" / "walkable.txt").read_text(encoding="utf-8")
+    text = (SANDBOX / "runtime" / "dq3-probe" / "walkable.txt").read_text(encoding="utf-8")
     lines = [ln for ln in text.splitlines() if ln.strip()]
     assert lines, "⚠ 1 行も書かれていない"
     # map,x,y,生バイト,タイル,collision
@@ -110,7 +110,7 @@ def test_歩いた記録が実際に書かれている(result):
 
 def test_地図バッファも書かれている(result):
     """★実機の地図そのもの。⚠ これがあれば訪れた map を 1 マスずつ検算できる。"""
-    path = SANDBOX / "dq3-probe" / "mapbuf_9.txt"
+    path = SANDBOX / "runtime" / "dq3-probe" / "mapbuf_9.txt"
     lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
     assert lines[0].startswith("# map=9 26x26"), lines[0]
     assert len(lines) == 1 + 26, f"⚠ 行数が {len(lines)}"
@@ -121,7 +121,7 @@ def test_地図バッファも書かれている(result):
 
 
 def test_collision表も書かれている(result):
-    text = (SANDBOX / "dq3-probe" / "collision_seen.txt").read_text(encoding="utf-8")
+    text = (SANDBOX / "runtime" / "dq3-probe" / "collision_seen.txt").read_text(encoding="utf-8")
     lines = [ln for ln in text.splitlines() if ln.strip()]
     assert lines, "⚠ 1 行も書かれていない"
     for line in lines:

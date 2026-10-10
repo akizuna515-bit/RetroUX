@@ -12,15 +12,15 @@
 from __future__ import annotations
 
 import dataclasses
-import pathlib
 
+from ..mission.settings import USER_PATH  # noqa: F401 ★保存先（下の註）
 from ..mission.settings import Mission, MissionSettings, Risk
 from .models import (MISSION_TO_STRATEGY, STRATEGY_MISSION, STRATEGY_TYPES,
                      Strategy, StrategyType)
 
 SCHEMA_VERSION = 1
-#: ★保存先。`config/mission.yaml` を引き継ぐ（旧 `mission:` も読める）
-USER_PATH = pathlib.Path("config/mission.yaml")
+#: ★保存先は大目的と同じ（`mission.settings.USER_PATH` = `work/dq2-settings/mission.yaml`）。
+#:   旧 `mission:` も読める。★RX-0156: 以前はここに CWD 基準の `config/mission.yaml` が別に書いてあった
 
 
 @dataclasses.dataclass(frozen=True)

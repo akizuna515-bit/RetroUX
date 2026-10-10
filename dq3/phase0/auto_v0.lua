@@ -157,7 +157,7 @@ end
 --- ★★ コマンド窓の ▶ を見つける。⚠ 無ければ nil。
 --
 -- ⚠⚠ **コマンド窓の ▶ は点滅しない**（★2026-08-30 実機で判明 / RX3-0020）。
---   `work/dq3-probe/ppu_trace.txt` を数え直した実測:
+--   `work/runtime/dq3-probe/ppu_trace.txt` を数え直した実測:
 --
 --     $2289 (9,20)   72×24 / 00×20  ★点滅している（呪文の一覧）
 --     $228D (13,20)  72×16 / 00×16  ★点滅している（対象）
@@ -582,7 +582,7 @@ local step = "choose"          -- choose → (spell なら) pick_spell → targe
 local plan = nil
 local waited = 0
 
-local logfile = Core.open_log(write_root .. "/work/dq3-probe/auto_v0.log",
+local logfile = Core.open_log(write_root .. "/work/runtime/dq3-probe/auto_v0.log",
                               "自動戦闘の記録")
 local function say(line)
   if logfile ~= nil then logfile:write(line .. "\n"); logfile:flush() end
@@ -596,7 +596,7 @@ local SPEED = (HOST and HOST.speed) or Core.new_speed({say = say})
 
 -- ★戦闘に入るたび、画面をそのまま 1 回だけ書き出す（⚠ 毎フレームは重い）
 local trace = Core.open_log(
-  write_root .. "/work/dq3-probe/auto_v0_screens.txt", "画面の控え")
+  write_root .. "/work/runtime/dq3-probe/auto_v0_screens.txt", "画面の控え")
 local traced_battle = false
 
 local function dump_screen(nt, members)
@@ -621,7 +621,7 @@ end
 --
 -- ⚠ Lua から出せる速度は **normal と turbo（と maximum）だけ**。
 --   ★150% や 200% のような段階は Lua からは指定できない
---   （`docs/research/fceux-speed-control.md`。⚠ メニューの `WM_COMMAND` が要る）。
+--   （`docs/research/260826_fceux-speed-control.md`。⚠ メニューの `WM_COMMAND` が要る）。
 --
 -- ⚠ `emu.speedmode` が無い環境でも落ちないように `pcall` で包む
 --   （★実機なしの検査では偽の API を置いているため）。
@@ -968,7 +968,7 @@ function AIX.result_step(mode)
   --     変化で見ています。⚠ 満タンだと品は**入らない**ので 1 バイトも動きません。
   --   ⚠⚠ 2026-09-23 に実機で踏みました: 無人の run（`advance`）が
   --     「なにか すてますか?」の**一覧**に A を **41 回**押していました
-  --     （★`work/dq3-probe/battle_ai_run/20260923-105601/economy_auto_b7_end.png`）。
+  --     （★`work/runtime/dq3-probe/battle_ai_run/20260923-105601/economy_auto_b7_end.png`）。
   --   → ★捨てるのは戻せないので、⚠ **無人でも押さずに返します**。
   local _levels, bag = AIX.party_bytes()
   if AIX.bag_full(bag) == true then
@@ -1563,7 +1563,7 @@ end
 --   ⚠ 行だけで見ていたので、隣の窓の ▶ に引きずられていた。
 --
 -- ⚠⚠ **横にも動かすこと。** ★呪文の一覧は **2 列**ある。
---   実測（`work/dq3-probe/ppu_trace.txt`）: 同じ y=20 の行に
+--   実測（`work/runtime/dq3-probe/ppu_trace.txt`）: 同じ y=20 の行に
 --   `$2289=(9,20)` と `$228D=(13,20)` の 2 か所へ 72 が書かれている。
 --   ⚠ 縦にしか動かさないと、右の列の呪文は**永久に決まらない**。
 --
@@ -1591,7 +1591,7 @@ end
 
 --- ★★ 呪文の窓で ▶ を 1 つ寄せる（RX3-0242 / 2026-09-13 依頼者「save7 2ページ目で止まってしまう場合がある」）。
 --
---   ★実機（RX3-0240 の証跡 work/evidence/20260913-150623-spell-pages の .blink）:
+--   ★実機（RX3-0240 の証跡 work/tests/evidence/20260913-150623-spell-pages の .blink）:
 --     縦は空いた升を飛ばして同じ列の次の呪文へ（⚠ 下に無ければ**動かない**）/ 横はもう片方の列の呪文へ（★行が違っても）/
 --     いちばん上から「上」で → へ / → から「下」で左の列の最初の呪文へ。
 --   ⚠ 2 ページ目は空いた升が多い。2 ページ目で唱えた次の戦闘は 2 ページ目・右の列の ▶ で開き、
@@ -1623,7 +1623,7 @@ end
 
 --- ★★ 呪文の窓の 2 ページ目へ（RX3-0240 / 2026-09-13 依頼者「ページを変えるには、上の→を選択する」）。
 --
---   ★実機（隔離先 / work/evidence/20260913-150623-spell-pages）: 窓の上の枠に → （タイル 0x84）。
+--   ★実機（隔離先 / work/tests/evidence/20260913-150623-spell-pages）: 窓の上の枠に → （タイル 0x84）。
 --     一覧のいちばん上の行で「上」→ ▶ が → の左の升へ / そこで A → ページが入れ替わる（▶ は → のまま / A でまた戻る）。
 --     ★→ は 2 ページ目に呪文を持つ人の窓にだけ出る。⚠ 左右ではページは替わらない。
 --   ★出ているページに呪文が無いとき、pick_spell が呼ぶ。戻り値:
@@ -2016,7 +2016,7 @@ local function frame()
   --
   --   呪文を決めたあと、「誰に／どの敵に」を選ぶ**もう 1 段**がある。
   --   ★依頼者に普通に遊んでもらい、人の手順を記録して判明した
-  --   （`work/dq3-probe/battle_record.txt`）。
+  --   （`work/runtime/dq3-probe/battle_record.txt`）。
   --
   --     回復（ホイミ） … ★味方の一覧が**別窓**で開く（[20_18_08_10]）
   --     攻撃（メラ）   … ⚠ **敵の窓にカーソルが付く**（新しい窓は開かない）

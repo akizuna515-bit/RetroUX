@@ -7,7 +7,7 @@
 -- ## ⚠⚠ 推測で書かない
 --
 --   戦闘の呪文では**推測で書いて 5 回失敗した**。
---   ★今回は依頼者に**普通に回復してもらった記録**（`work/dq3-probe/battle_record.txt`
+--   ★今回は依頼者に**普通に回復してもらった記録**（`work/runtime/dq3-probe/battle_record.txt`
 --   の f=221601-222024）から、手順をそのまま起こしている。
 --
 --     A     → コマンド窓 [6,2]
@@ -92,7 +92,7 @@ local OPEN_GAP = M.open_gap or 45
 -- 記録
 ----------------------------------------------------------------------
 
-local LOG = Core.open_log(write_root .. "/work/dq3-probe/mantan_v0.log",
+local LOG = Core.open_log(write_root .. "/work/runtime/dq3-probe/mantan_v0.log",
                           "まんたんの記録")
 local function say(s)
   if LOG == nil then return end
@@ -138,7 +138,7 @@ if HOST == nil or HOST.screen == nil then screen_reader.install() end
 --   「カーソルが点滅している、というのを捕まえられない？
 --    その点滅の右がコマンドの内容なんだけど」
 --
---   ★実測で裏が取れた（`work/dq3-probe/ppu_trace.txt`）:
+--   ★実測で裏が取れた（`work/runtime/dq3-probe/ppu_trace.txt`）:
 --     点滅する ▶ … VRAM へ 72 と 00 を交互に書く
 --     ⚠ 静止した ▶ … 1 回書かれたきり
 --
@@ -236,7 +236,7 @@ end
 --   ## ⚠⚠ 2026-09-18 訂正: 「1 行に 3 つ以上」では**一人のとき当たらない**
 --
 --     依頼者「save6 一人だと、まんたんがつかえない。窓の認識が違うんだと思う」。
---     ★実測（`work/dq3-probe/mantan_v0.log`）:
+--     ★実測（`work/runtime/dq3-probe/mantan_v0.log`）:
 --
 --       4 人  y=22  76 8C .. 8C .. 8C .. 8C .. 7B   ★H の札が **4 つ**
 --             y=24  76 64 .. 64 .. 64 .. 64 .. 7B   ★下の札が **4 つ**

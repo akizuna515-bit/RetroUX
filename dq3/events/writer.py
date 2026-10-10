@@ -49,7 +49,7 @@ MODES = (NORMAL, DIAGNOSTIC)
 MODE_ENV = "RETROUX_DQ3_LOG_MODE"
 
 #: ★置き場（⚠ Technical Log の `dq3-probe/` とは**分けます**）
-LOG_DIR = ("dq3-log",)
+LOG_DIR = (paths.RUNTIME, "dq3-log")   # ★RX3-0493: work/runtime/dq3-log/
 PRODUCT_NAME = "product.log"
 DIAGNOSTIC_NAME = "diagnostic.jsonl"
 

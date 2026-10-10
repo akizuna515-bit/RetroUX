@@ -284,3 +284,76 @@ def test_ROMでボスの経験値が0であること():
     # ★本物の判定も、見本と同じ答えを出すこと
     real = VM.Dq3ViewModel._enemy_exp
     assert real(ZOMA_SECOND) == 0 and int(real(BOSS)) > 0
+
+
+# --- ★★ 戦闘 → 記録 → 読み直し → 勇者メモが片づく（RX3-0447 / 2026-10-03）-------------
+#
+#   ⚠ 上の検査は「倒したと決めるか」まで（★記録の代わりは `_Book`）。
+#   ★依頼者の症状は「倒した: ゾーマ が成立しない」なので、⚠ **本物の記録**を通して
+#     保存 → 読み直し → Progress の Fact → 勇者メモの条件まで 1 本でつなぐ。
+#   ⚠ ROM の名前辞書は差し替える（★名前と id の対応は test_dq3_acquired_once が ROM で見ている）。
+
+ZOMA_MEMO = ("schema_version: 1\nleads:\n  - id: last_boss\n    memo: ためし\n"
+             "    appears_when:\n      - フラグ: ship_obtained\n"
+             "    retires_when:\n      - 倒した: ゾーマ\n")
+
+
+def _boss_index():
+    from dq3.knowledge.concepts import fold
+
+    return {("monster", fold("ゾーマ")): [(ZOMA_FIRST, "ゾーマ"), (ZOMA_SECOND, "ゾーマ")]}
+
+
+def _zoma_resolved(tmp_path, monkeypatch, book) -> list:
+    """★記録（`EnemyBook`）から勇者会議の「片づいた」までを回す。"""
+    from dq3.knowledge import concepts as C
+    from dq3.knowledge import hero_memo as HM
+    from dq3.knowledge import progress as PG
+    from tests.test_dq3_hero_memo_council import _council
+    from tests.test_dq3_hero_memo_scenario import _write
+
+    monkeypatch.setattr(HM, "_index", lambda rom_path=None: _boss_index())
+    got = PG.Progress(path=tmp_path / "progress.json")
+    got.note_defeated(book.defeated)
+    flag = {"fact_id": C.fact_id_of("event:ship_obtained", "set", None, "story"),
+            "subject": "event:ship_obtained", "predicate": "set", "object": None,
+            "source_observation_id": "story", "confidence": 1.0}
+    memo = _write(tmp_path, ZOMA_MEMO)
+    view = _council(tmp_path, memo, [flag, *got.facts()]).evaluate(save=False)
+    return [c["topic_id"] for c in view.resolved]
+
+
+def test_ゾーマを倒すと読み直したあとも勇者メモが片づく(tmp_path, monkeypatch):
+    from dq3.knowledge.enemies_seen import EnemyBook
+
+    vm = _VM()
+    vm.enemy_names = EnemyBook(tmp_path / "enemy-names.json")
+    vm.exp = 1000
+    vm._note_battle_start()
+    vm._note_battle_groups([dict(id=ZOMA_FIRST, n=1)])
+    vm._note_battle_groups([dict(id=ZOMA_SECOND, n=1)])   # ★姿が変わる
+    vm.exp = 1000                                           # ⚠ 経験値は増えない
+    vm._note_battle_end()
+    assert vm.enemy_names.save(force=True)
+
+    again = EnemyBook.load(tmp_path / "enemy-names.json")   # ★起動し直したのと同じ
+    assert {ZOMA_FIRST, ZOMA_SECOND} <= again.defeated, "⚠⚠ 読み直すと倒した記録が消えた"
+    assert _zoma_resolved(tmp_path, monkeypatch, again) == ["last_boss"]
+
+
+def test_ゾーマに全滅したら勇者メモは片づかない(tmp_path, monkeypatch):
+    """★対照（⚠ 何をしても片づく形になっていないこと）。"""
+    from dq3.knowledge.enemies_seen import EnemyBook
+
+    vm = _VM()
+    vm.enemy_names = EnemyBook(tmp_path / "enemy-names.json")
+    vm.party = [dict(hp=0, max_hp=20)]
+    vm.exp = 1000
+    vm._note_battle_start()
+    vm._note_battle_groups([dict(id=ZOMA_SECOND, n=1)])
+    vm._note_battle_end()
+    vm.enemy_names.save(force=True)
+
+    again = EnemyBook.load(tmp_path / "enemy-names.json")
+    assert ZOMA_SECOND in again.met and ZOMA_SECOND not in again.defeated
+    assert _zoma_resolved(tmp_path, monkeypatch, again) == []

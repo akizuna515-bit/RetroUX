@@ -58,7 +58,7 @@ def _lift(hexcolour: str) -> tuple[int, int, int]:
     return tuple(out)
 
 
-#: ★世界地図（⚠ 実測。`work/dq3-probe` のセーブ 7 個ぶん）
+#: ★世界地図（⚠ 実測。`work/runtime/dq3-probe` のセーブ 7 個ぶん）
 WORLD_MEASURED = {
     0: "#042C33",     # ★海
     2: "#398A20",     # ★草原

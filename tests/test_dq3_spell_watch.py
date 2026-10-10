@@ -5,7 +5,7 @@ Lua  dq3/phase0/spell_watch.lua   ゲーム自身の耐性の判定（JP bank 4 
 Py   dq3/ui/spell_watch.py        戦闘が終わったら読む → 図鑑の回数（EnemyBook.tries）＋ 行動履歴に 1 行（battle.spell）
 ```
 
-★依頼者 2026-09-14「S10 は提案通りでOK」（報告 `docs/design/dq3-resistance-analysis.md` §10）:
+★依頼者 2026-09-14「S10 は提案通りでOK」（報告 `docs/design/rom-ram/dq3-resistance.md` §10）:
 ⚠ 観測だけ / ⚠ 1 回の失敗で「耐性」と書かない / ★図鑑のことばは倒した敵にだけ / ⚠ AI の確率は出さない。
 """
 from __future__ import annotations

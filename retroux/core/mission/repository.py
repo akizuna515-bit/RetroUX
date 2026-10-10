@@ -1,6 +1,6 @@
 """大目的の読み書き（2026-08-05 / 戦闘AI再設計 Phase 3）。
 
-★`config/mantan.yaml` と同じ流儀です（`core/mantan/repository.py`）。
+★まんたんの設定と同じ流儀です（`core/mantan/repository.py`）。
 
 ## ⚠⚠ 書きかけのファイルを残さない
 
@@ -22,15 +22,24 @@ import tempfile
 
 import yaml
 
-from .settings import USER_PATH, Mission, MissionSettings, Risk
+from .. import dq2_paths
+from .settings import LEGACY_PATH, USER_PATH, Mission, MissionSettings, Risk
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 
 def _path(path=None) -> pathlib.Path:
+    """★書き先（⚠ 旧 `config/mission.yaml` へは書かない / RX-0156）。"""
     if path is not None:
         return pathlib.Path(path)
-    return PROJECT_ROOT / USER_PATH
+    return USER_PATH
+
+
+def _read_path(path=None) -> pathlib.Path:
+    """★読む場所（★新しい方が無ければ旧 `config/mission.yaml`）。"""
+    if path is not None:
+        return pathlib.Path(path)
+    return dq2_paths.setting_to_read(USER_PATH, LEGACY_PATH)
 
 
 def from_dict(data, base: MissionSettings | None = None):
@@ -74,7 +83,7 @@ def from_dict(data, base: MissionSettings | None = None):
 
 def load(path=None):
     """設定を読む。戻り値は `(設定, 気づいたことの一覧)`。"""
-    target = _path(path)
+    target = _read_path(path)
     if not target.exists():
         # ★無いのは異常ではありません（まだ触っていないだけ）
         return MissionSettings(), []

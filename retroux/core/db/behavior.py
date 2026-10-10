@@ -5,7 +5,7 @@
   それを画面のコードに書くと、テストのために Qt を起動する必要が出る。
   純粋な関数にしておけば、値だけで検証できる。
 
-出典と根拠は `docs/design/monster-book-spec.md` 3章。
+出典と根拠は `docs/design/ui/dq2-monster-book.md` 3章。
 仕組みは ROM の実コード（`bank4.asm:8078`）から確定し、
 **全82体で公開データと一致**している（`research/probes/archived/solve_actions.py --verify`）。
 """

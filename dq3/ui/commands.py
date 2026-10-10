@@ -26,7 +26,7 @@ import pathlib
 from .. import paths
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-DEFAULT_COMMAND = paths.lazy_work("dq3-command.json")
+DEFAULT_COMMAND = paths.lazy_runtime("dq3-command.json")
 
 #: ★頼めること（⚠ Lua 側が知っている名前と揃えること）
 #:   navigate / nav_stop は街ナビ（RX3-0058 / `dq3/phase0/nav_v0.lua`）

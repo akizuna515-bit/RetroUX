@@ -59,7 +59,7 @@ RetroUX は **3つのプロセス**が**ファイル経由**で会話します�
 | `tests/` | 3,000件超。`uv run pytest`（ROM が要るものは自動 skip） |
 | `work/` | 実行時データ（DB・ログ・状態・生成物）。**消してよい**。Git 管理外 |
 
-## 起動の流れ（`scripts/start-retroux.ps1` / DQ2）
+## 起動の流れ（`DQ2.cmd` → `scripts/start-dq2.ps1` / DQ2）
 
 1. 多重起動チェック → 2. `generate_lua`（YAML→Lua） → 2.5 モンスター絵の初回展開
 → 3. ログ世代 → 4. セーブステート保護を起動 → 5. GUI 起動 → FCEUX 起動（`-lua run.lua`）
@@ -89,7 +89,7 @@ RetroUX は **3つのプロセス**が**ファイル経由**で会話します�
 
 ## 機能を足すときの入口
 
-- **キー割り当て**: `config/keybindings.yaml`＋`Ctrl+K` 設定画面
+- **キー割り当て**: `work/dq2-settings/keybindings.yaml`＋`Ctrl+K` 設定画面（★旧 `config/` は読むだけ）
 - **振る舞いの設定**: `retroux/plugins/dq2/config.yaml`（ゲーム知識）と
   `user_config.example.yaml`（利用者設定）の使い分けに注意
 - **パッドのボタン**: `retroux/application/gamepad.py`（純ロジック）→

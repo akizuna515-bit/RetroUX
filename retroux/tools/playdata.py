@@ -13,13 +13,13 @@
 | 区分 | 中身 | 扱い |
 | --- | --- | --- |
 | ★遊んだ記録 | DB の訪問マス・戦闘・遭遇・遷移・メモ | ★退避して消す |
-| ★遊んだ記録 | `events.jsonl` / `retroux.log` | ★退避して消す |
+| ★遊んだ記録 | `events.jsonl` / `runtime/dq2-log/retroux.log` | ★退避して消す |
 | ★作り直せる | `work/map-assets`（地図の素材） | ★退避して消す |
 | ⚠⚠ **絶対に消さない** | `work/rom/`（ROM） | ⚠ **触らない** |
 | ⚠⚠ **絶対に消さない** | `tools/fceux/fcs/`（**セーブステートの本物**） | ⚠ **触らない** |
 | ⚠⚠ **絶対に消さない** | `work/savestate-backup/`（同・10 世代の控え） | ⚠ **触らない** |
 | ⚠⚠ **絶対に消さない** | `work/map-capture/`（解析の採取） | ⚠ **触らない** |
-| ⚠⚠ **絶対に消さない** | `work/evidence` / `work/dq2-disasm` | ⚠ **触らない** |
+| ⚠⚠ **絶対に消さない** | `work/tests/evidence` / `work/research/dq2-disasm`（★RX3-0494 / 0495 で移動。⚠ 直下には無いので消す対象にもならない） | ⚠ **触らない** |
 | ★残す | DB の `Rom` テーブル（ROM の登録） | ★消さない |
 
 ## ⚠⚠ セーブステートは 2 か所にあります
@@ -69,8 +69,12 @@ import shutil
 import sqlite3
 import sys
 
+from ..core import dq2_paths
+
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORK = PROJECT_ROOT / "work"
+#: ★write_root 側の work/（★Lua が書く events.jsonl と DQ2 のログ / RX-0162）
+WRITE_WORK = dq2_paths.work()
 
 #: ★退避の置き場所
 VAULT = WORK / "playdata-archive"
@@ -86,14 +90,51 @@ DB_PATH = WORK / "retroux.sqlite3"
 #     ⚠ 図鑑の「初」印が出ない
 #     ⚠ 警戒リストが、まだ会っていない敵に効く
 #   ★DB の `EncounteredMonster` は消していたので、**食い違って**いました。
-PLAY_FILES = ("events.jsonl", "retroux.log", "command.json",
+# ★DQ2 のログは runtime/dq2-log/ の中（RX-0149）。⚠ 旧 `work/retroux.log` は DQ3 の控えも書くので触らない
+PLAY_FILES = ("events.jsonl", "runtime/dq2-log/retroux.log", "command.json",
               "state.json", "encountered.txt", "caution.txt")
+#: ★PLAY_FILES のうち write_root 側にあるもの（★Lua の書き先 / RX-0162）。他は program_root 側
+WRITE_ROOT_FILES = ("events.jsonl", "runtime/dq2-log/retroux.log")
+
+
+def play_file(name: str) -> pathlib.Path:
+    """★遊んだ記録のファイルの場所（★events とログは write_root、他は program_root）。"""
+    return (WRITE_WORK if name in WRITE_ROOT_FILES else WORK) / name
 
 #: ★作り直せるディレクトリ（★退避して消す）
 # ⚠⚠ **`generated` は消したあと必ず作り直します**（2026-08-08 に踏んだ）。
 #   ★`memory_map.lua` / `config.lua` は FCEUX 側の Lua が**必ず読む**もので、
 #     無いと**起動できません**。⚠ 「作り直せる」と「作り直した」は別です。
 DERIVED_DIRS = ("map-assets", "generated")
+
+#: ⚠⚠ **DQ3 のもの**（★退避・消去・戻すのどれでも触らない / RX-0148）。
+#   `work/generated/` は DQ2 と DQ3 の共用フォルダで、DQ3 の生成物（`dq3_*.lua` / `dq3-names.json`）もある。
+#   ⚠ 以前はフォルダを丸ごと消して DQ2 の分だけ作り直していた → DQ3 の生成物が消えた（調査 D6）。
+#   ★名前で除く（⚠ DQ2 の分を名前で並べると、増えたときに漏れる / 見張る対象の足し忘れ）。
+FOREIGN_PREFIXES = ("dq3_", "dq3-")
+
+
+def is_foreign(name: str) -> bool:
+    """★DQ3 のもの（DQ2 の playdata が触らない）か。"""
+    return name.casefold().startswith(FOREIGN_PREFIXES)
+
+
+def _ignore_foreign(_dir, names) -> set:
+    """`shutil.copytree` の ignore（★DQ3 のものを写さない）。"""
+    return {n for n in names if is_foreign(n)}
+
+
+def _remove_owned(path: pathlib.Path) -> None:
+    """★DQ2 のものだけ消す。⚠ DQ3 のものは残し、空になったときだけフォルダも消す。"""
+    for child in path.iterdir():
+        if is_foreign(child.name):
+            continue
+        if child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+    if not any(path.iterdir()):
+        path.rmdir()
 
 #: ⚠⚠ **絶対に触らないもの**（★消す対象に入っていないことを試験で見張る）
 NEVER_TOUCH = ("rom", "savestate-backup", "savestate_backup",
@@ -119,12 +160,13 @@ def _stamp() -> str:
 
 
 def _size(path: pathlib.Path) -> int:
-    """★中身の合計バイト数。⚠ 無ければ 0。"""
+    """★中身の合計バイト数。⚠ 無ければ 0。★DQ3 のもの（`is_foreign`）は数えない。"""
     if not path.exists():
         return 0
     if path.is_file():
         return path.stat().st_size
-    return sum(p.stat().st_size for p in path.rglob("*") if p.is_file())
+    return sum(p.stat().st_size for p in path.rglob("*")
+               if p.is_file() and not any(is_foreign(part) for part in p.relative_to(path).parts))
 
 
 def _human(size: int) -> str:
@@ -168,7 +210,7 @@ def survey() -> dict:
         "db": {"path": DB_PATH, "exists": DB_PATH.exists(),
                "size": _size(DB_PATH), "rows": play_rows,
                "keep": {t: counts.get(t) for t in KEEP_TABLES if t in counts}},
-        "files": [(n, WORK / n, _size(WORK / n)) for n in PLAY_FILES],
+        "files": [(n, play_file(n), _size(play_file(n))) for n in PLAY_FILES],
         "dirs": [(n, WORK / n, _size(WORK / n)) for n in DERIVED_DIRS],
         "never": [(n, WORK / n, _size(WORK / n)) for n in NEVER_TOUCH
                   if (WORK / n).exists()],
@@ -201,54 +243,103 @@ def cmd_status() -> int:
 
 # --- ★ 退避 ---------------------------------------------------------------
 
+def _new_target(label: str | None = None) -> pathlib.Path:
+    """★退避先（⚠ 同じ分に 2 回押しても重ねて書かない / RX-0174）。
+
+    ⚠ 以前は `dirs_exist_ok` で**同じフォルダへ重ねて**写していた（★名前が分まで）。
+      → ★既にあれば `-2` `-3` … を足す（⚠ 名前の形は今までと同じなので、一覧・戻すは変わらない）。
+    """
+    base = _stamp() + (f"-{label}" if label else "")
+    target = VAULT / base
+    n = 2
+    while target.exists():
+        target = VAULT / f"{base}-{n}"
+        n += 1
+    return target
+
+
+def backup(label: str | None = None) -> dict:
+    """★退避して結果を返す（★画面とコマンドの両方から使う / RX-0174）。⚠ **何も消しません**。
+
+    戻り値: `{"ok", "target", "saved", "error"}`。⚠ 例外を外へ出さない（★画面が落ちない）。
+    ★DB は sqlite の backup API（★GUI が開いていても安全に写せる）。
+    """
+    info = survey()
+    target = _new_target(label)
+    saved: list = []
+    try:
+        target.mkdir(parents=True, exist_ok=False)
+        if DB_PATH.exists():
+            dest = target / DB_PATH.name
+            try:
+                src = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+                dst = sqlite3.connect(dest)
+                with dst:
+                    src.backup(dst)
+                src.close()
+                dst.close()
+                saved.append(DB_PATH.name)
+            except sqlite3.Error as exc:
+                # ⚠ 黙って続けない。★退避できていないなら clear させない
+                return {"ok": False, "target": target, "saved": saved,
+                        "error": f"DB を写せませんでした: {exc}"}
+        for name_, path, _size_ in info["files"]:
+            if path.exists():
+                # ★`runtime/dq2-log/retroux.log` のようにフォルダの中のものもある（RX-0149）
+                (target / name_).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(path, target / name_)
+                saved.append(name_)
+        for name_, path, _size_ in info["dirs"]:
+            if path.exists():
+                # ★DQ3 のものは写さない（RX-0148）
+                shutil.copytree(path, target / name_, dirs_exist_ok=True,
+                                ignore=_ignore_foreign)
+                saved.append(name_ + "/")
+        (target / "manifest.json").write_bytes(json.dumps({
+            "created": _dt.datetime.now().isoformat(timespec="seconds"),
+            "label": label,
+            "saved": saved,
+            "rows": info["db"]["rows"],
+            "note": "⚠ ROM・セーブステート・採取データは入っていません",
+        }, ensure_ascii=False, indent=1).encode("utf-8"))
+    except OSError as exc:
+        return {"ok": False, "target": target, "saved": saved, "error": f"退避できませんでした: {exc}"}
+    return {"ok": True, "target": target, "saved": saved, "error": None}
+
+
+def latest_backup() -> dict | None:
+    """★最新の退避（★名前の順 = 時刻の順）。⚠ 無ければ None。"""
+    if not VAULT.is_dir():
+        return None
+    entries = sorted(p for p in VAULT.iterdir() if p.is_dir())
+    if not entries:
+        return None
+    path = entries[-1]
+    created = None
+    try:
+        created = json.loads((path / "manifest.json").read_bytes().decode("utf-8")).get("created")
+    except (OSError, ValueError, AttributeError):
+        created = None
+    return {"path": path, "name": path.name, "created": created, "count": len(entries)}
+
+
 def cmd_backup(apply: bool, label: str | None = None) -> int:
     """★退避する。⚠ **何も消しません**。"""
     info = survey()
-    name = _stamp() + (f"-{label}" if label else "")
-    target = VAULT / name
     total = (info["db"]["size"] + sum(s for _, _, s in info["files"])
              + sum(s for _, _, s in info["dirs"]))
 
-    _out(f"★退避先: {target}")
+    _out(f"★退避先: {_new_target(label)}")
     _out(f"  合わせて {_human(total)}")
     if not apply:
         _out("\n⚠ **数えただけです。**実際に退避するには `--apply` を付けてください。")
         return 0
 
-    target.mkdir(parents=True, exist_ok=True)
-    saved = []
-    if DB_PATH.exists():
-        # ★sqlite の backup API を使う（★開いていても安全に写せる）
-        dest = target / DB_PATH.name
-        try:
-            src = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
-            dst = sqlite3.connect(dest)
-            with dst:
-                src.backup(dst)
-            src.close()
-            dst.close()
-            saved.append(DB_PATH.name)
-        except sqlite3.Error as exc:
-            _out(f"  ⚠ DB を写せませんでした: {exc}")
-            # ⚠ 黙って続けない。★退避できていないなら clear させない
-            return 1
-    for name_, path, _size_ in info["files"]:
-        if path.exists():
-            shutil.copy2(path, target / name_)
-            saved.append(name_)
-    for name_, path, _size_ in info["dirs"]:
-        if path.exists():
-            shutil.copytree(path, target / name_, dirs_exist_ok=True)
-            saved.append(name_ + "/")
-
-    (target / "manifest.json").write_bytes(json.dumps({
-        "created": _dt.datetime.now().isoformat(timespec="seconds"),
-        "label": label,
-        "saved": saved,
-        "rows": info["db"]["rows"],
-        "note": "⚠ ROM・セーブステート・採取データは入っていません",
-    }, ensure_ascii=False, indent=1).encode("utf-8"))
-
+    got = backup(label)
+    target, saved = got["target"], got["saved"]
+    if not got["ok"]:
+        _out(f"  ⚠ {got['error']}")
+        return 1
     _out(f"\n★退避しました: {target}")
     for item in saved:
         _out(f"  ★{item}")
@@ -309,8 +400,9 @@ def cmd_clear(apply: bool, label: str | None = None) -> int:
             _out(f"  ★{name} を消しました")
     for name, path, _size_ in survey()["dirs"]:
         if path.exists():
-            shutil.rmtree(path)
-            _out(f"  ★{name}/ を消しました")
+            # ⚠ フォルダを丸ごと消さない（★DQ3 の生成物を残す / RX-0148）
+            _remove_owned(path)
+            _out(f"  ★{name}/ を消しました（★DQ3 のものは残します）")
 
     # ★★ 消したままにしない（2026-08-08 / ⚠ 実際に起動できなくなった）★★
     #   `work/generated/` は「作り直せる」ものですが、
@@ -370,14 +462,17 @@ def cmd_restore(name: str, apply: bool) -> int:
         _out(f"  ★{DB_PATH.name} を戻しました")
     for name_ in PLAY_FILES:
         if (source / name_).exists():
-            shutil.copy2(source / name_, WORK / name_)
+            play_file(name_).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source / name_, play_file(name_))
             _out(f"  ★{name_} を戻しました")
     for name_ in DERIVED_DIRS:
         if (source / name_).is_dir():
             target = WORK / name_
             if target.exists():
-                shutil.rmtree(target)
-            shutil.copytree(source / name_, target)
+                # ⚠ 丸ごと消さない（★DQ3 の生成物を残す / RX-0148）
+                _remove_owned(target)
+            shutil.copytree(source / name_, target, dirs_exist_ok=True,
+                            ignore=_ignore_foreign)
             _out(f"  ★{name_}/ を戻しました")
     _out("\n★戻しました。")
     return 0

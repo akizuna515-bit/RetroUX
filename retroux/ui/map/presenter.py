@@ -122,7 +122,7 @@ class MapPresenter:
     FLOOR_SOURCE = {
         "manual": "あなたが指定した値です（いちばん強い）",
         # ⚠ 2026-08-19: ROM 由来（確か）の根拠文言は**出さない**（依頼者）。
-        #   ★出どころ・時点はデバッグ向けなので docs（map-decoder-evidence.md）へ。
+        #   ★出どころ・時点はデバッグ向けなので docs（260802_dq2-map-decoder-evidence.md）へ。
         #   ⚠ 画面に出す文字列に `**` や `` ` `` を書かないこと（2026-08-09）。
         "binding": "",
         "inferred": "⚠ 上下移動から推定した値です（確かではありません）",
@@ -285,7 +285,7 @@ class MapPresenter:
         #
         #   ⚠⚠ ここは設定を**1度も見ていませんでした**。`config.yaml` の
         #     `map.rom_master` を読む口（`core/bgmap/settings.py`）はあるのに、
-        #     呼んでいたのはテストだけでした（`docs/audit/source-to-doc.md`）。
+        #     呼んでいたのはテストだけでした（`docs/audit/260812_repo-audit/step2-source-to-doc.md`）。
         #   ★`renderer: observed` にすれば、これまでの地図に戻せます。
         #   ⚠ 設定が渡っていない場合は**いまの挙動のまま**（ROM で描く）。
         #     ここで既定へ落として絵を消すと、直したつもりで劣化します。

@@ -38,7 +38,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 #     ★配布 Runtime では道が同じですが、⚠⚠ 検査が `RETROUX_WRITE_ROOT` を
 #       差し替えても**本物の `work/` に書きうる形**でした。
 #   ★`lazy_work` なので、⚠ 使う瞬間に書き先を引き直します（RX3-0342）。
-GRID_DIR = _paths.lazy_work("dq3-nav")
+GRID_DIR = _paths.lazy_runtime("dq3-nav")
 
 #: ★聞き込みで 1 体に許す近づき直しの上限（★Lua 側の上限と揃える。超えたら skip_unreachable_now）
 MAX_APPROACHES = 8

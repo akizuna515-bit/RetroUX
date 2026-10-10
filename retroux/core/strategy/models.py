@@ -1,6 +1,6 @@
 """戦略（利用者が選ぶ唯一の概念）の型（2026-08-10 / UI整理 Phase 2）。
 
-設計は `docs/design/strategy-unification-design.md`。
+設計は `docs/design/battle-ai/dq2-strategy-ui.md`。
 
 ## ★★ 何をする層か
 

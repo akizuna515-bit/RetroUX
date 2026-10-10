@@ -136,7 +136,7 @@ def describe(path) -> dict:
         return out
     exe = ff.find("ffprobe")
     if exe is None:
-        out["why"] = "⚠ ffprobe が見つかりません（★work/tools/ffmpeg か RETROUX_FFMPEG）"
+        out["why"] = "⚠ ffprobe が見つかりません（★work/research/tools/ffmpeg か RETROUX_FFMPEG）"
         return out
     cmd = [str(exe), "-v", "error", "-print_format", "json",
            "-show_format", "-show_streams", str(path)]

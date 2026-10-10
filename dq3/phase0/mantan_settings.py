@@ -1,6 +1,6 @@
 """まんたんの設定 — ★画面で変えた値を、設定ファイルの上に重ねる（RX3-0160 / 2026-09-11）。
 
-★調査（RX3-0158 / `docs/research/dq3-mantan-settings-poc.md` §14）の推奨案です。
+★調査（RX3-0158 / `docs/research/260911_dq3-mantan-settings-poc.md` §14）の推奨案です。
 
 ```text
 config/dq3_phase0.yaml の mantan:          ★既定（人が書く / 註つき / ⚠ 画面は書き換えない）

@@ -2,7 +2,7 @@
 
 ★2026-08-02 に完成しました（`bgmap/dungeon_map.py` / `world_map.py`）。
 ⚠ この文書は **Stop 1' の時点の記録**です。いまの正本は
-  `docs/map-decoder-architecture.md` を見てください。
+  `docs/design/map/dq2-map-decoder.md` を見てください。
 """
 
 from __future__ import annotations

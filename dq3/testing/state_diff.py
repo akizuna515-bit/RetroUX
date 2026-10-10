@@ -14,7 +14,7 @@ diff = compare_state(before, after)
 ## ★どこから読むか
 
 ⚠⚠ Python は FCEUX の RAM を直接読めません。
-★製品（`dev.lua`）が **CONFIRMED の番地だけ**から書いている `work/state.json` を読みます
+★製品（`dev.lua`）が **CONFIRMED の番地だけ**から書いている `work/runtime/state.json` を読みます
 （`dq3rom/profiles/dq3_fc_jp_rev0a.json` の `runtime.party` は `confidence: confirmed`）。
 
 ```text
@@ -48,7 +48,7 @@ from .. import paths
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 #: ★製品が書いている状態（⚠ dev.lua の StateWriter）
-STATE_JSON = paths.lazy_work("state.json")
+STATE_JSON = paths.lazy_runtime("state.json")
 
 #: ★snapshot に入れる項目（⚠ すべて CONFIRMED の番地から来るもの）
 TOP_FIELDS = ("gold", "frame", "loc_kind", "map_id", "map_x", "map_y", "in_battle")

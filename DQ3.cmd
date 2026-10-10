@@ -23,7 +23,8 @@ if not exist "%SCRIPT%" goto :no_script
 
 rem  Hand over to PowerShell without a visible window and return at once.
 rem  From here on, failures are reported by the PowerShell side
-rem  (it shows a message box and writes work\retroux.log).
+rem  (it shows a message box; a DQ3 launcher log is not written yet,
+rem  see RX3-0508 -- this comment used to say work\retroux.log, RX-0155).
 start "" powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden ^
   -File "%SCRIPT%" -Root "%ROOT%" %*
 if errorlevel 1 goto :no_powershell

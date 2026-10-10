@@ -45,7 +45,7 @@ def _sandbox() -> pathlib.Path:
     """★走行ごとの隔離先（`conftest.py` が決める）。"""
     got = os.environ.get("RETROUX_TEST_SANDBOX")
     return pathlib.Path(got) if got else (
-        ROOT / "work" / "_test_sandbox")
+        ROOT / "work" / "tests" / "lua-sandbox")
 
 # ⚠ 隔離先は**走行ごとに変わる**（RX-0114 / 2026-08-30）。
 #   ★`conftest.py` が `RETROUX_TEST_SANDBOX` を立てる。
@@ -64,7 +64,7 @@ def _write_cases() -> list[str]:
     """Python 側の答えを書き出す。★Lua はこれと突き合わせる。"""
     from retroux.core.bgmap import savestate as ss
 
-    (SANDBOX / "dq3-probe").mkdir(parents=True, exist_ok=True)
+    (SANDBOX / "runtime" / "dq3-probe").mkdir(parents=True, exist_ok=True)
     used: list[str] = []
     blocks: list[str] = []
     for name in CASES:
@@ -79,7 +79,7 @@ def _write_cases() -> list[str]:
             f"{name} {scroll.x} {scroll.y} {scroll.nametable}\n"
             f"{ntar.hex()}\n{want.hex()}\n")
         used.append(name)
-    (SANDBOX / "dq3-probe" / "screen_case.txt").write_text(
+    (SANDBOX / "runtime" / "dq3-probe" / "screen_case.txt").write_text(
         "".join(blocks), encoding="utf-8")
     return used
 

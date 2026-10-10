@@ -39,7 +39,7 @@ from .. import battle_count as BC
 from .. import paths
 
 #: ★製品の自動戦闘の記録（⚠ dev.lua が追記する）
-AUTO_LOG = paths.lazy_work("dq3-probe", "auto_v0.log")
+AUTO_LOG = paths.lazy_work("runtime", "dq3-probe", "auto_v0.log")
 
 _START = BC.START
 

@@ -27,6 +27,20 @@ Python と必要なライブラリを同梱しているので、`uv` も `git` �
 （★特に、FCEUX を ZIP のフォルダの中に置いた場合のセーブステートと冒険の書の扱い）。
 ★ZIP の SHA-256 は Release のページに書いてあります。
 
+## ★DQ2 をかんたんに使う（配布 ZIP / Python のインストール不要）
+
+★DQ2 も、[Releases](https://github.com/akizuna515-bit/RetroUX/releases) の
+**配布 ZIP**（`retroux-dq2-<版>-<断面>.zip`）で動きます（★1.2.0 から）。
+
+1. ZIP を書き込める場所へ展開する
+2. ROM と FCEUX を置く（ZIP の中の `PLACE-ROM-HERE.txt` / `PLACE-FCEUX-HERE.txt`）
+3. `DQ2.cmd` をダブルクリック
+
+⚠ 旧い DQ2 のフォルダから移すときは、先に `migrate-dq2.cmd` を使います（**ZIP の中の `README.md`**）。
+⚠ DQ2 と DQ3 は**同時に起動できません**（同じコントローラーを読むため）。
+
+★版とタグは**製品ごと**です（DQ2 は `dq2-vX.Y.Z`、DQ3 は `dq3-vX.Y.Z`。旧タグ `v1.x.x` はそのまま）。
+
 ★ここから下は、**リポジトリを clone して使う方法**（開発・DQ2 を含む）です。
 
 ---
@@ -89,12 +103,17 @@ uv sync
 #    ★遊びたいほうを置きます（両方でも可）
 #      DQ2 → work\rom\DQ2_J.nes    にリネームして置く
 #      DQ3 → work\rom\DQ3_J.nes    にリネームして置く
-#    （DQ2 の別名・別の場所は user_config.yaml の paths.rom で変更できます）
-#    （DQ3 の ROM・FCEUX の別の場所は paths.dq3_rom / paths.fceux で指定できます）
+#    （DQ2 の別名・別の場所は dq2_user_config.yaml の paths.rom で変更できます）
+#    （DQ3 の ROM・FCEUX の別の場所は user_config.yaml の paths.dq3_rom / paths.fceux で指定できます）
+#    （DQ2 の FCEUX の別の場所は dq2_user_config.yaml の paths.fceux で指定できます）
 
-# 5. 設定（任意。★user_config.yaml が無くても既定値で動きます）
+# 5. 設定（任意。★無くても既定値で動きます）
 #    カスタムしたいときだけ、雛形をコピーして編集:
-#      copy user_config.example.yaml user_config.yaml
+#      DQ2 → copy dq2_user_config.example.yaml dq2_user_config.yaml
+#      DQ3 → copy user_config.example.yaml user_config.yaml
+#    ★DQ2 と DQ3 は設定ファイルが別です（2026-10-03）。
+#    ⚠ dq2_user_config.yaml が無いときは、DQ2 は user_config.yaml を読むだけで使います。
+#    以下は DQ2 の例:
 #    例: emulator.window_scale（映像倍率。既定 2 = 2倍。1 で等倍）
 #        gamepad.swap_ab（A/B 入れ替え。既定 true = ファミコン準拠）
 #        shutdown.save_slot（保存/読込スロット。既定 1）
@@ -110,9 +129,11 @@ uv sync
 遊びたいタイトルのランチャーを**ダブルクリック**します。それだけです。
 
 ```text
-RetroUX.cmd   … ドラゴンクエストII
+DQ2.cmd       … ドラゴンクエストII
 DQ3.cmd       … ドラゴンクエストIII
 ```
+
+★以前の `RetroUX.cmd` も 1 リリースだけ使えます（★中で `DQ2.cmd` を呼ぶだけ / 次のマイナー更新で削除予定）。
 
 ★モードや版を選ばせるダイアログは出ません。
 ⚠ 起動の一瞬だけ黒い窓が見えますが、★すぐ消えます（Windows の仕様です）。
@@ -122,8 +143,8 @@ DQ3.cmd       … ドラゴンクエストIII
 
 コンソールを見ながら起動したいとき（DQ2）は:
 
-```text
-Start-RetroUX-Console.cmd
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start-dq2.ps1
 ```
 
 起動すると、設定の反映・世代バックアップの開始・GUI と FCEUX の起動・
@@ -136,7 +157,7 @@ Start-RetroUX-Console.cmd
 | --- | --- | --- |
 | DQ2 | モンスターの絵（図鑑用） | `work\monster-art-rom\` |
 | DQ2 | マップの大きさ表（地図用） | `work\map-data\maps.json` |
-| DQ3 | モンスターの絵（図鑑・戦闘画面用） | `work\dq3-monster-art\` |
+| DQ3 | モンスターの絵（図鑑・戦闘画面用） | `work\cache\dq3-monster-art\` |
 | DQ3 | 名前の辞書（モンスター・道具・呪文・地名） | `work\generated\dq3-names.json` |
 | DQ3 | 戦闘 AI と設定の Lua | `work\generated\` |
 
@@ -188,7 +209,7 @@ RetroUX 固有の操作（`M` `R` `A` `T` `G` はゲーム画面を触りなが�
 | `Enter` / `S` | Start / Select |
 | `P` | セーブステートの**読み込み**（ロード） |
 
-★キー割り当ては `config/keybindings.yaml`（または `Ctrl+K` の設定画面）で変えられます。
+★キー割り当ては `work\dq2-settings\keybindings.yaml`（または `Ctrl+K` の設定画面）で変えられます。以前の版の `config\keybindings.yaml` は、新しい方が無いあいだ読むだけです。
 
 ### ゲームパッド
 
@@ -213,8 +234,9 @@ RetroUX 側で読み取って FCEUX へ渡すため、**FCEUX 本体でパッド
 | X 長押し（戦闘中） | **強制オート ＋ 一時ターボ**（離すと押す前の状態へ戻ります） |
 | LB / RB | **ステート 0** の読込 / 保存（⚠ 番号は 0 固定 / RB はステート 0 を上書きします） |
 
-★DQ3 のコントローラーの設定は DQ3 の［管理］にあります（⚠ `user_config.yaml` の `gamepad:` は DQ2 用）。
-⚠ DQ2 と DQ3 を**同時に起動しないでください**（両方が同じコントローラーを読みます）。
+★DQ3 のコントローラーの設定は DQ3 の［管理］にあります（⚠ `dq2_user_config.yaml` の `gamepad:` は DQ2 用）。
+⚠ DQ2 と DQ3 は**同時には使えません**。片方の起動中にもう片方を起動すると、
+「RetroUX DQ2 が起動中です。DQ2を終了してからRetroUX DQ3を起動してください。」のように理由を出して、何も起動せずに終わります（逆も同じ）。
 
 - ⚠ 動作確認は XBOX(XInput) コントローラです。XInput 非対応のパッドは読めません。
 - ★**戦闘中に X を押しっぱなし**にすると、押している間だけ「強制オート ＋ 倍速」に
@@ -222,7 +244,7 @@ RetroUX 側で読み取って FCEUX へ渡すため、**FCEUX 本体でパッド
   - ⚠ 倍速は**押す前の状態へ戻します**（押す前が ON なら ON のまま）。
   - ⚠ **ボスは対象外**です（既定）。戦闘が終わったとき・パッドを抜いたとき・
     RetroUX を終了したときも必ず解除されます。
-  - ★入るまでの長さは `user_config.yaml` の `gamepad.force_auto_hold_ms`（既定 500ms）。
+  - ★入るまでの長さは `dq2_user_config.yaml` の `gamepad.force_auto_hold_ms`（既定 500ms）。
   - ⚠ 戦闘中の X の**短押し**は何も起きません（長押しに使うため）。
     非戦闘時の X は従来どおり「どうぐや・ふくびき」です。
   - ★キーボードの `A`（入り切りのトグル）はこれまでどおり使えます。
@@ -230,7 +252,7 @@ RetroUX 側で読み取って FCEUX へ渡すため、**FCEUX 本体でパッド
   読んで渡すので、FCEUX 側でも同じパッドを割り当てると**二重入力**になり A と B が
   混ざるなどの誤動作が起きます。FCEUX の Port 1 は**キーボードのまま**でOKです。
 - NES 入力を FCEUX 本体に任せたい場合や、うまく動かないときの切り分け
-  （`inject_nes_input` の切替）は [`docs/60-gamepad-setup.md`](docs/60-gamepad-setup.md) を参照。
+  （`inject_nes_input` の切替）は [`docs/guide/gamepad-setup.md`](docs/guide/gamepad-setup.md) を参照。
 
 ## 主な機能
 
@@ -242,7 +264,7 @@ RetroUX 側で読み取って FCEUX へ渡すため、**FCEUX 本体でパッド
 - **見た地図の可視化**（実際に歩いた範囲・ROM 由来のタイル）
 - **セーブステートの世代バックアップ**（上書きしても直前へ戻せる）
 - **ゲームパッド対応**（XInput / XBOX 系）… 基本操作も独自機能も。詳しくは
-  [`docs/60-gamepad-setup.md`](docs/60-gamepad-setup.md)
+  [`docs/guide/gamepad-setup.md`](docs/guide/gamepad-setup.md)
 
 ### ドラゴンクエストIII
 
@@ -267,9 +289,11 @@ hero-memo / scenario データは、実プレイログおよびゲーム状態�
 
 ## 設定
 
-`user_config.yaml`（`user_config.example.yaml` をコピーして作る）で、
+DQ2 は `dq2_user_config.yaml`（`dq2_user_config.example.yaml` をコピーして作る）で、
 ウィンドウの並び・保存スロット・ゲームパッド・世界地図の見せ方（`map.overworld_view`）などを変えられます。
-項目の説明は `user_config.example.yaml` のコメントを参照してください。
+項目の説明は `dq2_user_config.example.yaml` のコメントを参照してください。
+★DQ3 の設定は `user_config.yaml`（`user_config.example.yaml` をコピー）です（2026-10-03 から別ファイル）。
+⚠ `dq2_user_config.yaml` が無いときは、DQ2 は `user_config.yaml` を読むだけで使います（書き戻しません）。
 
 ★DQ3 の画面の見え方（FCEUX の映像フィルタ）は、DQ3 の［管理］→「画面の見え方」で選びます。
 ⚠ RetroUX は FCEUX を起動する直前に `fceux.cfg` の `winspecial` の行をその選択に書き換えます
@@ -291,7 +315,7 @@ RetroUX の窓の × は RetroUX だけを閉じます（FCEUX は開いたま�
   shutdown:
     save_slot: 2
   ```
-- 上書きしても、直前の内容は**世代バックアップ**（`work/savestate-backup/`）に残るので戻せます。
+- 上書きしても、直前の内容は**世代バックアップ**（DQ2 は `work/runtime/dq2-backup/savestate-backup/`）に残るので戻せます。
 - ★FCEUX 自身のセーブ/ロード（キーボード等）は別系統ですが、同じ番号のファイルを指します。
 
 ---
@@ -305,27 +329,29 @@ RetroUX の窓の × は RetroUX だけを閉じます（FCEUX は開いたま�
 | `work\rom\DQ3_J.nes` | **DQ3 の ROM**（各自で用意し、この名前で配置） |
 | `tools\fceux\fcs\` | **セーブステート**（FCEUX が書き出す先。例 `DQ2_J.fc1`） |
 | `tools\fceux\sav\` | **冒険の書**（バッテリーセーブ。FCEUX が書き出す先） |
-| `work\savestate-backup\` | セーブステートの**世代バックアップ**（上書きしても戻せる） |
+| `work\runtime\dq2-backup\savestate-backup\` | DQ2 のセーブステートの**世代バックアップ**（上書きしても戻せる） |
+| `work\savestate-backup\` | DQ3 のセーブステートの**世代バックアップ**（★2026-10-03 より前は DQ2 の分もここ） |
 | `work\monster-art-rom\` | DQ2 の**モンスターの絵**（初回起動時に ROM から自動展開） |
 | `work\map-data\maps.json` | DQ2 の**マップの大きさ表**（初回起動時に ROM から自動生成） |
-| `work\dq3-monster-art\` | DQ3 の**モンスターの絵**（初回起動時に ROM から自動生成） |
+| `work\cache\dq3-monster-art\` | DQ3 の**モンスターの絵**（初回起動時に ROM から自動生成） |
 | `work\dq3-knowledge\` | DQ3 の**あなたのプレイの記録**（勇者メモ・聞いた話・見た地図） |
 | `work\generated\` | ROM と設定から作る中間データ（名前の辞書・Lua など） |
 | `work\` | 実行時のデータ（DB・ログ・状態ファイル等。消えてよい生成物） |
-| `user_config.yaml` | あなたの設定（`user_config.example.yaml` をコピーして作る） |
-| `scripts\` | 起動スクリプト（`start-retroux.ps1` / `start-dq3.ps1` ほか） |
+| `dq2_user_config.yaml` | DQ2 のあなたの設定（`dq2_user_config.example.yaml` をコピーして作る） |
+| `user_config.yaml` | DQ3 のあなたの設定（`user_config.example.yaml` をコピーして作る） |
+| `scripts\` | 起動スクリプト（`start-dq2.ps1` / `start-dq3.ps1` ほか） |
 | `retroux\` | **アプリ本体のソース**（Python + Lua 連携 / DQ2） |
 | `dq3\` | **DQ3 の画面と戦闘 AI**（Python + Lua） |
 | `dq2rom\` / `dq3rom\` | ROM 解析ツール（Python パッケージ） |
 | `data\dq3\` | DQ3 の解析成果（番地・ID 対応表・升 id → CHR 索引） |
 | `tests\` | テスト |
 
-★セーブステートの保存/読み込みスロットや、ROM・各種パスは `user_config.yaml` で
+★DQ2 のセーブステートの保存/読み込みスロットや、ROM・各種パスは `dq2_user_config.yaml` で
 変えられます（既定は保存スロット 1）。
 
 ⚠⚠ FCEUX を `tools\fceux\` に置いている場合、セーブステート（`fcs\`）と冒険の書（`sav\`）も
 **このフォルダの中**にあります。★フォルダを消す・置き直す前に、`tools\fceux\` を中身ごと退避してください
-（⚠ `work\savestate-backup\` の控えも、このフォルダと一緒に消えます）。
+（⚠ `work\savestate-backup\` と `work\runtime\dq2-backup\` の控えも、このフォルダと一緒に消えます）。
 
 ## 動作確認（任意）
 

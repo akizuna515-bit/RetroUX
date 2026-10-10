@@ -11,7 +11,7 @@
 
 ⚠⚠ **この経路は実測で確かめてあります。** ★依頼者のセーブ 5 本、
 634 升すべてが実機のネームテーブルと一致しました
-（`tests/test_dq3_map_tiles.py` / `docs/research/dq3-map-tiles-report.md`）。
+（`tests/test_dq3_map_tiles.py` / `docs/research/260831_dq3-map-tiles.md`）。
 
 ## ⚠ bit5 の升は「索引 32」
 
@@ -173,7 +173,7 @@ def build(wram: bytes, chr_data: bytes, pram: bytes, *,
 
 
 #: ★実行時の材料の置き場（⚠ `dq3/phase0/map_art.lua` が書く）
-RUNTIME_DIR = "work/dq3-probe"
+RUNTIME_DIR = "work/runtime/dq3-probe"
 RUNTIME_JSON, RUNTIME_BIN = "map_art.json", "map_art.bin"
 
 
@@ -265,8 +265,8 @@ def from_runtime(base=None, *, group=None) -> RuntimeArt | None:
       `None` を返し、画面は色ブロックのままにします（指示書 §1）。
 
     ```text
-    work/dq3-probe/map_art.json   ★小さい情報（⚠ 毎回書かれる）
-    work/dq3-probe/map_art.bin    ⚠ CHR 8KB（★変わったときだけ）
+    work/runtime/dq3-probe/map_art.json   ★小さい情報（⚠ 毎回書かれる）
+    work/runtime/dq3-probe/map_art.bin    ⚠ CHR 8KB（★変わったときだけ）
     ```
     """
     import json

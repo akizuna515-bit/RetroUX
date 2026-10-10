@@ -22,7 +22,7 @@
 ★`.ps1` を**実行していません**（このセッションでは PowerShell の起動が
 許可規則で止まります）。⚠ ここで見ているのは
 **順番を決めているデータ**と**各 launcher が resolver を呼んでいること**です。
-→ ★実行の確認は `work/_rx0473_resolver_check.ps1` を人が 1 度回してください。
+→ ★実行の確認は `scripts/dq3_python_resolver_check.ps1` を人が 1 度回してください。
 """
 from __future__ import annotations
 
@@ -35,8 +35,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 COMMON = ROOT / "scripts" / "launcher-common.ps1"
 
 #: ★配布物に入る launcher（⚠ ここに Python の判定をコピーしないこと）
-LAUNCHERS = ("scripts/start-dq3.ps1", "scripts/start-retroux.ps1",
-             "scripts/start.ps1", "scripts/launcher-common.ps1")
+LAUNCHERS = ("scripts/start-dq3.ps1", "scripts/start-dq2.ps1",
+             "scripts/launcher-common.ps1")  # ★旧 start.ps1 は start-dq2.ps1 へ（RX-0154）
 
 
 def read(rel) -> str:
@@ -107,7 +107,7 @@ def test_launcherが判定をコピーしていない(rel: str) -> None:
         "（★Get-RetroUXPython を使ってください）:\n" + "\n".join(hits))
 
 
-@pytest.mark.parametrize("rel", ("scripts/start-dq3.ps1", "scripts/start-retroux.ps1"))
+@pytest.mark.parametrize("rel", ("scripts/start-dq3.ps1", "scripts/start-dq2.ps1"))
 def test_launcherがresolverを呼んでいる(rel: str) -> None:
     """⚠ 関数が正しくても、★呼ばれていなければ意味がない。"""
     text = read(rel)

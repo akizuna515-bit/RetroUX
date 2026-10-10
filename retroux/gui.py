@@ -25,17 +25,17 @@ from pathlib import Path
 
 import yaml
 
-from .core import enemy_tables
+from .core import dq2_paths, enemy_tables
 from .core import rom as rom_mod
 from .core import text as text_mod
-from .core.config import user_config as user_config_mod
+from .core.config import dq2_user_config as user_config_mod  # ★DQ2 専用の設定（RX-0147）
 from .core.db.database import Database
 from .core.console import say
 from .core.logging_setup import get_logger, setup_logging
-from .core.recorder import Recorder, rotate_events
+from .core.recorder import MAIN_STREAM, Recorder, rotate_events
 from .core.single_instance import AlreadyRunningError, RecorderLock
 from .ui.view_model import ViewModel
-from .version import VERSION
+from .core.dq2_version import VERSION  # ★DQ2 の製品の版（RX-0160 / ⚠ [project].version は DQ3）
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_DIR = PROJECT_ROOT / "retroux" / "plugins" / "dq2"
@@ -154,7 +154,7 @@ def _build_map_render(config: dict):
     ⚠⚠ **これまで誰も呼んでいませんでした。** `core/bgmap/settings.py` は
       あったのに、呼んでいたのは `tests/test_map_settings.py` だけで、
       `config.yaml` の `map.rom_master` 6項目は**書いても無視**でした
-      （`docs/audit/source-to-doc.md` の 2 / P0-01 と同じ形）。
+      （`docs/audit/260812_repo-audit/step2-source-to-doc.md` の 2 / P0-01 と同じ形）。
 
     ★直した点や、まだ効かない項目は**必ずログに出します**。
       ⚠ 黙って無視するのが、いちばん原因を追いにくい壊れ方です。
@@ -309,7 +309,7 @@ def read_only_because(lock, read_only: bool) -> str | None:
     """閲覧専用なら「誰が記録役か」の1行。⚠ 分からなければ None（RX-0064）。
 
     ★★ **決めたのが誰であれ調べる**（2026-08-22）★★
-      ⚠ 閲覧専用にするか決めているのは `start-retroux.ps1` のほうで、GUI には
+      ⚠ 閲覧専用にするか決めているのは `start-dq2.ps1` のほうで、GUI には
         最初から `--read-only` が渡ってくる。★ロックの取得に失敗した経路
         （`AlreadyRunningError`）だけを見ていたので、実機では**1行も出なかった**。
     ⚠ ロックが空（誰も握っていない）なら None。`--read-only` を人が明示した
@@ -364,7 +364,8 @@ def build_view_model(rom_arg: str | None = None, *,
     #   ★世代交代と取り込み位置のリセットは `rotate_events` が対で行います。
     _rot_log = get_logger("record")
     try:
-        rotation = rotate_events(db, user_cfg.path("events"))
+        # ★RX-0162: Lua と同じ write_root の正本 / ★RX-0163: 鍵は論理 ID（フォルダを動かしても続きから）
+        rotation = rotate_events(db, dq2_paths.events(), stream=MAIN_STREAM)
         if rotation.rotated:
             _rot_log.info("%s", rotation.message())
         else:
@@ -376,9 +377,13 @@ def build_view_model(rom_arg: str | None = None, *,
     recorder = Recorder(
         db=db,
         rom_hash=info.prg_sha256,
-        events_path=user_cfg.path("events"),
+        events_path=dq2_paths.events(),
         command_path=user_cfg.path("command"),
+        stream=MAIN_STREAM,
     )
+    if recorder.hold:
+        # ★止めた理由は画面の警告にも出る（Recorder.add_warning）。⚠ 記録にも残す
+        _rot_log.warning("記録の取り込みを止めました: %s", recorder.hold)
 
     # boss_monster_ids が空なら、Lua からの警告を待たずに GUI へ出す。
     # 起動直後から見えていないと安全機構として意味がない（DEV-8）。
@@ -513,6 +518,15 @@ def main(argv: list[str] | None = None) -> int:
     for warning in cfg_warnings:
         log.warning(warning)
 
+    # ★★ 製品間排他（RX-0152 / 依頼者 2026-10-03「DQ2 / DQ3 の同時起動はサポートしない」）★★
+    #   ★DQ3 が動いていたら、理由を出して**何も始めずに**終わる（記録・窓・控えに触らない）。
+    #   ★握った Mutex はプロセスの終わりまで持つ（⚠ 解放は OS 任せ = 異常終了でも残骸にならない）。
+    from .core import product_lock
+
+    product = product_lock.guard("DQ2", log=log)
+    if product is None:
+        return 1
+
     try:
         read_only = args.read_only
         read_only_reason = None
@@ -521,7 +535,7 @@ def main(argv: list[str] | None = None) -> int:
         # ★★ ⚠⚠ **`--read-only` で来たときも理由を調べる**（2026-08-22 / RX-0064）★★
         #
         #   ⚠ 実機で「何も変わらない」と報告された。原因は、閲覧専用にするか決めて
-        #     いるのが **起動スクリプト（`start-retroux.ps1`）** のほうで、
+        #     いるのが **起動スクリプト（`start-dq2.ps1`）** のほうで、
         #     GUI には最初から `--read-only` が渡ってくること。
         #     ★下の `except AlreadyRunningError` は**通らない**ので、
         #       せっかくの「記録役は誰か」がどこにも出なかった。
@@ -606,6 +620,8 @@ def main(argv: list[str] | None = None) -> int:
             # ★Lua も同じファイルへ書く。ファイルを追えば両方が時系列で並ぶ。
             log_path=user_cfg.path("log"),
             names_config=user_cfg.names,
+            # ★終了時に自分が立てた控えだけを止めるための札（RX-0143）
+            session=args.session,
         )
         window.show()
         # ★★ 前回開いていた窓を開き直す（2026-08-09 / 依頼者の指示）★★

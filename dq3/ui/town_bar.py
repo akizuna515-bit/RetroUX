@@ -567,7 +567,7 @@ class TownNavController:
           ★以前は「A は押さない」（指示書 §4）でした。★補充（RX3-0119）と同じ `talk=True, close=False` にし、
           ★店員・宿の人の窓を開けたまま人へ返します（⚠ 閉じると B が「いいえ」になる）。
 
-        ⚠⚠ 2026-09-13 依頼者の小WI（RX3-0241 / `docs/design/dq3-facility-stop-spec.md`）:
+        ⚠⚠ 2026-09-13 依頼者の小WI（RX3-0241 / `docs/requests/260913_dq3-facility-stop.md`）:
           ★施設の人の**最初の台詞**で高速化を解き（Lua）、速度・音を開始前へ戻す（`_note_first_message`）。
           ★宿屋は泊まるかの問いに はい まで / 道具屋・武器防具屋・教会は最初の台詞で止める（⚠ 用途は選ばない）。
         """
@@ -977,7 +977,7 @@ class TownNavController:
     #
     #   ⚠⚠ 経路を探す側は鍵つきの扉を「開けられる」と知っている（RX3-0078）のに、
     #     歩く側が開け方を知らず、**扉に突っ込んで「通れず」**になっていました。
-    #   ★実機で通った手順（`docs/research/dq3-door-key-hearing.md`）:
+    #   ★実機で通った手順（`docs/research/260911_dq3-door-key-hearing.md`）:
     #
     #     1 扉の手前まで歩き、扉を向く（★nav / talk=0）
     #     2 どうぐ → 鍵の持ち主 → 鍵 → つかう（★item_use_v0 / 画面で名前を探して押す）

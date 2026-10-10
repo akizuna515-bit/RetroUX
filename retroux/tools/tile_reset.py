@@ -141,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
             _out(busy)
             return 1
 
-    from ..core.config import user_config as user_config_mod
+    from ..core.config import dq2_user_config as user_config_mod  # ★DQ2 専用の設定（RX-0147）
 
     user_cfg, _warn = user_config_mod.load(args.config)
     db_path = user_cfg.path("db")

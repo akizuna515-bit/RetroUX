@@ -42,6 +42,7 @@ def app():
 WINDOWS = [
     ("retroux.ui.keybinding_window", "KeybindingWindow"),
     ("retroux.ui.mantan_settings_window", "MantanSettingsWindow"),
+    ("retroux.ui.admin_window", "AdminWindow"),      # ★管理画面（RX-0171）
 ]
 
 

@@ -13,8 +13,8 @@
 ## ★読むもの
 
 ```text
-work/dq3-probe/battle_ai_run/<日時>/report.md   ★AI の理由ログが入っている
-work/dq3-probe/battle_ai_run/<日時>/fixture.json ★使った fixture（id / sha256）
+work/runtime/dq3-probe/battle_ai_run/<日時>/report.md   ★AI の理由ログが入っている
+work/runtime/dq3-probe/battle_ai_run/<日時>/fixture.json ★使った fixture（id / sha256）
 ```
 
 ## 使い方
@@ -37,7 +37,7 @@ import sys
 from . import settings as S
 from .. import paths as P3
 
-RUN_DIR = P3.work("dq3-probe", "battle_ai_run")
+RUN_DIR = P3.work("runtime", "dq3-probe", "battle_ai_run")
 
 #: ★見たい分岐（⚠ ここに無いものは「その他」に入る）
 SITUATIONS = ("消化戦", "優勢", "均衡", "劣勢")

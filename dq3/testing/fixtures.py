@@ -9,7 +9,7 @@
 ## ★形
 
 ```text
-work/test-fixtures/dq3/
+work/tests/fixtures/dq3/
   fixtures.json                     ★台帳（id / 由来 / sha256 / 期待する状態）
   states/<id>.fcs                   ★セーブステートの実体（⚠ WRITE 禁止）
 ```
@@ -73,7 +73,7 @@ from .. import paths
 
 ROOT = paths.ROOT
 #: ★固定のテスト入力（⚠ ここは本番と同じく WRITE 禁止。`sandbox.production_files()` が見張る）
-DIR = ROOT / "work" / "test-fixtures" / "dq3"
+DIR = ROOT / "work" / "tests" / "fixtures" / "dq3"
 STATES = DIR / "states"
 MANIFEST = DIR / "fixtures.json"
 

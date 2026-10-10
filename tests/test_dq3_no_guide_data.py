@@ -18,7 +18,10 @@ data/dq3/topic-rules.csv            ★その機械可読版
 - 勇者会議は、★人が書いた勇者メモ（`data/dq3/hero-memo.yaml`）で動く
   （⚠ 2026-09-27 / RX3-0432 までは「自然に無効化される」だった）
 
-を守ります。⚠ 「壊れている」のと「無い」のは違います（★壊れていたら今までどおり止めます）。
+を守ります。
+
+★2026-10-03（RX3-0432）: 旧 2 表を読む口そのものを消しました（★表も依頼者が削除）。
+⚠ 公開物の除外（manifest）は**歯止めとして残します**（★誰かが戻しても公開されない）。
 """
 from __future__ import annotations
 
@@ -32,42 +35,19 @@ from dq3.knowledge import guide_master as GM
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
-# ------------------------------------------------ ★無いときの読み込み
-def test_正本が無ければNoneを返す(tmp_path: pathlib.Path) -> None:
-    assert GM.resolve_path(tmp_path / "無い.csv") is None
-
-
-def test_正本が無ければ空のTopicになる(tmp_path: pathlib.Path) -> None:
-    """⚠ 例外にしない（★無いのは環境であって事故ではない）。"""
-    assert G.load_master(tmp_path / "無い.csv") == {}
-
-
-def test_規則が無ければ空の一覧になる(tmp_path: pathlib.Path) -> None:
-    assert G.load_rules(tmp_path / "無い.csv") == []
-
-
-def test_無いときstrictFalseなら例外にせず理由を残す(tmp_path: pathlib.Path) -> None:
-    """⚠⚠ 2026-09-28（RX3-0455）: ★壊す実験で**この道だけ鳴りませんでした**。
-
-    ★「無くても落ちない」と文書に書いたのに、⚠ `strict=False` で正本が無い場合を
-    **誰も見ていませんでした**（→ ★`return GuideMaster({}, None, (), problems)` を
-    `raise` に書き換えても検査は緑のまま）。
-
-    ⚠ 「黙って空」も困ります（★なぜ空なのかが分からない）。
-    → ★空で返しつつ、⚠ **理由を `problems` に残す**ところまでを固定します。
-    """
-    got = GM.load(tmp_path / "無い.csv", strict=False)
-    assert got.topics == {}, "⚠ 無いのに Topic がある"
-    assert got.path is None, "⚠ 読めていないのに path が付いている"
-    assert got.problems, "⚠⚠ 黙って空にした（★なぜ空かが分からない）"
-    assert any("ありません" in p for p in got.problems), got.problems
-
-
-def test_両方無くてもTopicBookは作れる(tmp_path: pathlib.Path) -> None:
-    book = G.TopicBook(master=G.load_master(tmp_path / "無い1.csv"),
-                       rules=G.load_rules(tmp_path / "無い2.csv"))
-    assert book.rules == []
+# ------------------------------------------------ ★旧 2 表を読む口が無い（RX3-0432）
+def test_TopicBookは正本を省くと空で_旧2表を読まない(tmp_path: pathlib.Path) -> None:
+    """⚠⚠ 2026-10-03 まで、省くと**黙って旧 2 表を読んで**いた（★検査 15 件がそれに頼っていた）。"""
+    book = G.TopicBook(path=tmp_path / "s.json")
+    assert book.master == {} and book.rules == []
     assert book.head_candidate() is None
+
+
+def test_旧2表を読む口が無い() -> None:
+    for name in ("load_master", "load_rules", "MASTER_PATH", "RULES_PATH"):
+        assert not hasattr(G, name), "⚠⚠ 旧 2 表を読む口が戻っている: guide.%s" % name
+    for name in ("load", "resolve_path", "OFFICIAL_PATH", "DRAFT_PATH", "CANDIDATE_PATHS"):
+        assert not hasattr(GM, name), "⚠⚠ 旧 2 表を読む口が戻っている: guide_master.%s" % name
 
 
 # ------------------------------------------------ ★勇者会議の無効化
@@ -89,18 +69,8 @@ def test_攻略データが無くても勇者メモがあれば会議を出す(t
 
     memo = tmp_path / "hero-memo.yaml"
     memo.write_bytes(b"schema_version: 1\nleads: []\n")
-    monkeypatch.setattr(GM, "CANDIDATE_PATHS", (tmp_path / "無い.csv",))
     monkeypatch.setattr(HM, "DEFAULT_PATH", memo)
     assert MemoPanel._guide_available() is True
-
-
-# ------------------------------------------------ ★壊れているのは別
-def test_壊れていたら今までどおり止める(tmp_path: pathlib.Path) -> None:
-    """⚠ 「無い」を許したせいで「壊れている」まで見逃さないこと。"""
-    broken = tmp_path / "壊れ.csv"
-    broken.write_text("topic_id,title\n,,\n", encoding="utf-8", newline="")
-    with pytest.raises(GM.GuideMasterError):
-        GM.load(broken, strict=True)
 
 
 # ------------------------------------------------ ★公開物に混ざらない

@@ -476,7 +476,7 @@ end
 --- ★★ 生存優先: 回復が来るまで防御して耐える（RX3-0412 / 依頼者 §8〜§19）。
 --
 --   ⚠⚠ **2026-09-23 に変更前のコードを実機観測して分かったこと**
---     （`work/dq3-probe/field_sampler/20260923-171140`）:
+--     （`work/runtime/dq3-probe/field_sampler/20260923-171140`）:
 --
 --   ```text
 --   ① ⚠ 既存の防御は `defend_kinds = {disadvantage, even}` → ★優勢・消化戦では出ない

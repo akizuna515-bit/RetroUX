@@ -1,6 +1,6 @@
 """SQLite の永続化層。
 
-スキーマは docs/design/mvp1-spec.md §4 に準拠。
+スキーマは docs/design/ui/dq2-mvp1-spec.md §4 に準拠。
 `rom_hash` は PRG-only SHA-256（DEV-10、retroux/core/rom.py 参照）。
 """
 
@@ -88,11 +88,16 @@ CREATE TABLE IF NOT EXISTS BattleEvent (
 CREATE INDEX IF NOT EXISTS ix_battle_event_battle
     ON BattleEvent(battle_id, turn_no, sequence_no);
 
+-- ★source は鍵。DQ2 の主 events は論理 ID `dq2:events:main`（RX-0163）。
+--   ⚠ 以前は events の絶対パスで、フォルダを動かすと先頭から取り込み直した（二重の記録）。
+--   tail_sig は取り込み済みの末尾（offset の手前）の署名、path は最後に読んだ場所（★診断用。鍵ではない）。
 CREATE TABLE IF NOT EXISTS IngestState (
     source     TEXT PRIMARY KEY,
     offset     INTEGER NOT NULL,
     head_sig   TEXT,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    tail_sig   TEXT,
+    path       TEXT
 );
 
 -- 歩いたマス（2026-07-29 / 地図）。
@@ -325,9 +330,14 @@ class Database:
             db.register_rom(...)
     """
 
+    #: ★新しく作った DB に記録する data schema（PRAGMA user_version / RX-0157）。
+    #:   ⚠ 正本は `work/dq2-data.json`（`retroux/core/dq2_data.py`）。旧版の DB は 0 のまま（★ここでは上げない）
+    DATA_SCHEMA = 1
+
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        fresh = not self.path.exists()
         self._conn = sqlite3.connect(self.path)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
@@ -345,6 +355,9 @@ class Database:
         self._conn.execute("PRAGMA synchronous = NORMAL")
         self._conn.executescript(SCHEMA)
         self._migrate()
+        if fresh:
+            # ★新しい DB だけ。⚠ 既にある DB の版は移行（retroux/migration）が上げる
+            self._conn.execute(f"PRAGMA user_version = {int(self.DATA_SCHEMA)}")
         self._bulk_depth = 0
         self._conn.commit()
 
@@ -372,6 +385,9 @@ class Database:
         ("VisitedTile", "confidence", "TEXT"),
         # ★どの状態で採ったか。⚠ FIELD_IDLE 以外は正式保存しない（§6.2）
         ("VisitedTile", "source_state", "TEXT"),
+        # ★取り込み済みの末尾の署名と、最後に読んだ場所（RX-0163）
+        ("IngestState", "tail_sig", "TEXT"),
+        ("IngestState", "path", "TEXT"),
     ]
 
     def _migrate(self) -> None:
@@ -696,21 +712,37 @@ class Database:
 
     def get_ingest_state(self, source: str) -> tuple[int, str | None]:
         """(次に読む位置, ファイル先頭の署名) を返す。未記録なら (0, None)。"""
-        row = self._conn.execute(
-            "SELECT offset, head_sig FROM IngestState WHERE source = ?", (source,)
-        ).fetchone()
+        row = self.get_ingest_row(source)
         if not row:
             return 0, None
         return int(row["offset"]), row["head_sig"]
 
+    def get_ingest_row(self, source: str):
+        """★1 行まるごと（offset / head_sig / tail_sig / path）。無ければ None。"""
+        return self._conn.execute(
+            "SELECT source, offset, head_sig, tail_sig, path FROM IngestState WHERE source = ?",
+            (source,)).fetchone()
+
+    def ingest_sources(self) -> list[str]:
+        return [r[0] for r in self._conn.execute("SELECT source FROM IngestState ORDER BY source")]
+
+    def rename_ingest_source(self, old: str, new: str) -> None:
+        """★鍵だけ付け替える（★旧版の絶対パスの行 → 論理 ID / RX-0163）。⚠ 新しい鍵の行があれば止める。"""
+        if self.get_ingest_row(new) is not None:
+            raise ValueError(f"IngestState に {new} の行が既にあります")
+        self._conn.execute("UPDATE IngestState SET source = ? WHERE source = ?", (new, old))
+        self._commit()
+
     def set_ingest_state(self, source: str, offset: int,
-                         head_sig: str | None = None) -> None:
+                         head_sig: str | None = None, *,
+                         tail_sig: str | None = None, path: str | None = None) -> None:
         self._conn.execute(
-            "INSERT INTO IngestState(source, offset, head_sig, updated_at)"
-            " VALUES (?,?,?,?)"
+            "INSERT INTO IngestState(source, offset, head_sig, updated_at, tail_sig, path)"
+            " VALUES (?,?,?,?,?,?)"
             " ON CONFLICT(source) DO UPDATE SET offset = excluded.offset,"
-            " head_sig = excluded.head_sig, updated_at = excluded.updated_at",
-            (source, int(offset), head_sig, _now()),
+            " head_sig = excluded.head_sig, updated_at = excluded.updated_at,"
+            " tail_sig = excluded.tail_sig, path = excluded.path",
+            (source, int(offset), head_sig, _now(), tail_sig, path),
         )
         self._commit()
 

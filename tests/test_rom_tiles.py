@@ -163,7 +163,7 @@ def test_答え合わせの数字を出す(capsys):
         lines.append(f"  {mark} {name} map ${map_id:02X}: "
                      f"{names} -> {rate:.1%}")
     lines.append("  100% でないものは、マップごとに載る部分が未解明です。")
-    report = PROJECT_ROOT / "work" / "rom_tiles_check.txt"
+    report = PROJECT_ROOT / "work" / "tests" / "out" / "rom_tiles_check.txt"   # ★RX3-0495
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text("\n".join(lines), encoding="utf-8")
 
@@ -216,7 +216,7 @@ PALETTE_TABLE = 0x0FBBC
 #: 1件 13 バイト（共通色1 + 3色×4組）。
 #: ⚠ NES が描画に使わない $3F04/$3F08/$3F0C を省いた形
 PALETTE_RECORD = 13
-#: マップヘッダ表（既知 / docs/rom-analysis-notes.md 4章）
+#: マップヘッダ表（既知 / docs/research/260801_dq2rom-notes.md 4章）
 MAP_HEADER = 0x08000
 MAP_HEADER_SIZE = 8
 

@@ -5,6 +5,7 @@ shipped   配布 ZIP が持っている        ⚠ 新しい版で丸ごと入�
 user      利用者のもの                 ⚠⚠ 配布物に**入れない** / 版を上げても引き継ぐ
 derived   作り直せるもの               ★引き継がない（⚠ 新しい版で作り直す）
 dev       開発機と検査だけのもの       ⚠ 配布物にも引き継ぎにも出てこない
+dq2       DQ2 のもの                   ⚠⚠ DQ3 は触らない（★引き継がない・消さない / RX3-0506）
 ```
 
 ## ⚠⚠ なぜ 1 か所なのか
@@ -52,6 +53,8 @@ from dq3 import paths as P3
 KIND_USER = "user"
 KIND_DERIVED = "derived"
 KIND_DEV = "dev"
+#: ⚠⚠ 別の製品（DQ2）のもの。★DQ3 は**写さず・消さず・作り直しもしない**（RX3-0506）
+KIND_DQ2 = "dq2"
 
 #: ★引き継ぐのはこれだけ（⚠ `derived` と `dev` は引き継がない）
 MIGRATED_KINDS = (KIND_USER,)
@@ -149,26 +152,20 @@ USER_DATA: tuple[Owned, ...] = (
 DERIVED: tuple[Owned, ...] = (
     Owned("work/generated", KIND_DERIVED,
           "★設定 Lua（⚠ 起動のたびに作る）"),
-    Owned("work/dq3-monster-art", KIND_DERIVED,
-          "★ROM から起こした絵（⚠ 139 枚 / 0.42 秒で作り直せる / 2026-10-01 実測）"),
-    Owned("work/dq3-nav", KIND_DERIVED,
-          "★経路の格子（⚠ ROM から作れる）"),
-    Owned("work/dq3-log", KIND_DERIVED,
-          "★製品の記録（⚠ 起動ごとに増える）"),
-    Owned("work/dq3-probe", KIND_DERIVED,
-          "★実測の記録（⚠ 画面が読むが、無くても動く）"),
+    # ★RX3-0496: 作り直せる派生物の区分（⚠ 中身は dq3-monster-art/・dq3-world-model/）
+    #   dq3-monster-art = ROM から起こした絵（⚠ 139 枚 / 0.42 秒で作り直せる / 2026-10-01 実測）
+    Owned("work/cache", KIND_DERIVED,
+          "★作り直せる派生物（⚠ ROM から起こした絵・世界のモデル）"),
+    # ★RX3-0493: 起動のたびに書くものの区分（⚠ 中身は `paths.runtime(...)` を通る）
+    #   dq3-log/（製品の記録）・dq3-nav/（経路の格子）・dq3-command.json・dq3-gamepad.txt・state.json（IPC）
+    #   dq3-probe/（実測の記録 / ⚠ 画面が読むが、無くても動く）
+    Owned("work/runtime", KIND_DERIVED,
+          "★起動のたびに書くもの（⚠ IPC・製品の記録・経路の格子・実測の記録 / 作り直せる）"),
     Owned("work/retroux.log*", KIND_DERIVED,
           "★記録（⚠ `RotatingFileHandler` が世代を作る）"),
-    Owned("work/retroux.sqlite3*", KIND_DERIVED,
-          "★戦闘の記録 DB（⚠ DQ2 由来 / 作り直せる）"),
-    Owned("work/events.jsonl", KIND_DERIVED, "★出来事の記録"),
-    Owned("work/events-*.jsonl", KIND_DERIVED, "★出来事の記録（⚠ 世代）"),
     Owned("work/state.json", KIND_DERIVED,
-          "⚠ IPC（★動いている間だけ意味がある）"),
+          "⚠ IPC（★DQ2 の bridge.lua が書く / ⚠ DQ3 は work/runtime/state.json / RX3-0493）"),
     Owned("work/state_test.json", KIND_DERIVED, "⚠ IPC の見本"),
-    Owned("work/dq3-command.json", KIND_DERIVED, "⚠ IPC（★画面 → Lua）"),
-    Owned("work/dq3-gamepad.txt", KIND_DERIVED,
-          "⚠ IPC（★パッドのゲーム入力 / 画面 → Lua / RX3-0486）"),
     Owned("work/command.json", KIND_DERIVED, "⚠ IPC（★DQ2 由来）"),
     Owned("work/*.status.json", KIND_DERIVED, "⚠ 動いている印"),
     Owned("work/*.lock", KIND_DERIVED, "⚠ 動いている印"),
@@ -188,20 +185,52 @@ DERIVED: tuple[Owned, ...] = (
 # ----------------------------------------------------------------------
 
 DEV_ONLY: tuple[Owned, ...] = (
-    Owned("work/evidence", KIND_DEV, "★実機確認の証跡（⚠ 検査と調査だけ）"),
-    Owned("work/dq3-evidence", KIND_DEV, "★実機確認の証跡（⚠ 旧名）"),
-    Owned("work/test-fixtures", KIND_DEV, "★検査の材料"),
-    Owned("work/test-savestates", KIND_DEV, "★検査の材料（セーブ）"),
-    Owned("work/test-sandbox", KIND_DEV, "★検査の隔離先"),
-    Owned("work/_test_sandbox", KIND_DEV, "★Lua の検査の隔離先（`conftest.py`）"),
-    Owned("work/tools", KIND_DEV, "★開発機に落とした道具（⚠ ffmpeg など）"),
+    # ★RX3-0495: 検査の材料・隔離先・証跡は work/tests/ の下
+    #   fixtures/・savestates/・sandbox/・lua-sandbox/・evidence/・dq3-evidence/・art_test/
+    Owned("work/tests", KIND_DEV, "★検査の材料・隔離先・実機確認の証跡"),
+    # ★RX3-0494 / 0495: 調査の素材と道具（ffmpeg は research/tools/）
+    Owned("work/research", KIND_DEV, "★調査の素材・道具の出力・開発機に落とした道具"),
     Owned("work/release", KIND_DEV, "★配布物を作る作業場（⚠ `build_runtime.py`）"),
     Owned("work/dq3-location-todo.csv", KIND_DEV,
           "★人が表へ貼る下書き（⚠ `scripts/dq3_location_todo.py`）"),
     Owned("work/art-*", KIND_DEV, "★記事用の切り出し（⚠ `scripts/dq3_shots.py`）"),
 )
 
-ALL_ENTRIES: tuple[Owned, ...] = USER_DATA + DERIVED + DEV_ONLY
+# ----------------------------------------------------------------------
+# ★★ dq2 — ⚠⚠ DQ2 のもの（★DQ3 は触らない）★★
+#
+#   ⚠ 以前は `retroux.sqlite3*` / `events*.jsonl` を `derived`（作り直せる）に
+#     入れていました（RX3-0506）。★DQ2 の DB は遊んだ地図・戦闘・図鑑・人のメモを持つ
+#     **作り直せない**データです。⚠ DQ3 から見ても「消してよいもの」ではありません。
+#   ★DQ3 の引き継ぎは写しません（⚠ DQ2 は `migrate-dq2.cmd` が写す）。
+# ----------------------------------------------------------------------
+
+DQ2_OWNED: tuple[Owned, ...] = (
+    Owned("work/retroux.sqlite3*", KIND_DQ2,
+          "⚠⚠ DQ2 の記録 DB（遊んだ地図・戦闘・図鑑・人のメモ / 作り直せない）"),
+    Owned("work/events.jsonl", KIND_DQ2,
+          "⚠ DQ2 の出来事の記録（★取り込み前のぶんは DB と組）"),
+    Owned("work/events-*.jsonl", KIND_DQ2, "⚠ DQ2 の出来事の記録（世代）"),
+    Owned("work/encountered.txt", KIND_DQ2,
+          "⚠ DQ2 の会った敵の控え（★DB と組）"),
+    Owned("work/caution.txt", KIND_DQ2, "⚠ DQ2 の警戒の控え（★DB と組）"),
+)
+
+ALL_ENTRIES: tuple[Owned, ...] = USER_DATA + DERIVED + DEV_ONLY + DQ2_OWNED
+
+#: ⚠⚠ DQ3 と DQ2 が**同じフォルダを共用**している置き場（★中身を名前で分ける / RX3-0507）
+#:   work/savestate-backup/  DQ2_J.* と DQ3_J.* の控えが同居する
+#:   work/rom/               DQ2_J.nes と DQ3_J.nes が同居しうる
+#:   work/playdata-archive/  DQ2 は <日時> 、DQ3 は dq3-<日時> と seen-*.json
+SHARED_WITH_DQ2 = ("work/savestate-backup", "work/rom", "work/playdata-archive")
+
+#: ★DQ2 のものと分かる名前の頭（⚠ `retroux/core/dq2_ownership.py` の DQ3 側と対）
+DQ2_NAME_PREFIXES = ("dq2_", "dq2-")
+
+#: ★DQ2 の playdata-archive の名前（`retroux/tools/playdata.py` の `_stamp()` = `yyyymmdd-HHMM[-label][-n]`）
+#:   ⚠ DQ3 は `dq3-<日時>` なので**重ならない**。★迷うもの（名前が読めない）は DQ3 側 = **写す**
+#:   （⚠ 「分からないものを落とす」より「余分に写す」ほうが害が小さい）
+DQ2_ARCHIVE_RE = re.compile(r"^\d{8}-\d{4}(?:-.*)?$")
 
 # ----------------------------------------------------------------------
 # ★★ user override（案 A）— ⚠ shipped で配るのに、人が書き換えるもの ★★
@@ -264,6 +293,33 @@ def entry_for(rel) -> Owned | None:
         if _matches(rel, entry.rel):
             return entry
     return None
+
+
+def is_dq2_owned(rel) -> bool:
+    """⚠⚠ DQ2 のものか（★DQ3 の引き継ぎは**写さない** / RX3-0506・0507）。
+
+    ```text
+    work/retroux.sqlite3                 ★DQ2 の DB（`DQ2_OWNED`）
+    work/savestate-backup/DQ2_J.fc0/...  ★共用の置き場の中で DQ2 の名前
+    work/rom/DQ2_J.nes                   ★同上
+    work/playdata-archive/20261003-1200  ★DQ2 の退避（日時だけの名前）
+    work/savestate-backup/DQ3_J.fc1...   ⚠ DQ3 のもの（False）
+    ```
+
+    ⚠ 判定できないものは **False（= DQ3 のもの扱い）** です。
+      ★誤って DQ3 のデータを落とすより、DQ2 のものを余分に写すほうが害が小さい。
+    """
+    got = _norm(rel)
+    if classify(got) == KIND_DQ2:
+        return True
+    for container in SHARED_WITH_DQ2:
+        if got == container or not got.startswith(container + "/"):
+            continue
+        child = got[len(container) + 1:].split("/", 1)[0]
+        if container == "work/playdata-archive":
+            return bool(DQ2_ARCHIVE_RE.match(child))
+        return child.casefold().startswith(DQ2_NAME_PREFIXES)
+    return False
 
 
 def classify(rel) -> str | None:
@@ -595,6 +651,7 @@ def main(argv=None) -> int:
 
     if args.list:
         for kind, title in ((KIND_USER, "★user（引き継ぐ / ⚠ 配布物に入れない）"),
+                            (KIND_DQ2, "⚠⚠ dq2（DQ2 のもの / DQ3 は触らない・写さない）"),
                             (KIND_DERIVED, "★derived（引き継がない / 作り直せる）"),
                             (KIND_DEV, "⚠ dev（配布も引き継ぎもしない）")):
             print(title)
@@ -619,9 +676,10 @@ def main(argv=None) -> int:
 
 
 __all__ = [
-    "KIND_USER", "KIND_DERIVED", "KIND_DEV", "MIGRATED_KINDS",
+    "KIND_USER", "KIND_DERIVED", "KIND_DEV", "KIND_DQ2", "MIGRATED_KINDS",
     "Owned", "Override",
-    "USER_DATA", "DERIVED", "DEV_ONLY", "ALL_ENTRIES", "USER_OVERRIDE",
+    "USER_DATA", "DERIVED", "DEV_ONLY", "DQ2_OWNED", "ALL_ENTRIES", "USER_OVERRIDE",
+    "SHARED_WITH_DQ2", "is_dq2_owned",
     "BASELINE_NAME", "INCOMPLETE_NAME",
     "entry_for", "classify", "entries_of", "labels_of",
     "paths_of", "user_data_paths", "derived_paths", "user_evidence_paths",

@@ -1,6 +1,6 @@
 """戦略（利用者が選ぶ唯一の概念 / 2026-08-10 / UI整理 Phase 2）。
 
-設計: `docs/design/strategy-unification-design.md`
+設計: `docs/design/battle-ai/dq2-strategy-ui.md`
 
 ★この層は UI・Lua とも配線済みです（Phase 3・4 完了）。
   UI: `ui/strategy_detail_window.py` `ui/view_model.py` / Lua: `command.json` 経由。

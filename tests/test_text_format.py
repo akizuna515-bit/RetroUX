@@ -238,7 +238,8 @@ def test_起動まわりはcp932のまま(files):
 
     ★`.gitattributes` の表を、実ファイルでも守れているか見ます。
     """
-    for rel in ("RetroUX.vbs", "Start-RetroUX-Console.cmd"):
+    # ⚠ 2026-10-03（RX-0153）: RetroUX.vbs・Start-RetroUX-Console.cmd は削除。★残る cp932 の起動まわりは backup.cmd
+    for rel in ("scripts/backup.cmd",):
         p = PROJECT_ROOT / rel
         if not p.exists():
             continue

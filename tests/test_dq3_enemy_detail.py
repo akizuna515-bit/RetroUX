@@ -373,7 +373,7 @@ def test_139体すべて解ける(detail):
 NA_ATTACK_SPELLS = (0x00, 0x01, 0x02, 0x09,            # BLAZE BLAZEMORE BLAZEMOST ICEBOLT
                     0x03, 0x04, 0x08, 0x0A, 0x0B,      # FIREBAL FIREBANE EXPLODET SNOWBLAST SNOWSTORM
                     0x0D, 0x0E, 0x0F)                  # INFERNOS INFERMORE INFERMOST
-DISASM = ROOT / "work" / "dq3-disasm" / "disassembly"
+DISASM = ROOT / "work" / "research" / "dq3-disasm" / "disassembly"
 
 
 @pytest.fixture(scope="module")
@@ -434,7 +434,7 @@ def test_攻撃呪文の表は裏が取れたときだけ引く():
 def test_北米版の表と注釈は同じ並び():
     """★手で写した `NA_ATTACK_SPELLS` の裏取り: 逆アセンブルの表と `MOVE_NAMES` の「★注釈」。
 
-    ⚠ 逆アセンブル（`work/dq3-disasm/`）が無い環境では skip します。
+    ⚠ 逆アセンブル（`work/research/dq3-disasm/`）が無い環境では skip します。
     """
     import re
 

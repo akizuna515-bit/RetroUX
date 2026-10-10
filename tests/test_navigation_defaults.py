@@ -1,6 +1,6 @@
 """通常歩行の学習をやめたことを固定する（製品版ログ整理 Phase 4 / 指示書 §12・§16）。
 
-## ★ なぜやめたか（実測 / `docs/audit/log-inventory.md`）
+## ★ なぜやめたか（実測 / `docs/audit/260813_log-cleanup/inventory.md`）
 
     MapEdge              2,117 行   ← 通常歩行で「通れた」
     MapBlockedDirection    496 行   ← 通常歩行で「進めなかった」
@@ -9,7 +9,7 @@
     MapTransition          346 行   ← ★ROM からは作れない（これは残す）
 
 ⚠ 通常歩行の学習が、残すべき遷移の **234 倍**。
-★しかも中身は **ROM に最初から入っている**（`docs/design/navigation-passability.md`）。
+★しかも中身は **ROM に最初から入っている**（`docs/design/map/dq2-navigation-passability.md`）。
 
 ## ⚠⚠ ここで見ていること
 

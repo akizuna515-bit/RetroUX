@@ -31,7 +31,7 @@ TARGET = ROOT / "dq3" / "phase0" / "auto_v0.lua"
 DLL = ROOT / "tools" / "fceux" / "lua5.1.dll"
 #: ⚠⚠ 2026-09-17（RX3-0280）: ここは `tools/fceux/fcs/DQ3_J.fc2` を**番号で名指し**していた（★依頼者の本物のセーブ）。
 #:   依頼者が撮り直して fc2 が町の画面になり、足場は「▶ が無い」で落ち、⚠ rc ≠ 0 → skip が 11 件を 10 日間隠した。
-#:   → ★`work/test-savestates/` から**中身で**選ぶ（`RX3-0028` / まんたんの足場と同じ）
+#:   → ★`work/tests/savestates/` から**中身で**選ぶ（`RX3-0028` / まんたんの足場と同じ）
 def _state() -> pathlib.Path:
     from dq3_states import BATTLE_COMMAND, one
     return one(BATTLE_COMMAND)
@@ -40,7 +40,7 @@ def _sandbox() -> pathlib.Path:
     """★走行ごとの隔離先（`conftest.py` が決める）。"""
     got = os.environ.get("RETROUX_TEST_SANDBOX")
     return pathlib.Path(got) if got else (
-        ROOT / "work" / "_test_sandbox")
+        ROOT / "work" / "tests" / "lua-sandbox")
 
 # ⚠ 隔離先は**走行ごとに変わる**（RX-0114 / 2026-08-30）。
 #   ★`conftest.py` が `RETROUX_TEST_SANDBOX` を立てる。
@@ -60,22 +60,22 @@ def _prepare() -> None:
     from dq3.phase0.generate_lua import build, write_lua
 
     write_lua(build())                                   # ⚠ 生成し忘れ防止
-    (SANDBOX / "dq3-probe").mkdir(parents=True, exist_ok=True)
-    (SANDBOX / "dq3-probe" / "auto_v0.log").write_text("", encoding="utf-8")
+    (SANDBOX / "runtime" / "dq3-probe").mkdir(parents=True, exist_ok=True)
+    (SANDBOX / "runtime" / "dq3-probe" / "auto_v0.log").write_text("", encoding="utf-8")
     from dq3rom import ppu
 
     state = ss.load(_state())
     # ★画面と RAM は**同じセーブステート**から取る。
     #   ⚠ 別々にすると、名前が食い違って「誰の手番か」が決まらない（実際に踏んだ）。
     ram = state.chunks["RAM"]
-    (SANDBOX / "dq3-probe" / "ram.txt").write_text(
+    (SANDBOX / "runtime" / "dq3-probe" / "ram.txt").write_text(
         "\n".join(f"{0x0700 + i:04X} {ram[0x0700 + i]:02X}"
                   for i in range(0x100)) + "\n", encoding="utf-8")
     # ★スクロールを反映した画面（⚠ 生の 1 面では、スクロールしたセーブで ▶ の位置がずれる / まんたんの足場と同じ）
     nt = ppu.screen_of(state.chunks)
     lines = [" ".join(f"{b:02X}" for b in nt[y * 32:(y + 1) * 32])
              for y in range(30)]
-    (SANDBOX / "dq3-probe" / "nametable.txt").write_text(
+    (SANDBOX / "runtime" / "dq3-probe" / "nametable.txt").write_text(
         "\n".join(lines) + "\n", encoding="utf-8")
 
     # ★★ 実機で撮った「ぼうぎょ が無い」窓（RX3-0020 / 2026-08-30）。
@@ -86,7 +86,7 @@ def _prepare() -> None:
     rows = [ln for ln in real.read_text(encoding="utf-8").splitlines()
             if ln and not ln.startswith("#")]
     assert len(rows) == 30, "⚠ 実データが 30 行ではない: %d" % len(rows)
-    (SANDBOX / "dq3-probe" / "no_defend.txt").write_text(
+    (SANDBOX / "runtime" / "dq3-probe" / "no_defend.txt").write_text(
         NEWLINE.join(rows) + NEWLINE, encoding="utf-8")
 
 
@@ -116,7 +116,7 @@ def test_OKが全部出ている(result):
 
 def test_ログに行動が残る(result):
     """★あとで解析に使う（指示書 §7）。⚠ ログのために複雑にはしない。"""
-    log = (SANDBOX / "dq3-probe" / "auto_v0.log").read_text(encoding="utf-8")
+    log = (SANDBOX / "runtime" / "dq3-probe" / "auto_v0.log").read_text(encoding="utf-8")
     # ⚠⚠ 2026-09-24（RX3-0429 / P-17）: `turn=` は**本当のターン数**になり、
     #   ★行動の通し番号は `act=` へ移しました（⚠ 以前は turn= が通し番号でした）。
     assert "AUTO_V0 turn=1 act=1 slot=p1 action=attack" in log, log
@@ -127,7 +127,7 @@ def test_ログに行動が残る(result):
 def test_行動の数え直しがfinishに入っている():
     """⚠⚠ 戦闘の終わりで **0 に戻す**（RX3-0153 / 2026-09-10 実測で発覚）。
 
-    ★実測（直す前 / `work/dq3-probe/auto_v0.log`）:
+    ★実測（直す前 / `work/runtime/dq3-probe/auto_v0.log`）:
 
     ```text
     AUTO_V0_DONE 戦闘が終わった（…） turns=8
@@ -258,7 +258,7 @@ def test_コマンド窓の印は点滅しない(result):
     """★★ ⚠⚠ 2026-08-30 実機で分かったこと（RX3-0020）。
 
     ⚠ 「▶ は点滅する」を**画面全部に当てはめたのが誤り**だった。
-    `work/dq3-probe/ppu_trace.txt` を数え直すと、はっきり分かれる::
+    `work/runtime/dq3-probe/ppu_trace.txt` を数え直すと、はっきり分かれる::
 
         $2289 (9,20)   72×24 / 00×20  ★点滅している（呪文の一覧）
         $228D (13,20)  72×16 / 00×16  ★点滅している（対象）
@@ -284,7 +284,7 @@ def test_窓に無いコマンドはfallbackへ落とす(result):
 
     ⚠⚠ **「ぼうぎょ」は窓に無いことがある。**
 
-    実機で撮った戦闘画面 123 枚（`work/dq3-probe/auto_v0_screens.txt`）の
+    実機で撮った戦闘画面 123 枚（`work/runtime/dq3-probe/auto_v0_screens.txt`）の
     うち、窓が描き終わっている 24 枚を数えると::
 
         19 枚  たたかう / じゅもん / にげる / どうぐ   ⚠⚠ ぼうぎょ が無い
@@ -305,7 +305,7 @@ def test_窓に無いコマンドはfallbackへ落とす(result):
 def test_2列の一覧でも目当ての呪文まで辿り着く(result):
     """★★ RX3-0020（2026-08-30）: ⚠ 呪文の一覧は **2 列**ある。
 
-    実測（`work/dq3-probe/ppu_trace.txt`）。同じ y=20 の行に::
+    実測（`work/runtime/dq3-probe/ppu_trace.txt`）。同じ y=20 の行に::
 
         $2289 = (9,20)   ★左の列
         $228D = (13,20)  ★右の列
@@ -344,7 +344,7 @@ def test_ターボになることを動かして確かめている(result):
     """★依頼者「ターボ化」（2026-08-26）／「T でターボ戦闘オンオフ」（08-27）。
 
     ⚠ Lua から出せるのは **normal と turbo だけ**。★150% や 200% のような段階は
-    メニューの `WM_COMMAND` が要る（`docs/research/fceux-speed-control.md`）。
+    メニューの `WM_COMMAND` が要る（`docs/research/260826_fceux-speed-control.md`）。
 
     ⚠⚠ **止まったときに戻すこと**が要。★ターボのままだと人が操作できない。
     """

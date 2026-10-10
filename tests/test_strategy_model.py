@@ -1,6 +1,6 @@
 """戦略の型と移行（2026-08-10 / UI整理 Phase 2）。
 
-設計: docs/design/strategy-unification-design.md
+設計: docs/design/battle-ai/dq2-strategy-ui.md
 
 ★★ ここで固定すること ★★
   ・4戦略と種別（AUTO/FIXED/MANUAL）の対応

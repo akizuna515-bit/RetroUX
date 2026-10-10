@@ -128,9 +128,15 @@ class KeybindingWindow(QWidget):
                 QMessageBox.StandardButton.No)
             if answer != QMessageBox.StandardButton.Yes:
                 return
+        source = self._read_source()
         try:
-            text = self._path.read_text(encoding="utf-8")
+            text = source.read_text(encoding="utf-8")
             note = ""
+            if source != self._path:
+                # ★旧の置き場を読んだ（RX-0156）。⚠ 書き戻さない = 保存は新しい場所へ
+                note = (f"★旧の {source} を読みました。\n"
+                        f"  [保存して反映] を押すと {self._path} に書きます"
+                        "（⚠ 旧のファイルは書き換えません）。")
         except OSError:
             text = kb.default_text()
             note = ("★まだ設定ファイルがありません。既定値を出しています。\n"
@@ -232,14 +238,18 @@ class KeybindingWindow(QWidget):
         try:
             if not self._path.exists():
                 self._path.parent.mkdir(parents=True, exist_ok=True)
-                self._path.write_text(kb.default_text(), encoding="utf-8")
+                # ★旧の置き場にあれば、その中身で作る（RX-0156 / ⚠ 旧は書き換えない）
+                source = self._read_source()
+                first = (source.read_text(encoding="utf-8")
+                         if source != self._path else kb.default_text())
+                self._path.write_text(first, encoding="utf-8")
                 self._saved_text = self._path.read_text(encoding="utf-8")
                 self._editor.setPlainText(self._saved_text)
             # ★★ OS のアプリを起こすのは `WindowManager`（リファクタ §5.2）★★
             #   ⚠ ここから `subprocess` を呼ばない。コンソールを出さない旗も
             #     あちらが持つ（付け忘れると黒い窓が一瞬出る / R-1 の経緯）。
             from .window_manager import WindowManager
-            from ..core.config import user_config as ucfg
+            from ..core.config import dq2_user_config as ucfg  # ★DQ2 専用の設定（RX-0147）
             problem = WindowManager(lambda: ucfg.load()[0]).open_with_default_app(
                 self._path)
             if problem is not None:
@@ -255,6 +265,12 @@ class KeybindingWindow(QWidget):
 
     @property
     def path(self) -> pathlib.Path:
+        return self._path
+
+    def _read_source(self) -> pathlib.Path:
+        """★読む場所。既定の置き場なら、新しい方が無いとき旧 `config/` を読む（RX-0156）。"""
+        if self._path == kb.USER_PATH:
+            return kb.read_path()
         return self._path
 
     def set_text(self, text: str) -> None:

@@ -6,7 +6,7 @@
 ⚠ 「通常 NPC はとりあえず全部はい」を、★あとから誰かが書けないようにする
 ```
 
-★調べた結果（`docs/research/dq3-conversation-choice-analysis.md`）:
+★調べた結果（`docs/research/260908_dq3-conversation-choice.md`）:
 
 ```text
 1 ふつうの情報 NPC（message 系）は、⚠ **そもそも選択肢を出さない**

@@ -230,12 +230,14 @@ def test_実行開始時の概要に方針が出る():
 
 
 def test_保存先は既存の規則に合わせてある():
-    """★`config/layout.yaml` `config/keybindings.yaml` と同じ場所。
+    """★キーバインド・大目的と同じ場所。
 
     ⚠ 指示書 §3.1 は `user/manten.yaml` を推しているが、
       「既存のユーザー設定ディレクトリ規則があれば、それに合わせること」
-      とも書いてある。★このプロジェクトの規則は `config/*.yaml`。
+      とも書いてある。★このプロジェクトの規則は、もとは `config/*.yaml`。
+    ★2026-10-03（RX-0156）: 利用者設定は write_root 側の `work/dq2-settings/*.yaml` へ移した
+      （⚠ 旧 `config/mantan.yaml` は読むだけ）。
     """
     from retroux.core.mantan import USER_PATH
     parts = pathlib.Path(USER_PATH).parts
-    assert parts[-2:] == ("config", "mantan.yaml"), USER_PATH
+    assert parts[-3:] == ("work", "dq2-settings", "mantan.yaml"), USER_PATH

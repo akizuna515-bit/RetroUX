@@ -94,7 +94,7 @@ def test_掃除はしない(tmp_path):
 
 # --- ⚠ 実機で「何も変わらない」と言われた件（2026-08-22 / RX-0064）------------
 #
-# ★閲覧専用にするか決めているのは起動スクリプト（start-retroux.ps1）のほうで、
+# ★閲覧専用にするか決めているのは起動スクリプト（start-dq2.ps1）のほうで、
 #   GUI には最初から `--read-only` が渡ってくる。⚠ ロック取得の失敗経路だけを
 #   見ていたので、**理由が1行も出なかった**。決めたのが誰であれ調べる。
 
@@ -127,7 +127,7 @@ def test_誰も握っていなければ理由を作らない(tmp_path):
 def test_起動スクリプトが記録役を出している():
     """⚠ 道具を作っただけで呼んでいない、をやらない（★今回まさにそれだった）。"""
     src = (pathlib.Path(__file__).resolve().parents[1]
-           / "scripts" / "start-retroux.ps1").read_bytes().decode("utf-8")
+           / "scripts" / "start-dq2.ps1").read_bytes().decode("utf-8")
     assert '"status", "--who"' in src, "★起動スクリプトが実際に呼んでいること"
     assert "記録役: " in src
 
@@ -139,7 +139,7 @@ def test_起動スクリプトが記録役を出している():
 
 def _launcher_text() -> str:
     return (pathlib.Path(__file__).resolve().parents[1]
-            / "scripts" / "start-retroux.ps1").read_bytes().decode("utf-8-sig")
+            / "scripts" / "start-dq2.ps1").read_bytes().decode("utf-8-sig")
 
 
 def test_記録役が居たら閲覧専用で開かずに止める():

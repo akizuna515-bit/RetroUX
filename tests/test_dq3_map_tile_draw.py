@@ -308,6 +308,33 @@ def test_同じ場所では作り直さない():
     assert len(art.asked) == 回数, "⚠⚠ 同じ場所なのに作り直している"
 
 
+@pytest.mark.parametrize("follow, at", [
+    (True, (1, 9, 10, 10)),               # ★いつもの窓（町）
+    (False, (1, 9, 10, 10)),              # ★地図を見る画面（町）
+    (False, (0, 0, 10, 10)),              # ★地図を見る画面（世界地図 / ⚠ 居場所を鍵に入れない道）
+])
+def test_材料が後から届いたら立ち止まったままでも作り直す(follow, at):
+    """⚠⚠ RX3-0428: セーブを読んだ直後の色ブロックが、★立ち止まっている間ずっと残っていた。
+
+    ★材料（絵・実機の升）は地図が変わった後に届く（`map_art.lua`）。
+    ⚠ 鍵に材料が無いと、勇者が動くまで**描き直されません**（★RX3-0427 の撮影が 2 回とも単色）。
+    """
+    canvas = _canvas([(10, 10)], at=at, art=None, runtime=None, follow=follow)
+    image, _at = canvas._image_now()
+    assert canvas._tiled() is False and image.width() < CELL * 2, "⚠ 前提: まず色ブロック"
+    art = _Art([3])
+    canvas.vm.tile_art = art                                   # ★材料が届いた（⚠ 同じ升に立ったまま）
+    canvas.vm.tile_art_runtime = _Runtime(at[0], at[1], 20, 20, 3)
+    image, _at = canvas._image_now()
+    assert canvas._tiled() is True, "⚠⚠ 材料が届いたのに色ブロックのまま（RX3-0428）"
+    assert image.width() % CELL == 0 and image.width() >= CELL, (
+        "⚠ タイルの大きさになっていない（幅 %d）" % image.width())
+    回数 = len(art.asked)
+    for _ in range(5):
+        canvas._image_now()
+    assert len(art.asked) == 回数, "⚠⚠ 材料を鍵に入れたら、変わらないのに毎回作り直している"
+
+
 # --- ⚠⚠ 現在地の印（★2026-09-01 のキャプチャで左上に固まった）--------------
 
 def test_現在地の印は升の大きさで置く():

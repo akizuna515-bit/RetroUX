@@ -141,7 +141,7 @@ def test_E_無い名前は理由をつけて断る():
 def test_fixtureは本番と同じく見張られている():
     """⚠⚠ fixture 自体も WRITE 禁止（★`sandbox` の見張りに入っていること）。"""
     guarded = [str(p) for p in SB.production_files(ROOT)]
-    assert any("test-fixtures" in p for p in guarded), "⚠ fixture が見張りの外にある"
+    assert any("work/tests/fixtures" in p.replace(chr(92), "/") for p in guarded), "⚠ fixture が見張りの外にある"
 
 
 def test_実機のrunnerは名前でfixtureを指定できる():

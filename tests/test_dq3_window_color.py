@@ -118,7 +118,7 @@ def test_セーブの窓の色は決まりどおり():
 
     paths = _savestates()
     if not paths:
-        pytest.skip("⚠ fixture のセーブが無い環境（work/test-fixtures/dq3/states）")
+        pytest.skip("⚠ fixture のセーブが無い環境（work/tests/fixtures/dq3/states）")
     rt = _runtime()
     addr = _hex(rt["window_color"]["address"])
     bad, seen = [], {}

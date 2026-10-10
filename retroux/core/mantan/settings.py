@@ -4,7 +4,7 @@
 
     retroux/plugins/dq2/config.yaml の `mantan`   ゲームの知識（同梱）
       ↓ 書いてある項目だけ上書き
-    config/mantan.yaml                            利用者の設定（各自）
+    work/dq2-settings/mantan.yaml                 利用者の設定（各自 / ★RX-0156 で config/ から移した）
       ↓
     実行時のまんたん方針
 
@@ -17,6 +17,8 @@
 
   `config/layout.yaml` と `config/keybindings.yaml` がその形なので、
   新しい `user/` を作らず **`config/mantan.yaml`** に揃えます。
+  ★2026-10-03（RX-0156）: 利用者設定はまとめて write_root 側の `work/dq2-settings/` へ移しました
+  （⚠ program 側の `config/` は Portable では「プログラムの中」。旧は読むだけ）。
 
 ## ⚠⚠ **設定が壊れていても RetroUX は起動できること**（指示書 §4.2）
 
@@ -30,8 +32,13 @@ from __future__ import annotations
 import dataclasses
 import pathlib
 
+from .. import dq2_paths
+
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[3]
-USER_PATH = PROJECT_ROOT / "config" / "mantan.yaml"
+#: ★2026-10-03（RX-0156）: 利用者の設定は write_root 側（`work/dq2-settings/mantan.yaml`）
+USER_PATH = dq2_paths.setting("mantan.yaml")
+#: ⚠ 旧の置き場（`config/mantan.yaml`）。★新しい方が無いときだけ読む・書き戻さない
+LEGACY_PATH = dq2_paths.legacy_setting("mantan.yaml")
 
 #: この版が読める形。★上げるときは移行のしかたも一緒に決める。
 SCHEMA_VERSION = 1
@@ -120,7 +127,7 @@ class MantanSettings:
         return self.target_hp_percent / 100
 
     def to_yaml_dict(self) -> dict:
-        """`config/mantan.yaml` に書く形（指示書 §3.2）。"""
+        """利用者の設定ファイルに書く形（指示書 §3.2）。"""
         return {
             "schema_version": SCHEMA_VERSION,
             "target_hp_percent": self.target_hp_percent,

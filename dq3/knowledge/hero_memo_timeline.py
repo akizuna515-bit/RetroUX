@@ -170,7 +170,7 @@ def _condition_text(rule: G.Rule) -> str:
 
 def replay(topics: dict, rules: list, facts: list[dict], clocks: dict[str, Clock]) -> dict[str, CardTimeline]:
     """★古い順に 1 つずつ当て、見えた・片づいた瞬間を記録する（⚠ 状態はメモリの中だけ）。"""
-    # ⚠ 画面（`Council(use_hero_memo=True)`）と同じ見せ方で再生する（★`require_appear`）
+    # ⚠ 画面（`Council`）と同じ見せ方で再生する（★`require_appear`）
     book = G.TopicBook(master=topics, rules=rules, path=pathlib.Path("__replay_never_saved__"),
                        require_appear=True)
     got = {tid: CardTimeline(topic_id=tid) for tid in topics}

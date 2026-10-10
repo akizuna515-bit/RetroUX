@@ -26,8 +26,8 @@ collision 0x05 / 0x06               → ★歩けるが HP が減る（2 / 15）
 ## ★成果物（指示書 §5）
 
 ```text
-work/dq3-probe/passability/map_009.json   ★1 升 1 行（x / y / tile / collision / rom_class / confidence）
-work/dq3-probe/passability/map_009.txt    ★Lua が読む 1 升 1 文字（P / B / S / D / C）
+work/runtime/dq3-probe/passability/map_009.json   ★1 升 1 行（x / y / tile / collision / rom_class / confidence）
+work/runtime/dq3-probe/passability/map_009.txt    ★Lua が読む 1 升 1 文字（P / B / S / D / C）
 ```
 """
 
@@ -40,7 +40,7 @@ import pathlib
 from .. import paths
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-OUT_DIR = paths.lazy_work("dq3-probe", "passability")
+OUT_DIR = paths.lazy_work("runtime", "dq3-probe", "passability")
 
 #: ★分類の語（⚠ 指示書 §2 の並び）
 PASS, BLOCK, DOOR, CHEST, SPECIAL, UNKNOWN = "PASS", "BLOCK", "DOOR", "CHEST", "SPECIAL", "UNKNOWN"

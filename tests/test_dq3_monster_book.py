@@ -475,7 +475,7 @@ def test_図鑑が無くても落ちない(app):
 
 @needs_rom
 def test_中身が増えても窓は大きくならない(app):
-    """⚠⚠ `docs/design/dq3-ui-v0.md`「窓の大きさを中身で変えない」。"""
+    """⚠⚠ `docs/design/ui/dq3-ui-v0.md`「窓の大きさを中身で変えない」。"""
     from dq3.ui.monster_book_window import Dq3MonsterBookWindow
 
     win = Dq3MonsterBookWindow(_VM(_book(met=(0,), defeated=(0,))))
@@ -583,7 +583,7 @@ def test_絵が枠いっぱいに拡大される(app):
     #
     #   ⚠ 以前は `monster_art.path_of()` を直に呼び、無ければ skip していました。
     #     ⚠⚠ そのころ `ART_DIR` は `program_root` 基準で、★**依頼者の本物の
-    #       `work/dq3-monster-art/` を読んでいました**（= 隔離をすり抜けていた）。
+    #       `work/cache/dq3-monster-art/` を読んでいました**（= 隔離をすり抜けていた）。
     #   ★`lazy_work` に寄せたので、いまは隔離先を見ます。⚠ そこには絵が無いので、
     #     そのままだと**この検査は永久に skip** になります（★「まっさらな環境の緑」）。
     #   → ★だから作ります。⚠ 実測 **139 枚 / 0.42 秒**なので待ち時間になりません。

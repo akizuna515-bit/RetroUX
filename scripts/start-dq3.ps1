@@ -93,6 +93,20 @@ if (-not $python) {
 }
 if (-not $pythonw) { $pythonw = $python }
 
+# ★展開先が深すぎれば、何も始めずに理由を出して止める（RX3-0517 / ⚠ 深いと Qt が黙って止まる）
+$depthProblem = Get-RetroUXDepthProblem -Python $python -Root $Root
+if ($depthProblem) {
+    Fail $depthProblem
+}
+
+# ★★ 製品間排他（RX3-0505 / 依頼者 2026-10-03「DQ2 / DQ3 の同時起動はサポートしない」）★★
+#   ★DQ2 が動いていたら、設定・引き継ぎ・控え・FCEUX・画面の**どれも始めずに**理由を出して終わる。
+#   ★ここは「早めに断る」ための 1 回目（⚠ 引き継ぎの窓を出す前）。
+#   ★本当の判定は控えを起こす直前（下の 1. の前）で、起動の順番待ちを取ってからもう一度行う。
+#   ⚠ FCEUX の有無では決めない（★他の用途の FCEUX・前回の残りを「DQ2 が起動中」と誤らない）。
+$otherProduct = Get-RetroUXOtherProduct -Me "DQ3"
+if ($otherProduct) { Fail (Get-RetroUXBusyMessage -Me "DQ3" -Other $otherProduct) }
+
 # ★Lua 側が既定値に頼らないよう、場所を環境変数で渡す
 #   ⚠ ROM / FCEUX の場所を聞く**前**に立てる（★書き先の判断に使う）
 $env:RETROUX_ROOT = $Root
@@ -172,13 +186,13 @@ if (-not $NoMigrateOffer) {
             Fail "引き継ぎが一部しか終わらなかったので、起動しません。" (
                 "★引き継ぎの窓に出た内容を確かめてください。`n" +
                 "⚠ 旧版のフォルダはそのまま残っています。`n`n" +
-                "★記録: " + (Join-Path $Root "work\dq3-log\migration.log"))
+                "★記録: " + (Join-Path $Root "work\runtime\dq3-log\migration.log"))
         }
         14 {
             Fail "引き継ぎに失敗したので、起動しません。" (
                 "★引き継ぎの窓に出た内容を確かめてください。`n" +
                 "⚠ 旧版のフォルダはそのまま残っています（★1 バイトも変えていません）。`n`n" +
-                "★記録: " + (Join-Path $Root "work\dq3-log\migration.log"))
+                "★記録: " + (Join-Path $Root "work\runtime\dq3-log\migration.log"))
         }
         default {
             # ⚠⚠ **黙って通常起動へ進めません**（★何が起きたか分からないまま
@@ -238,11 +252,24 @@ if (-not $SkipGenerate) {
 }
 
 # --- 1.5 モンスターの絵（初回のみ ROM から作る / RX3-0431）------------
-# ★clone しただけの環境には work/dq3-monster-art が無く、図鑑と戦闘画面で絵が出ない。
+# ★clone しただけの環境には work/cache/dq3-monster-art が無く、図鑑と戦闘画面で絵が出ない。
 #   そろっていれば数 ms で抜ける。⚠ 失敗しても起動は止めない（絵は表示だけ）。
 # ⚠ 日本語が化けないように、先に出力の文字コードをそろえる（RX-0064 と同じ）。
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 & $python -m dq3.tools.monster_art_setup
+
+# --- 0. ★製品間排他（RX3-0505）: 起動の順番待ちを取ってから、もう一度 DQ2 を見る -----
+#   ★ここから画面が名札を出すまで順番待ちを持つ（⚠ DQ2.cmd とほぼ同時に叩いても両方が通らない）。
+#   ⚠ 引き継ぎの窓（上）は順番待ちの外（★人が考えている間、DQ2 の起動を待たせない）。
+$productLaunch = Enter-RetroUXProductLaunch
+if ($null -eq $productLaunch) {
+    Fail "もう一方の RetroUX の起動が終わるのを待ちましたが、終わりませんでした。" "しばらくしてからもう一度起動してください。"
+}
+$otherProduct = Get-RetroUXOtherProduct -Me "DQ3"
+if ($otherProduct) {
+    Exit-RetroUXProductLaunch $productLaunch
+    Fail (Get-RetroUXBusyMessage -Me "DQ3" -Other $otherProduct)
+}
 
 # --- 1. セーブステートの世代バックアップ ------------------------------
 #
@@ -323,7 +350,13 @@ if (-not $NoUi) {
     if ($migrateHandled) { $uiArgs += "--no-migrate-offer" }
     Start-Process -FilePath $pythonw -ArgumentList $uiArgs `
         -WorkingDirectory $Root
+    # ★画面が製品の名札（RX3-0505）を出すまで、起動の順番待ちを持ったまま待つ
+    if (-not (Wait-RetroUXProduct -Me "DQ3")) {
+        Write-Output "  ⚠ 画面が製品の排他（RetroUX_Product_DQ3）を出すのを待ちきれませんでした。"
+    }
 }
+# ★製品間の順番待ちを手放す（★画面の名札は画面自身が持つので、ここで離しても排他は続く）
+Exit-RetroUXProductLaunch $productLaunch
 
 Write-Output "起動しました。"
 if (-not $NoBackup) {

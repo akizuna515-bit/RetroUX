@@ -14,7 +14,7 @@ tile_art.from_runtime()  →  RuntimeArt  →  MapCanvas（★製品の窓）
 
 ## ★材料は「名前つき fixture」から作る
 
-⚠ `work/dq3-probe/map_art.*` は**遊ぶと変わります**（★実機が上書きする）。
+⚠ `work/runtime/dq3-probe/map_art.*` は**遊ぶと変わります**（★実機が上書きする）。
 → ★検査は `field_encounter_safe`（sha256 で固定）から材料を組み立てます。
 ⚠ こうしないと、⚠⚠ **遊んだ日だけ赤くなる**検査になります。
 """

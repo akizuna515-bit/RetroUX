@@ -271,7 +271,7 @@ def test_記録用folderが無くても両方の機能が乗る(tmp_path):
     ## ⚠⚠ 実際に止まっていました
 
       `mantan_v0.lua` は `assert(io.open(...))` でした。
-      ★`work/dq3-probe/` が無いと **まんたんが読み込みに失敗**し、
+      ★`work/runtime/dq3-probe/` が無いと **まんたんが読み込みに失敗**し、
       ⚠ `dev.lua` の `pcall` に飲まれて「機能が 1 件（2 のはず）」に
       なっていました。⚠⚠ **理由はどこにも出ませんでした**
       （★理由を書く先が、その開けなかった記録だったため）。
@@ -292,7 +292,7 @@ def test_記録用folderが無くても両方の機能が乗る(tmp_path):
     sandbox = pathlib.Path(tempfile.mkdtemp(prefix="retroux-nolog-"))
     try:
         (sandbox / "work").mkdir(parents=True)
-        assert not (sandbox / "work" / "dq3-probe").exists()
+        assert not (sandbox / "work" / "runtime" / "dq3-probe").exists()
         env = dict(os.environ)
         env["RETROUX_TEST_SANDBOX"] = str(sandbox)
         env["RETROUX_ROOT"] = str(ROOT)
@@ -307,7 +307,7 @@ def test_記録用folderが無くても両方の機能が乗る(tmp_path):
         assert done.returncode == 0, "⚠⚠ 記録が無いだけで落ちました\n" + both
         assert "すべて合格" in both, both
         # ★folder は作られる（⚠ 依頼者の決めごと 1）
-        assert (sandbox / "work" / "dq3-probe").is_dir(), (
+        assert (sandbox / "work" / "runtime" / "dq3-probe").is_dir(), (
             "⚠ 記録用 folder が作られていない")
     finally:
         shutil.rmtree(sandbox, ignore_errors=True)

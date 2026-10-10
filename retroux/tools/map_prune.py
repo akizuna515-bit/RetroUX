@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", default=None, help="user_config.yaml のパス")
     args = parser.parse_args(argv)
 
-    from ..core.config import user_config as user_config_mod
+    from ..core.config import dq2_user_config as user_config_mod  # ★DQ2 専用の設定（RX-0147）
     from ..core.db.database import Database
     from ..gui import _load_map_meta, _load_yaml
     from ..ui.map_window import load_map_meta

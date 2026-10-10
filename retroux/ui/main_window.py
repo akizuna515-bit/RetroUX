@@ -51,7 +51,7 @@ from PySide6.QtWidgets import (
 
 from ..core.humanize import compact_duration, duration
 from ..core.logging_setup import get_logger
-from ..version import title as version_title
+from ..core.dq2_version import title as _dq2_title  # ★DQ2 の製品の版（RX-0160）
 from .panels import AiPanel, PartyPanel
 from .view_model import UiState, ViewModel
 from . import view_model as vm_tone
@@ -67,7 +67,7 @@ _LOG_COLUMNS = ["時刻", "モンスター", "ドロップ（可能性）", "初
 #     溢れたら省略し、全文はツールチップで出す。
 _STRETCH_COLUMNS = {"モンスター", "ドロップ（可能性）"}
 
-# 起動時に System Log へ出す行数（それ以前は work/retroux.log を見る）
+# 起動時に System Log へ出す行数（それ以前は work/runtime/dq2-log/retroux.log を見る）
 INITIAL_LOG_LINES = 200
 
 _PLACEHOLDER_STYLE = (
@@ -99,6 +99,11 @@ _TONE_COLORS = {
     vm_tone.TONE_CAUTION: "#ffb84d",   # ⚠ 止まっている・解除されている
     vm_tone.TONE_DANGER: "#ff8a8a",    # ⚠⚠ 本当に危ない
 }
+
+
+def version_title() -> str:
+    """★窓の題名の版（★DQ2 の製品の版 / RX-0160。⚠ [project].version は DQ3）。"""
+    return _dq2_title("RetroUX")
 
 
 def _color(tone: str) -> str:
@@ -238,8 +243,13 @@ class MainWindow(QWidget):
                  user_config: Any = None,
                  # ★地図を標準で出すか（2026-08-01 の指示書 §8）。
                  #   ⚠ テストでは既定で出さない（窓が増えると計測が濁る）。
-                 show_map: bool = False) -> None:
+                 show_map: bool = False,
+                 # ★この起動の札（起動スクリプトの `--session`）。
+                 #   ⚠ 終了時に**自分が立てた控えだけ**を止めるために要る（RX-0143）。
+                 #   ★無ければ控えには触らない（分からないときは触らない、が安全側）。
+                 session: str | None = None) -> None:
         super().__init__()
+        self._session = session
         # ★名前は RAM $0113 から読む（ViewModel.party_names）。設定の names はその上書き（RX-0010 訂正）
         self._names_config = names_config
         self.vm = view_model
@@ -308,9 +318,11 @@ class MainWindow(QWidget):
         self._cfg = gui_config
         self._user_cfg = user_config
         # ★セーブステート保護の状態を読む場所（仕様書 6.1）。
-        #   ⚠ 設定が無いときも落ちないよう既定へ落とす。
-        self._backup_lock_path = self._config_path(
-            "backup_lock", "work/savestate_backup.lock")
+        #   ★DQ2 専用の控えのロック（RX-0144）。⚠ 以前は `paths.backup_lock`
+        #     （= DQ3 の控えと同じ場所）を見ていて、DQ3 の控えを「自分の保護」と出していた。
+        from ..tools import dq2_savestate_backup
+
+        self._backup_lock_path = dq2_savestate_backup.lock_path()
         # ★版をタイトルに出す（仕様書 14章）。問い合わせで最初に聞かれる
         self.setWindowTitle(f"{version_title()} — ドラゴンクエストII")
         # 1920×1080 を基準にする。画面が小さい環境でも縮んで収まるよう
@@ -892,7 +904,7 @@ class MainWindow(QWidget):
         """
         from PySide6.QtWidgets import QMessageBox
 
-        from ..core.config import user_config as user_config_mod
+        from ..core.config import dq2_user_config as user_config_mod  # ★DQ2 専用の設定（RX-0147）
 
         cfg, _ = user_config_mod.load()
         slot = cfg.shutdown.save_slot
@@ -1021,7 +1033,7 @@ class MainWindow(QWidget):
 
         # ⚠ import は関数の中（★この計画の作法）。
         #   ⚠⚠ ここを忘れて `NameError` を作った（2026-08-18 / 検査が捕まえた）。
-        from ..core.config import user_config as user_config_mod
+        from ..core.config import dq2_user_config as user_config_mod  # ★DQ2 専用の設定（RX-0147）
         from ..core.logging_setup import get_logger
 
         log = get_logger("gui")
@@ -1036,25 +1048,81 @@ class MainWindow(QWidget):
             # ⚠ 後始末で落ちても、閉じること自体は続ける
             log.warning("FCEUX へ終了を伝えられませんでした: %s", exc)
 
-        # バックアップに停止の合図（コピーの途中で殺さないため）
+        # バックアップに停止の合図（コピーの途中で殺さないため）。★自分が立てたものだけ
+        #   ★クラスから呼ぶ（⚠ 後始末だけを借りる検査の代役にも、同じ判定を通す）
         try:
-            stop_path = cfg.path("backup_lock").with_suffix(".stop")
-            stop_path.write_text("stop", encoding="utf-8")
-            log.debug("セーブステートのバックアップに停止を伝えました")
-        except OSError as exc:
+            MainWindow._stop_own_backup(self, log=log)
+        except Exception as exc:                      # noqa: BLE001
+            # ⚠ 後始末で落ちても、閉じること自体は続ける
             log.warning("バックアップへ停止を伝えられませんでした: %s", exc)
+
+    def _stop_own_backup(self, lock_path=None, log=None) -> bool:
+        """★DQ2 の控えに、**この起動が立てたものだけ**そっと終わってもらう（RX-0143）。
+
+        ⚠⚠ 以前は札を確かめずに `work/savestate_backup.stop` を置いていた。
+          ⚠ そこは DQ3 の控えの停止の合図と同じ場所で、**DQ3 の控えまで止めていた**
+          （DQ3 は以後、気づかないまま無防備になる / 調査 D2）。
+
+        ★止めるのは次の 2 つが揃ったときだけ:
+          - こちらに札がある（起動スクリプトの `--session`）
+          - DQ2 専用の状態ファイルの札が、こちらの札と同じ
+        ★合図を置くのは DQ2 専用の場所（`work/runtime/dq2-backup/savestate_backup.stop`）だけ。
+        ⚠ 札は**状態ファイル**から読む（★ロックには入らない。DQ3 が 2026-08-29 に踏んだ形）。
+
+        `lock_path` は検査から差し替えるためのもの（⚠ 本物へ合図を置くと動いている控えが止まる）。
+        戻り値: ★合図を置いたら True。
+        """
+        import json
+
+        from ..tools import dq2_savestate_backup
+
+        if log is None:
+            from ..core.logging_setup import get_logger
+
+            log = get_logger("gui")
+        if getattr(self, "_backup_stop_signalled", False):
+            return True                    # ★「終了」と窓の × の 2 つの道から来る
+        mine = getattr(self, "_session", None)
+        if not mine:
+            log.info("セーブステート保護: 停止の合図は置きません（この起動の札が不明）")
+            return False
+        try:
+            from ..core import backup_status
+
+            lock = (pathlib.Path(lock_path) if lock_path is not None
+                    else dq2_savestate_backup.lock_path())
+            status = backup_status.status_path(lock)
+            if not status.exists():
+                log.info("セーブステート保護: 停止の合図は置きません（状態ファイルが無い）")
+                return False
+            got = json.loads(status.read_text(encoding="utf-8"))
+            if got.get("session") != mine:
+                log.info("セーブステート保護: 停止の合図は置きません"
+                         "（別の起動のものです: 記録 %r / こちら %r）",
+                         got.get("session"), mine)
+                return False
+            stop = lock.with_suffix(".stop")
+            stop.write_text("stop", encoding="utf-8")
+            self._backup_stop_signalled = True
+            log.debug("セーブステートのバックアップに停止を伝えました（%s）", stop)
+            return True
+        except Exception as exc:                       # noqa: BLE001
+            # ⚠ 後始末で落ちない（★閉じること自体は続ける）。⚠ ただし黙らない
+            log.warning("バックアップへ停止を伝えられませんでした: %s", exc)
+            return False
 
     def _savestate_file(self, cfg, slot: int):
         """そのスロットのセーブステートのファイル。★無ければ None。
 
         FCEUX は `<fcs>/<ROM名>.fc<スロット>` に書く（例 `DQ2_J.fc1`）。
-        置き場は `retroux/tools/savestate_backup.py` が見張っているのと同じ場所。
+        置き場は `retroux/tools/dq2_savestate_backup.py` が見張っているのと同じ場所。
         """
         try:
-            from ..tools.savestate_backup import DEFAULT_SRC
+            # ★DQ2 の FCEUX の隣の fcs/（RX-0146 / dq2_user_config.yaml の paths.fceux に従う）
+            from ..core import dq2_paths
 
             stem = pathlib.Path(cfg.path("rom")).stem
-            return pathlib.Path(DEFAULT_SRC) / f"{stem}.fc{int(slot)}"
+            return dq2_paths.fcs_dir(cfg) / f"{stem}.fc{int(slot)}"
         except Exception:                              # noqa: BLE001
             return None
 
@@ -1511,7 +1579,7 @@ class MainWindow(QWidget):
         #   ⚠ 何のボタンかはツールチップの**1行目**に必ず書きます。
         for label, tip, slot in (
             ("📄", "ログを開く\n"
-                   "work\\retroux.log をテキストエディタで開きます", self.open_log),
+                   "work\\runtime\\dq2-log\\retroux.log をテキストエディタで開きます", self.open_log),
             ("📁", "ログのフォルダを開く\n"
                    "★retroux.log を選択した状態で開きます\n"
                    "（work は作業用で 336 個以上のファイルがあるため）",
@@ -1520,6 +1588,10 @@ class MainWindow(QWidget):
                    "マシン情報（OS・版・FCEUX 等）とログの直近20行を、"
                    "問い合わせに貼れる形でコピーします\n"
                    "★ROM本体や個人のパスは含めません", self.copy_diagnostics),
+            # ★管理画面（RX-0171 / 2026-10-06 依頼者「📄 📁 🩺 の並びに 1 つ」）。⚠ 既存の 3 つは残す
+            ("⚙", "管理画面を開く\n"
+                  "版・ROM と FCEUX の場所・セーブステート控えの状態・キー設定・プレイデータの退避",
+             lambda: self.run_action("open_settings")),
         ):
             button = QPushButton(label)
             button.setFixedWidth(38)
@@ -1549,7 +1621,7 @@ class MainWindow(QWidget):
         """
         if self._user_cfg is not None:
             return self._user_cfg
-        from ..core.config import user_config as user_config_mod
+        from ..core.config import dq2_user_config as user_config_mod  # ★DQ2 専用の設定（RX-0147）
 
         # ★読み直しは1回だけにする（ボタンを押すたびに読まない）
         self._user_cfg, _ = user_config_mod.load()
@@ -1574,7 +1646,7 @@ class MainWindow(QWidget):
         # ★起動時に渡された実パスがあればそれを使う（いちばん確実）
         if self._log_path is not None:
             return self._log_path
-        return self._config_path("log", "work/retroux.log")
+        return self._config_path("log", "work/runtime/dq2-log/retroux.log")  # ★DQ2 のログ（RX-0149）
 
     def open_log(self) -> None:
         """最新ログを開く。★開けなかったら**理由を出す**。"""
@@ -1680,8 +1752,7 @@ class MainWindow(QWidget):
           ⚠ ボタンの `clicked` へ処理を直接つながない。つなぐと
             同じことをキーからやりたくなったとき2か所になる。
 
-        ⚠ `open_settings` は未実装なので**登録しない**。
-          登録しないと「この版では使えません」と出る（黙って無反応にしない）。
+        ★`open_settings` は管理画面を開く（RX-0171 / ⚠ 以前は未実装で登録していなかった）。
         """
         from ..application.action_dispatcher import ActionDispatcher
         from ..application.command_service import CommandService
@@ -1705,6 +1776,7 @@ class MainWindow(QWidget):
                 ("toggle_map_follow", self._toggle_map_follow),
                 ("open_tactics_profile", self._open_tactics_window),
                 ("open_keybinding_settings", self._open_keybinding_window),
+                ("open_settings", self._open_admin_window),
                 ("reset_layout", self._on_reset_layout),
                 ("focus_emulator", lambda: None),   # ★属性側で戻る
                 ("show_lua_window", self._show_lua_window)):
@@ -1738,7 +1810,7 @@ class MainWindow(QWidget):
         from ..application.gamepad import (
             GamepadRouter, HoldRouter, XInputReader,
         )
-        from ..core.config import user_config as user_config_mod
+        from ..core.config import dq2_user_config as user_config_mod  # ★DQ2 専用の設定（RX-0147）
 
         self._gamepad_reader = None
         self._gamepad_seen = False
@@ -2452,6 +2524,25 @@ class MainWindow(QWidget):
         self._keybinding_window.raise_()
         self._keybinding_window.activateWindow()
 
+    def _open_admin_window(self) -> None:
+        """★管理画面を開く（RX-0171〜0174 / ⚠ 1 度だけ作り、開くたびに読み直す）。
+
+        ★キー設定は**本体の** `_open_keybinding_window` を呼ぶ（RX-0173 / 案 A）。
+          ⚠ 管理画面が自分で KeybindingWindow を作ると、保存後の `applied` → `_on_keybindings_applied`
+            （ショートカットの作り直し）がつながらない。
+        """
+        from .admin_window import AdminWindow
+
+        if getattr(self, "_admin_window", None) is None:
+            self._admin_window = AdminWindow(
+                self, open_keybindings=self._open_keybinding_window,
+                reveal=self.windows.reveal_in_explorer, cfg=self._user_config())
+        else:
+            self._admin_window.refresh()
+        self._admin_window.show()
+        self._admin_window.raise_()
+        self._admin_window.activateWindow()
+
     def _on_keybindings_applied(self, message: str) -> None:
         from ..core.keybindings import load as load_keybindings
 
@@ -2779,9 +2870,11 @@ class MainWindow(QWidget):
     def _window_state(self):
         """状態の入れ物を1つだけ作る。"""
         from .window_state import WindowState
+        from ..core import dq2_paths
 
         if getattr(self, "_win_state", None) is None:
-            self._win_state = WindowState()
+            # ★置き場は DQ2 の resolver から（RX-0156）。⚠ 既定の相対パスは CWD 次第だった
+            self._win_state = WindowState(dq2_paths.window_state())
         return self._win_state
 
     def restore_window_state(self) -> None:

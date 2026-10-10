@@ -52,7 +52,7 @@ def _sandbox() -> pathlib.Path:
     """★走行ごとの隔離先（`conftest.py` が決める）。"""
     got = os.environ.get("RETROUX_TEST_SANDBOX")
     return pathlib.Path(got) if got else (
-        ROOT / "work" / "_test_sandbox")
+        ROOT / "work" / "tests" / "lua-sandbox")
 
 # ⚠ 隔離先は**走行ごとに変わる**（RX-0114 / 2026-08-30）。
 #   ★`conftest.py` が `RETROUX_TEST_SANDBOX` を立てる。
@@ -81,7 +81,7 @@ def _corners(screen) -> list[str]:
 def _write_cases() -> list[str]:
     from retroux.core.bgmap import savestate as ss
 
-    (SANDBOX / "dq3-probe").mkdir(parents=True, exist_ok=True)
+    (SANDBOX / "runtime" / "dq3-probe").mkdir(parents=True, exist_ok=True)
     used: list[str] = []
     blocks: list[str] = []
     for name in CASES:
@@ -92,7 +92,7 @@ def _write_cases() -> list[str]:
         blocks.append("%s\n%s\n%s\n" % (
             name, bytes(screen).hex(), " ".join(_corners(screen))))
         used.append(name)
-    (SANDBOX / "dq3-probe" / "window_case.txt").write_text(
+    (SANDBOX / "runtime" / "dq3-probe" / "window_case.txt").write_text(
         "".join(blocks), encoding="utf-8")
     return used
 
@@ -195,7 +195,7 @@ def test_製品と足場が同じ規則を持つ():
 def test_一人でもステータス表示を外す(run):
     """⚠⚠ 依頼者 2026-09-18「save6 一人だと、まんたんがつかえない。窓の認識が違うんだと思う」。
 
-    ★実測（`work/dq3-probe/mantan_v0.log`）: 一人だと札が **1 つずつ**しか並ばず、
+    ★実測（`work/runtime/dq3-probe/mantan_v0.log`）: 一人だと札が **1 つずつ**しか並ばず、
     ⚠ 旧い規則（1 行に 3 つ以上）では当たらない → ステータス表示を閉じようとして
     `window_will_not_close` で止まっていた。
     """

@@ -635,7 +635,7 @@ def test_カーソルを名前に入れない():
     """⚠ 相手を選んでいるあいだ、敵の行の先頭に ▶ が出る。
 
     ★2026-09-03 の実機で `▶スライム` と読めていた
-      （`work/dq3-probe/battle-screens.jsonl` #8 / #10 / #13）。
+      （`work/runtime/dq3-probe/battle-screens.jsonl` #8 / #10 / #13）。
     """
     assert _row("▶スライム␣␣␣␣ー␣1ひき·␣␣") == ("スライム", 1)
     assert _row("␣いっかくうさぎ␣ー␣1ひき·") == ("いっかくうさぎ", 1)
@@ -679,7 +679,7 @@ def test_開始直後の未初期化から覚えない(tmp_path):
     """⚠⚠ ★戦闘の開始直後、RAM が未初期化の値を返す枚がある（RX3-0065）。
 
     ```text
-    実測（work/dq3-probe/battle-screens.jsonl）
+    実測（work/runtime/dq3-probe/battle-screens.jsonl）
       ids/n=[(0, 255)]                  ⚠ 匹数が 255
       ids/n=[(0,0),(0,0),(0,0),(0,0)]   ⚠ 全部 0
     ```

@@ -30,7 +30,7 @@ def _local():
 
 
 def test_索引の決め方はここだけ():
-    """⚠⚠ **bit5 の升は索引 32**（★実測 / `dq3-map-tiles-report.md`）。"""
+    """⚠⚠ **bit5 の升は索引 32**（★実測 / `260831_dq3-map-tiles.md`）。"""
     assert tile_art.index_of(0x0B) == 11
     assert tile_art.index_of(0x1F) == 31
     assert tile_art.index_of(0x2B) == tile_art.DARK_INDEX

@@ -87,7 +87,7 @@ def test_画面が記録する_ローカルだけ_今の地図の材料のとき
     vm = Dq3ViewModel(state_path=tmp_path / "state.json", knowledge_path=tmp_path / "k.json",
                       seen_path=tmp_path / "seen.json")
     assert vm.explored_path == tmp_path / "explored.json", "⚠⚠ 検査が本物の記録を読み書きする"
-    # ⚠ 材料の置き場も一時フォルダへ（★既定は work/dq3-probe の本物 = 遊んでいる人の今の地図で上書きされる）
+    # ⚠ 材料の置き場も一時フォルダへ（★既定は work/runtime/dq3-probe の本物 = 遊んでいる人の今の地図で上書きされる）
     vm.tile_art_dir = tmp_path / "probe"
     vm._tile_art_runtime = _live()
     assert vm.note_explored(0, 45, 15, 10) == 0, "⚠ 世界地図まで探索済みにした（★層が無い）"

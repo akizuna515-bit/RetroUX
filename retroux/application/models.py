@@ -86,11 +86,10 @@ ACTIONS: tuple[ActionDefinition, ...] = (
     # --- 設定・編集（RetroUX 側に留まる）-----------------------------
     ActionDefinition("open_tactics_profile", "戦術プロフィールを開く",
                      False, "global"),
-    ActionDefinition("open_settings", "設定を開く", False, "global",
-                     # ⚠ 設定画面そのものは未実装。**名前だけ先に置かない**…
-                     #   のだが、キーバインド設定から辿れるようにしたいので
-                     #   定義は置き、実装が無いことを印で示す。
-                     implemented=False),
+    # ★管理画面（状態・キー設定・プレイデータ）を開く（RX-0171 / 2026-10-06 依頼者「推奨案で」）。
+    #   ⚠ 以前は名前だけの未実装（implemented=False）だった。★名前 `open_settings` はそのまま使う
+    #     （★キーバインドの YAML に書いた人の設定が「知らないアクション」にならないように）。
+    ActionDefinition("open_settings", "管理画面を開く", False, "global"),
     ActionDefinition("open_keybinding_settings", "キーバインド設定を開く",
                      False, "global"),
     ActionDefinition("show_lua_window", "Lua Script ウィンドウを出す",

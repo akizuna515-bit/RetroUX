@@ -332,7 +332,7 @@ class Dq3CouncilWindow(QWidget):
 
         # ★2026-09-27（RX3-0432 / RX3-0434）: 人が書いた勇者メモ（`data/dq3/hero-memo.yaml`）で動かす。
         #   ⚠ 第三者由来の Guide Master（input/）は窓からは読みません。
-        self._council = Council(use_hero_memo=True)
+        self._council = Council()
         return self._council
 
     def open_go_list(self):

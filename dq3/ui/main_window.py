@@ -40,9 +40,10 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMessageBox,
                                QSizePolicy, QVBoxLayout, QWidget)
 
-from retroux.core import window_align
-
 from .. import paths
+# ★DQ3 の FCEUX の窓だけに働きかける（RX3-0504 / DQ2 共存安全化）。
+#   ⚠ 題名だけで探すと、DQ2 の FCEUX を閉じる・動かす・Lua 窓を最小化する（調査 §3 Q3）。
+from . import fceux_windows as window_align
 from . import icon_button
 from . import layout as layout_mod
 from .battle_window import Dq3BattleWindow
@@ -1060,7 +1061,7 @@ class Dq3MainWindow(QWidget):
             from retroux.core import window_align
 
             logic = GL.PadLogic(
-                self.pad_settings, GL.PadFileWriter(P3.work(GL.PAD_FILE_NAME)),
+                self.pad_settings, GL.PadFileWriter(P3.runtime(GL.PAD_FILE_NAME)),
                 mouse_move=window_align.move_cursor, mouse_button=window_align.mouse_left,
                 in_battle=lambda: bool(getattr(self, "_pad_in_battle", False)))
             link = GL.GamepadLink(logic)

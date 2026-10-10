@@ -8,7 +8,7 @@
 ## ★置き場
 
 ```text
-work/evidence/20260831_walk_town_001/
+work/tests/evidence/20260831_walk_town_001/
     metadata.json     ★run のまとめ（⚠ ここを読めば何をしたか分かる）
     run.jsonl         ★Lua が 1 歩ずつ書いた生の記録（⚠ 加工前）
     test.log          ★人が読むための記録
@@ -46,7 +46,7 @@ from .. import paths
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 #: ★置き場（⚠ `work/` は Git 管理外。★大きな mp4 を置いても repo が太らない）
-EVIDENCE_DIR = paths.lazy_work("evidence")
+EVIDENCE_DIR = paths.lazy_work("tests", "evidence")
 
 #: ⚠ run_id に使ってよい字（★folder 名になるので厳しくする）
 #:

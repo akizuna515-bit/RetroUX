@@ -50,6 +50,8 @@ import pathlib
 import sqlite3
 import sys
 
+from ..core import dq2_paths
+
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEFAULT_DB = PROJECT_ROOT / "work" / "retroux.sqlite3"
 #: ★観測ケースの置き場（⚠ Git 管理外。いつでも作り直せます）
@@ -484,7 +486,7 @@ def export(db_path: pathlib.Path, out_path: pathlib.Path,
 
 #: ★判断の直前の状態（Lua が出す / 指示書 §8）
 SNAPSHOT_TYPE = "battle_decision_snapshot"
-DEFAULT_EVENTS = PROJECT_ROOT / "work" / "events.jsonl"
+DEFAULT_EVENTS = dq2_paths.events()   # ★RX-0162: Lua が書く write_root の正本
 DEFAULT_REPLAY_OUT = (PROJECT_ROOT / "work" / "battle-cases"
                       / "replayable.jsonl")
 

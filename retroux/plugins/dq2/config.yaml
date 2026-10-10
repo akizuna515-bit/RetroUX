@@ -1,5 +1,5 @@
 ﻿# DQ2 プラグイン設定
-# 仕様: docs/design/mvp1-spec.md / 指示書からの変更点: docs/design/deviations-from-instruction.md
+# 仕様: docs/design/ui/dq2-mvp1-spec.md / 指示書からの変更点: docs/design/deviations-from-instruction.md
 
 # ★★ 設定スキーマの版（2026-08-07 / 戦闘AI再設計 Phase 10）★★
 #
@@ -496,7 +496,7 @@ auto_input:
   #
   # ★検証は在庫ではできない（減らないため）。
   #   **メッセージに出るアイテム名のタイル列**を照合して確かめる。
-  # --- 戦闘中の回復呪文（P3 / 仕様 docs/design/ai-batchiri-spec.md 4章）------
+  # --- 戦闘中の回復呪文（P3 / 仕様 docs/design/battle-ai/dq2-batchiri.md 4章）------
   #
   # > 誰かの HP < 最大HP × threshold で、いま入力待ちの人が回復呪文を使えるなら
   # > **最も減っている人**に回復呪文。それ以外は「たたかう」。
@@ -1316,7 +1316,7 @@ logging:
 # ★★ 2026-08-03: **地形も読めるようになりました。**
 #   日本版ROMのマップ形式を解読し、非ワールドマップ 108/108 と
 #   世界地図 65536/65536 を ROM だけで展開できます。
-#   詳しくは `docs/map-decoder-architecture.md`。
+#   詳しくは `docs/design/map/dq2-map-decoder.md`。
 #
 # ⚠ ただし**この節（rendering）は観測から描く現行方式**の設定です。
 #   ROM の地図を使う設定は下の `rom_master:` にあります（★既定は off）。

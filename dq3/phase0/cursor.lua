@@ -6,7 +6,7 @@
 --    そのカーソルが点滅している、というのを捕まえられない？
 --    その点滅の右がコマンドの内容なんだけど」
 --
--- ## ★実測で裏が取れた（`work/dq3-probe/ppu_trace.txt`）
+-- ## ★実測で裏が取れた（`work/runtime/dq3-probe/ppu_trace.txt`）
 --
 --   VRAM への書き込みを数えると、**動いているものと止まっているもの**が
 --   はっきり分かれる。
@@ -179,7 +179,7 @@ function M.new()
   --     書き込みなら **72 と 00 が同じ番地に来た瞬間**に決まる。
   --
   --   ⚠ 実証済み: `research/probes/active/dq3_ppu_trace.lua` が
-  --     この仕掛けで `work/dq3-probe/ppu_trace.txt` を採っている。
+  --     この仕掛けで `work/runtime/dq3-probe/ppu_trace.txt` を採っている。
   function self.install_writes()
     if memory == nil or memory.registerwrite == nil then return false end
     local latch, vram = 0, 0

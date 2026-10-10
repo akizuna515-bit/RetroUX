@@ -637,6 +637,8 @@ def write_lua(data: dict, out_dir: pathlib.Path | P3.LazyPath = OUT_DIR,
 def main() -> int:
     data = build()
     path = write_lua(data)
+    # ★RX3-0493: Lua は state.json を `work/runtime/` へ書く（⚠ Lua はフォルダを作れない）
+    P3.runtime().mkdir(parents=True, exist_ok=True)
     tiles = " ".join(f"{b:02X}" for b in data["menu_tiles"]["attack"])
     print(f"→ {path}")
     print(f"  ★『たたかう』のタイル列: {tiles}")

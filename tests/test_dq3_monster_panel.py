@@ -89,7 +89,7 @@ def test_HPは10bitで出す():
 def test_絵は置き場から引く(tmp_path):
     """⚠ 画面は絵の**作り方を持ちません**（指示書 §22）。
 
-    ⚠⚠ 2026-09-12（RX3-0223）: 以前は置き場を渡さずに `ensure()` を呼び、★**本物の** `work/dq3-monster-art` を
+    ⚠⚠ 2026-09-12（RX3-0223）: 以前は置き場を渡さずに `ensure()` を呼び、★**本物の** `work/cache/dq3-monster-art` を
       作り直していた（★絵の版が上がった日に 49 枚を書き換えた / RX3-0215 と同じ形）。→ ★一時フォルダに作る。
     """
     from dq3.knowledge import monster_art
@@ -459,7 +459,7 @@ def test_下限より低くしても札は縮めない():
 
 
 def test_札が増えても帯は高くならない(app):
-    """★★★ ⚠⚠ **中身で大きさを変えない**（`docs/design/dq3-ui-v0.md`）★★★
+    """★★★ ⚠⚠ **中身で大きさを変えない**（`docs/design/ui/dq3-ui-v0.md`）★★★
 
     ⚠ `setFixedHeight` を外したので、★「札が増えたら伸びる」に
       なっていないことを、ここで見ます。

@@ -343,7 +343,7 @@ class ViewModel:
 
         RAM の `$0113` から読んだ生バイトを、`memory_map.yaml` の文字コード表で
         文字にする。表は 2026-07-29 に CHR-RAM の字形から起こした
-        （`docs/how-to-read-rom.md` 5章）。
+        （`docs/guide/how-to-read-rom.md` 5章）。
 
         ⚠ 優先順:
           1. `user_config.yaml` の `names`（利用者が明示した名前）

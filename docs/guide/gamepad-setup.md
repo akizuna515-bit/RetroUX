@@ -61,7 +61,7 @@ RetroUX が XInput でパッドを読み、2 通りに振り分けます:
 ★**現行方式は残したまま**、NES 標準入力だけを「FCEUX 本体のパッド割当」に切り替えて
 比べられます（現行方式が既定。これは切り分け・比較のための任意モードです）。
 
-`user_config.yaml`:
+`dq2_user_config.yaml`（★DQ2 の設定 / 2026-10-03 から DQ3 と別ファイル）:
 
 ```yaml
 gamepad:
@@ -85,7 +85,7 @@ gamepad:
 ### 切り分け用 DEBUG ログ
 
 `gamepad.debug: true`（または環境変数 `RETROUX_GAMEPAD_DEBUG`）で、フォーカスと押した
-ボタンを `work/retroux.log` に出せます（既定 OFF。製品では常用しません）:
+ボタンを `work/runtime/dq2-log/retroux.log` に出せます（既定 OFF。製品では常用しません）:
 
 ```
 [GAMEPAD DEBUG] focus=<最前面ウィンドウ名> retroux_event=toggle_turbo

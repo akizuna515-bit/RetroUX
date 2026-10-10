@@ -3,7 +3,7 @@
 ## ★どこを見るか
 
 ```text
-Lua  → work/dq3-probe/map_art.json + .bin   ★別の検査（dq3_map_art_test.lua）
+Lua  → work/runtime/dq3-probe/map_art.json + .bin   ★別の検査（dq3_map_art_test.lua）
      ↓
 Python から読める          ⚠⚠ ここ（tile_art.from_runtime）
      ↓

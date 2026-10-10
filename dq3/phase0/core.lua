@@ -396,7 +396,7 @@ end
 -- ## ⚠⚠ 記録が開けないだけで、機能が丸ごと止まっていました
 --
 --   `mantan_v0.lua` は `assert(io.open(...))` でした。
---   ★`work/dq3-probe/` が無いと **まんたんが読み込みに失敗**し、
+--   ★`work/runtime/dq3-probe/` が無いと **まんたんが読み込みに失敗**し、
 --   ⚠ `dev.lua` の `pcall` に飲まれて「機能が 1 件（2 のはず）」に
 --   なっていました（2026-08-30 / RX-0114 で発覚）。
 --
@@ -422,6 +422,9 @@ local function ensure_dir(path)
   pcall(function() os.execute('mkdir "' .. win .. '" 2>nul') end)
   return true
 end
+
+--: ★RX3-0493: state_writer も同じ作法で使う（⚠ 写さずにここを渡す）
+M.ensure_dir = ensure_dir
 
 --: ★記録を開く。⚠ 開けなければ nil を返す（★落とさない）
 function M.open_log(path, tag)

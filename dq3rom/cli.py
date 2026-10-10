@@ -4,7 +4,7 @@
     python -m dq3rom enemies  --rom work/rom/DQ3_J.nes [--out output/dq3-analysis]
     python -m dq3rom world    --rom ...   [--scale 2]
     python -m dq3rom areas    --rom ...   [--png] [--scale 4]
-    python -m dq3rom world-model --rom ... [--out work/dq3-world-model]
+    python -m dq3rom world-model --rom ... [--out work/cache/dq3-world-model]
 
 ★終了コードは dq2rom と同じ:
     0 成功 / 1 一般エラー / 2 ROM 不一致 / 3 解析形式未対応 / 4 検証不一致
@@ -367,21 +367,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("world-model", help="World Model を組んで JSON / TSV を出す")
     p.add_argument("--rom", required=True)
-    p.add_argument("--out", default="work/dq3-world-model")
+    p.add_argument("--out", default="work/cache/dq3-world-model")
     p.set_defaults(func=cmd_world_model)
     p = sub.add_parser("screenshot",
                        help="実機の画面を PNG に起こす（★行き詰まったらまずこれ）")
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--state", help="セーブステート（tools/fceux/fcs/*.fc?）")
     g.add_argument("--dump", help="probe が書いた 16 進の並び")
-    p.add_argument("--out", default="work/dq3-probe/screen.png")
+    p.add_argument("--out", default="work/runtime/dq3-probe/screen.png")
     p.add_argument("--second", action="store_true",
                    help="⚠ もう 1 面のネームテーブルを描く")
     p.set_defaults(func=cmd_screenshot)
 
     p = sub.add_parser("text-log",
                        help="貯めた raw タイルを文字にして出す")
-    p.add_argument("--log", default="work/dq3-probe/text_events.jsonl")
+    p.add_argument("--log", default="work/runtime/dq3-probe/text_events.jsonl")
     p.add_argument("--out", help="一意な表示を JSON で出す")
     p.set_defaults(func=cmd_text_log)
 

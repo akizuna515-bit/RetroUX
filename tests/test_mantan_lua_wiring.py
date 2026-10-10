@@ -124,6 +124,8 @@ def test_既存の設定名を壊していない(tmp_path, monkeypatch):
     """⚠ 指示書 §14: `methods` `cure_methods` `modes` などを消さない。"""
     import retroux.core.mantan.repository as repo
     monkeypatch.setattr(repo, "USER_PATH", tmp_path / "ない.yaml")
+    # ⚠ 旧 `config/mantan.yaml` も見に行くので、そちらも差し替える（RX-0156）
+    monkeypatch.setattr(repo, "LEGACY_PATH", tmp_path / "旧も無い.yaml")
 
     base = yaml.safe_load(PLUGIN_CONFIG.read_text(encoding="utf-8"))
     before = set((base.get("mantan") or {}).keys())

@@ -1,49 +1,30 @@
 @echo off
 rem ============================================================
-rem  RetroUX launcher  --  Dragon Quest II
+rem  RetroUX.cmd  --  compatibility stub (RX-0154)
 rem
-rem  Double-click this file to start Dragon Quest II.
-rem  No dialog is shown. Errors only are reported.
+rem  The Dragon Quest II launcher is now DQ2.cmd.
+rem  This file only calls DQ2.cmd and will be removed in a future
+rem  minor release. Please use DQ2.cmd (or a shortcut to it).
 rem
-rem  The project root is taken from THIS file's own folder,
-rem  so the current working directory does not matter.
+rem  No dialog is shown. DQ2 writes one line to its launcher log
+rem  (work\runtime\dq2-log\retroux.log) saying the old entry was used.
 rem
 rem  ASCII only (cmd.exe comments included) and CRLF, on purpose.
-rem  See tests/test_launcher_encoding.py
+rem  See tests/test_cmd_launchers.py
 rem ============================================================
 
 setlocal
 
-set "ROOT=%~dp0"
-rem  strip the trailing backslash (PowerShell -Root does not want it)
-if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
+if not exist "%~dp0DQ2.cmd" goto :no_dq2
+call "%~dp0DQ2.cmd" -LegacyEntry %*
+exit /b %ERRORLEVEL%
 
-set "SCRIPT=%ROOT%\scripts\start-retroux.ps1"
-if not exist "%SCRIPT%" goto :no_script
-
-rem  Hand over to PowerShell without a visible window and return at once.
-rem  From here on, failures are reported by the PowerShell side
-rem  (it shows a message box and writes work\retroux.log).
-start "" powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden ^
-  -File "%SCRIPT%" -Root "%ROOT%" -Quiet %*
-if errorlevel 1 goto :no_powershell
-exit /b 0
-
-:no_script
+:no_dq2
 echo.
 echo  Could not start Dragon Quest II.
-echo    Missing startup script: %SCRIPT%
+echo    Missing launcher: %~dp0DQ2.cmd
 echo.
 echo  Keep this file inside the RetroUX folder.
-echo  (A desktop shortcut to it is fine.)
-echo.
-pause
-exit /b 1
-
-:no_powershell
-echo.
-echo  Could not start Dragon Quest II.
-echo    Windows PowerShell could not be launched.
 echo.
 pause
 exit /b 1

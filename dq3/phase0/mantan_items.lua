@@ -92,7 +92,7 @@ end
 -- ★★ まんたん v1（RX3-0161 / RX3-0163 / RX3-0162 / 2026-09-12 依頼者「推奨順にどんどん進めて」）
 --
 --   ★「僧侶が回復する」ではなく「いま使える回復手段から一番よいものを選ぶ」
---     （`docs/research/dq3-mantan-v1-kiary-research.md` §6）。
+--     （`docs/research/260912_dq3-mantan-v1-kiary.md` §6）。
 --   ★材料: 各人の `field`（フィールドで唱えられる呪文 ID / `Catalog.field_spells`）と
 --          `opts.spells`（呪文の表 / ROM の MP・回復量）。⚠ どちらかが無ければ v0（今までの決め方）。
 --

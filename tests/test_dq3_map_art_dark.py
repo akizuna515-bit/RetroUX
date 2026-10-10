@@ -6,7 +6,7 @@
 
 > 最初は表示されたが、小部屋に入ったら黒くなり、以降黒いまま
 
-★実機が残した `work/dq3-probe/map_art.json`（実測）:
+★実機が残した `work/runtime/dq3-probe/map_art.json`（実測）:
 
 ```text
 kind=1 map_id=9 26x26           ★地図そのものは正しい

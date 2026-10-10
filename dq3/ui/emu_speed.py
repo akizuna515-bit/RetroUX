@@ -1,6 +1,6 @@
 """FCEUX の速度を外から変える（RX3-0059 / EmulatorSpeedController）。
 
-## ★方式（`docs/research/fceux-speed-control.md` / RX-0107 の PoC を製品側へ薄く移した）
+## ★方式（`docs/research/260826_fceux-speed-control.md` / RX-0107 の PoC を製品側へ薄く移した）
 
 ```text
 メニュー命令（WM_COMMAND）を PostMessage で送る。⚠ キー送信ではない（FCEUX のホットキーは DirectInput 読み）
@@ -35,12 +35,18 @@ def _user32():
 
 
 def find_fceux() -> int:
-    """★題名が FCEUX で始まる見える窓。⚠ 無ければ 0。"""
+    """★題名が FCEUX で始まる見える窓のうち、**DQ3 の FCEUX** のもの。⚠ 無ければ 0。
+
+    ⚠ 題名だけで探すと、DQ2 と同時に動かしたときに **DQ2 の FCEUX の速度と音**を変える
+      （★速度は WM_COMMAND、音はこの窓のプロセス番号から / RX3-0504 / DQ2 共存安全化）。
+    """
     u = _user32()
     if u is None:
         return 0
     import ctypes
     import ctypes.wintypes as wt
+
+    from .fceux_windows import is_dq3_window
 
     found = []
 
@@ -50,7 +56,8 @@ def find_fceux() -> int:
         if n:
             buf = ctypes.create_unicode_buffer(n + 1)
             u.GetWindowTextW(hwnd, buf, n + 1)
-            if buf.value.startswith("FCEUX") and u.IsWindowVisible(hwnd):
+            if (buf.value.startswith("FCEUX") and u.IsWindowVisible(hwnd)
+                    and is_dq3_window(int(hwnd))):
                 found.append(hwnd)
         return True
 

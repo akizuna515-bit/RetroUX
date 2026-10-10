@@ -40,7 +40,10 @@ def workspace(tmp_path, monkeypatch):
     conn.close()
 
     (work / "events.jsonl").write_text("記録\n", encoding="utf-8")
-    (work / "retroux.log").write_text("ログ\n", encoding="utf-8")
+    # ★DQ2 のログ（RX-0149）と、⚠ DQ3 の控えも書く旧ログ（触らないもの）
+    (work / "runtime" / "dq2-log").mkdir(parents=True)
+    (work / "runtime" / "dq2-log" / "retroux.log").write_text("ログ\n", encoding="utf-8")
+    (work / "retroux.log").write_text("旧ログ\n", encoding="utf-8")
     (work / "map-assets").mkdir()
     (work / "map-assets" / "a.png").write_bytes(b"png")
 
@@ -55,6 +58,7 @@ def workspace(tmp_path, monkeypatch):
     (work / "evidence" / "e.txt").write_text("証拠", encoding="utf-8")
 
     monkeypatch.setattr(playdata, "WORK", work)
+    monkeypatch.setattr(playdata, "WRITE_WORK", work)   # ★RX-0162: events とログは write_root 側
     monkeypatch.setattr(playdata, "DB_PATH", db)
     monkeypatch.setattr(playdata, "VAULT", work / "playdata-archive")
     return work
@@ -105,7 +109,11 @@ def test_消すのはworkの中だけ():
     for name in playdata.PLAY_FILES + playdata.DERIVED_DIRS:
         assert ".." not in name, f"⚠ {name} が親をたどっています"
         assert not pathlib.Path(name).is_absolute(), f"⚠ {name}"
-        assert "/" not in name and "\\" not in name, f"⚠ {name}"
+        # ★`runtime/dq2-log/retroux.log` のように work の**中の**フォルダは許す（RX-0149）。
+        #   ⚠ 区切りは `/` だけ（`\\` や `..` で外へ出ない）。★解決しても work の中に居ること
+        assert "\\" not in name, f"⚠ {name}"
+        work = pathlib.Path("/work-root")
+        assert (work / name).resolve().is_relative_to(work.resolve()), f"⚠ {name}"
 
 
 def test_セーブステートの本物の場所を取り違えていない():
@@ -225,8 +233,24 @@ def test_clearでもROMとセーブは残る(workspace):
 def test_clearで遊んだファイルが消える(workspace):
     playdata.cmd_clear(apply=True)
     assert not (workspace / "events.jsonl").exists()
-    assert not (workspace / "retroux.log").exists()
+    assert not (workspace / "runtime" / "dq2-log" / "retroux.log").exists()
     assert not (workspace / "map-assets").exists()
+
+
+def test_旧ログはDQ3の控えも書くので触らない(workspace):
+    """★DQ2 のログは runtime/dq2-log/（RX-0149）。⚠ 旧 `work/retroux.log` は DQ3 の控えも書く。"""
+    playdata.cmd_clear(apply=True)
+    assert (workspace / "retroux.log").read_text(encoding="utf-8") == "旧ログ\n"
+
+
+def test_フォルダの中のログも退避して戻せる(workspace):
+    playdata.cmd_backup(apply=True, label="log")
+    name = next(p.name for p in (workspace / "playdata-archive").iterdir())
+    saved = workspace / "playdata-archive" / name / "runtime" / "dq2-log" / "retroux.log"
+    assert saved.read_text(encoding="utf-8") == "ログ\n"
+    playdata.cmd_clear(apply=True)
+    assert playdata.cmd_restore(name, apply=True) == 0
+    assert (workspace / "runtime" / "dq2-log" / "retroux.log").read_text(encoding="utf-8") == "ログ\n"
 
 
 def test_DBが無くても落ちない(workspace):
@@ -288,3 +312,60 @@ def test_CLIがapplyなしで動く(workspace):
 
 def test_restoreに名前が無ければ断る(workspace):
     assert playdata.main(["restore"]) == 1
+
+
+
+# --- ★DQ3 の生成物に触らない（RX-0148）--------------------------------------
+#
+# ⚠ `work/generated/` は DQ2 と DQ3 の共用フォルダ。以前は丸ごと退避・削除し、
+#   作り直すのは DQ2 の分だけだったので、DQ3 の `dq3_*.lua` が消えた（調査 D6）。
+
+@pytest.fixture
+def generated(workspace, monkeypatch):
+    gen = workspace / "generated"
+    gen.mkdir()
+    (gen / "config.lua").write_text("dq2", encoding="utf-8")
+    (gen / "dq3_phase0.lua").write_text("dq3", encoding="utf-8")
+    (gen / "dq3-names.json").write_text("{}", encoding="utf-8")
+    # ★作り直しは本物の generate_lua を呼ぶので、ここでは呼んだことだけ数える
+    calls = []
+    monkeypatch.setattr(playdata, "_regenerate", lambda: calls.append(1))
+    return gen
+
+
+def test_clearでもDQ3の生成物は残る(generated):
+    assert playdata.cmd_clear(apply=True) == 0
+    assert not (generated / "config.lua").exists()
+    assert (generated / "dq3_phase0.lua").read_text(encoding="utf-8") == "dq3"
+    assert (generated / "dq3-names.json").exists()
+
+
+def test_DQ3の生成物は退避に写さない(generated, workspace):
+    playdata.cmd_backup(apply=True, label="x")
+    saved = next((workspace / "playdata-archive").iterdir()) / "generated"
+    assert sorted(p.name for p in saved.iterdir()) == ["config.lua"]
+
+
+def test_戻してもDQ3の生成物は残る(generated, workspace):
+    playdata.cmd_backup(apply=True, label="old")
+    name = next(p.name for p in (workspace / "playdata-archive").iterdir())
+    (generated / "dq3_phase0.lua").write_text("dq3 new", encoding="utf-8")
+
+    assert playdata.cmd_restore(name, apply=True) == 0
+    assert (generated / "config.lua").read_text(encoding="utf-8") == "dq2"
+    assert (generated / "dq3_phase0.lua").read_text(encoding="utf-8") == "dq3 new"
+
+
+def test_DQ2のものだけになったフォルダは消える(workspace, monkeypatch):
+    """★`map-assets` のように DQ3 のものが無いフォルダは、これまでどおりフォルダごと消える。"""
+    monkeypatch.setattr(playdata, "_regenerate", lambda: None)
+    playdata.cmd_clear(apply=True)
+    assert not (workspace / "map-assets").exists()
+
+
+@pytest.mark.parametrize("name, foreign", [
+    ("dq3_phase0.lua", True), ("dq3-names.json", True), ("DQ3_AI.lua", True),
+    ("config.lua", False), ("tactics.lua", False), ("dq2_x.lua", False),
+])
+def test_DQ3のものを名前で見分ける(name, foreign):
+    assert playdata.is_foreign(name) is foreign

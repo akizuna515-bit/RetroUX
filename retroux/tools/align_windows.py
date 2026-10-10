@@ -41,8 +41,11 @@ import argparse
 import sys
 import time
 
-from ..core import layout, window_align
-from ..core.config import user_config as user_config_mod
+from ..core import layout
+# ★DQ2 の窓だけを探して動かす写し（RX-0145）。⚠ 題名だけで探すと、DQ3 の FCEUX・画面・
+#   「ログ」窓まで動かす（`RetroUX DQ3 …` も `RetroUX` で始まる / 調査 D4）。
+from ..core import dq2_window_align as window_align
+from ..core.config import dq2_user_config as user_config_mod  # ★DQ2 専用の設定（RX-0147）
 
 # ★**前方一致**で探す。「含む」で探すと、フォルダ名に RetroUX を含む
 #   エクスプローラーなど**関係のないウィンドウを動かす**（実際に踏んだ / DEV-26）。
@@ -161,8 +164,10 @@ def remembered_keys() -> set:
     """
     try:
         from ..ui.window_state import WindowState
+        from ..core import dq2_paths
 
-        state = WindowState()
+        # ★置き場は DQ2 の resolver から（RX-0156 / ⚠ CWD に依らない）
+        state = WindowState(dq2_paths.window_state())
         return {key for key, (mw, mh) in _MIN_SIZE.items()
                 if state.remembers(key, min_width=mw, min_height=mh)}
     except Exception:                                  # noqa: BLE001

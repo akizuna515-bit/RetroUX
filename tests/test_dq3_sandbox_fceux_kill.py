@@ -15,7 +15,7 @@ from dq3.testing import sandbox as SB
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 USER_EXE = r"C:\Projects\260721_RetroUX\tools\fceux\fceux64.exe"
-SANDBOX_EXE = r"C:\Projects\260721_RetroUX\work\test-sandbox\20260911-1-x\fceux\fceux64.exe"
+SANDBOX_EXE = r"C:\Projects\260721_RetroUX\work\tests\sandbox\20260911-1-x\fceux\fceux64.exe"
 
 
 class _Runner:

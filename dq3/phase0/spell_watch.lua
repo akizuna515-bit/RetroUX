@@ -14,7 +14,7 @@
 --   ⚠ 既にかかっている敵は判定の前に黙って戻る → **何も書かない**（★「効かなかった」と数えない）。
 --   ⚠ 人が唱えても Auto が唱えても同じに見る（★AUTO の入り切りに関係しない）。
 --
--- ## ★書く行（`work/dq3-probe/spell_watch.log` / 読むのは `dq3/ui/spell_watch.py`）
+-- ## ★書く行（`work/runtime/dq3-probe/spell_watch.log` / 読むのは `dq3/ui/spell_watch.py`）
 --
 --   `SPELL_RESULT battle=<戦闘の番号> enemy=<敵の種類> index=<耐性の番号> spell=<呪文 / 道具は -1> ok=<0|1>`
 --
@@ -41,7 +41,7 @@ SW.SIGNATURE = {0x85, 0x65, 0xAD}                  --: ★`STA $65 / LDA $6A6B`
 SW.TARGET, SW.SPELL, SW.ACTION = 0x64, 0x49, 0x0567
 SW.STATUS, SW.GROUP_IDS = 0x0530, 0x07B9
 
-local LOG = Core.open_log(write_root .. "/work/dq3-probe/spell_watch.log", "呪文の結果の記録")
+local LOG = Core.open_log(write_root .. "/work/runtime/dq3-probe/spell_watch.log", "呪文の結果の記録")
 local function write(line)
   if LOG == nil then return end
   local ok = pcall(function() LOG:write(line .. "\n"); LOG:flush() end)

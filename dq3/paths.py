@@ -162,6 +162,21 @@ def lazy_work(*parts) -> LazyPath:
     return LazyPath(*parts)
 
 
+#: ★work/ の区分（RX3-0492 / RX3-0493）。⚠ 起動のたびに書くものは `work/runtime/` の下
+#:   ★区分ごと `dq3/ownership.py` の derived（⚠ 中身の名前を ownership に並べない）
+RUNTIME = "runtime"
+
+
+def runtime(*parts) -> pathlib.Path:
+    """★`<書き先>/work/runtime/...`（⚠ IPC・製品の記録・経路の格子など / RX3-0493）。"""
+    return work(RUNTIME, *parts)
+
+
+def lazy_runtime(*parts) -> LazyPath:
+    """★`runtime(...)` と同じ道を、⚠ **使うたびに**引き直す形で返す。"""
+    return LazyPath(RUNTIME, *parts)
+
+
 def lazy_generated(*parts) -> LazyPath:
     """★`generated_dir()` と同じ道を、⚠ **使うたびに**引き直す形で返す。
 
@@ -550,7 +565,7 @@ def in_sandbox() -> bool:
 
 
 __all__ = ["ROOT", "ENV", "SANDBOX_ENV", "LazyPath", "LazyResolved",
-           "write_root", "work", "lazy_work",
+           "write_root", "work", "lazy_work", "RUNTIME", "runtime", "lazy_runtime",
            "program_root", "generated_dir", "lazy_generated",
            "USER_CONFIG_NAME", "LEGACY_ROM_NAME", "LEGACY_FCEUX_NAMES",
            "user_config_path", "rom", "rom_or_legacy", "lazy_rom",

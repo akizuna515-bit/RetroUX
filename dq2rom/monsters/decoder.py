@@ -43,7 +43,7 @@
 
 ★格子のほう（bit6=1）が**絵の本体**で、実機の撮影と完全一致している。
 ⚠ bit6=0 のほうは撮影3枚から式を割り出したもので、**確度は一段低い**
-  （`docs/rom-analysis-notes.md`）。`confidence` を分けて出す。
+  （`docs/research/260801_dq2rom-notes.md`）。`confidence` を分けて出す。
 
 ## count は敵ごとに違う
 

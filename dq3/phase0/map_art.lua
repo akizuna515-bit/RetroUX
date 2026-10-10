@@ -39,8 +39,8 @@
 -- ## ★置き場（⚠ 通常の state.json とは分ける / 指示書 §3.3）
 --
 --   ```text
---   work/dq3-probe/map_art.json   ★小さい情報（⚠ 毎回書く）
---   work/dq3-probe/map_art.bin    ⚠ CHR 8KB（★変わったときだけ）
+--   work/runtime/dq3-probe/map_art.json   ★小さい情報（⚠ 毎回書く）
+--   work/runtime/dq3-probe/map_art.bin    ⚠ CHR 8KB（★変わったときだけ）
 --   ```
 --
 --   ⚠ どちらも「一時ファイルへ書いて置き換える」（★読み途中の欠けを避ける）。

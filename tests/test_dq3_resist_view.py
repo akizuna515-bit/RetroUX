@@ -10,7 +10,7 @@
 MP           マホトラ Ｍ
 ```
 
-★根拠: `docs/design/dq3-resistance-analysis.md` §9（図鑑）/ §2（14 カテゴリ）。
+★根拠: `docs/design/rom-ram/dq3-resistance.md` §9（図鑑）/ §2（14 カテゴリ）。
 ⚠ 内部の 2bit・index は画面に出さない。⚠ 攻撃呪文の × は「ダメージ 0（効かない）」（★半減ではない / RX3-0267）。
 """
 from __future__ import annotations

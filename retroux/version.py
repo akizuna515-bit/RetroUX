@@ -105,24 +105,70 @@ def _commit_from_git() -> str | None:
 
     ⚠⚠ `subprocess` で `git rev-parse` を呼ぶと、★起動が遅くなり、
       `git` が無い環境で余計な失敗が出ます。→ ★ファイルを直接読みます。
-    ⚠ worktree（`.git` がファイル）には対応しません（★その時は `None`）。
+    ★worktree（`.git` がファイル）も読みます（2026-10-03 / RX3-0500）。
+      ⚠ 以前は `None` で、worktree から作った配布 ZIP の断面が空になりました。
     """
     for parent in _roots():
-        git = parent / ".git"
-        if not git.is_dir():
+        dirs = _git_dirs(parent)
+        if dirs is None:
             continue
+        own, common = dirs
         try:
-            head = (git / "HEAD").read_text(encoding="utf-8").strip()
+            head = (own / "HEAD").read_text(encoding="utf-8").strip()
         except OSError:
             return None
         if not head.startswith("ref: "):
             return head or None                 # ★detached HEAD は生の hash
-        ref = git / head[5:].strip()
+        return _read_ref(head[5:].strip(), own, common)
+    return None
+
+
+def _git_dirs(parent: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path] | None:
+    """★（HEAD のある場所, 共有の refs のある場所）。⚠ 見つからなければ `None`。
+
+    ```text
+    通常の repo   .git/ がフォルダ            → (.git, .git)
+    worktree      .git が `gitdir: <場所>`    → (<場所>, <場所>/commondir の先)
+    ```
+    """
+    git = parent / ".git"
+    if git.is_dir():
+        return git, git
+    if not git.is_file():
+        return None
+    try:
+        line = git.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if not line.startswith("gitdir: "):
+        return None
+    own = pathlib.Path(line[len("gitdir: "):].strip())
+    if not own.is_absolute():
+        own = parent / own
+    try:
+        common = own / (own / "commondir").read_text(encoding="utf-8").strip()
+    except OSError:
+        common = own
+    return own, common
+
+
+def _read_ref(ref: str, own: pathlib.Path, common: pathlib.Path) -> str | None:
+    """★ref の commit（★worktree 固有 → 共有 → packed-refs の順）。"""
+    for base in (own, common):
         try:
-            return ref.read_text(encoding="utf-8").strip() or None
+            got = (base / ref).read_text(encoding="utf-8").strip()
         except OSError:
-            # ⚠ packed-refs にしか無いことがある（★そこまでは追わない）
-            return None
+            continue
+        if got:
+            return got
+    try:
+        packed = (common / "packed-refs").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for line in packed.splitlines():
+        sha, _, name = line.partition(" ")
+        if name.strip() == ref and not line.startswith(("#", "^")):
+            return sha or None
     return None
 
 

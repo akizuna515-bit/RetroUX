@@ -28,5 +28,5 @@ def test_起動スクリプトが呼んでいる():
     """⚠ 道具を作っただけで呼んでいない、をやらない（過去8回踏んだ形）。"""
     import pathlib
     src = (pathlib.Path(__file__).resolve().parents[1]
-           / "scripts" / "start-retroux.ps1").read_bytes().decode("utf-8")
+           / "scripts" / "start-dq2.ps1").read_bytes().decode("utf-8")
     assert "retroux.tools.monster_art_setup" in src

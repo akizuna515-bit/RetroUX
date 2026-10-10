@@ -9,7 +9,7 @@ data/dq3/hero-memo.yaml（★人が書く）
         ↓ hero_memo.build()   ⚠ ファイルを作らない（★メモリの中だけ）
 {topic_id: Topic} ＋ [Rule]
         ↓
-Council.evaluate(use_hero_memo=True)
+Council.evaluate()
         ↓
 ★勇者会議に出る（view.recent）
         ↓ 持った Fact
@@ -174,7 +174,7 @@ def _council(tmp_path, memo_path, facts):
             return PG.Progress()
 
     return _Council(state_path=tmp_path / "topic-state.json",
-                    hero_memo_path=memo_path, use_hero_memo=True,
+                    hero_memo_path=memo_path,
                     knowledge_path=tmp_path / "player-knowledge.json")
 
 
@@ -278,15 +278,23 @@ def test_出る条件が複数ならどれか1つで出る(tmp_path, names):
     assert [c["topic_id"] for c in view.resolved] == ["sample_any"]
 
 
-# --- ⚠ 既存の経路を壊していない ------------------------------------------------
+# --- ★旧経路は無い（RX3-0432 / 2026-10-03）------------------------------------
 
-def test_既定は今までどおりGuideMasterを読む(tmp_path):
-    """⚠⚠ `use_hero_memo` を付けなければ**旧経路のまま**（★切り替えは 1 か所）。"""
+def test_旧経路への切り替えの口は無い(tmp_path):
+    """⚠⚠ 以前は `use_hero_memo` の既定が False で、★書き忘れると黙って旧 2 表を読んでいた。
+
+    ★口ごと消したので、⚠ 古い書き方は**名前で落ちる**（★黙って旧経路に落ちない）。
+    """
+    import pytest
+
     from dq3.knowledge import council as CO
 
+    for old in ("use_hero_memo", "master_path", "rules_path"):
+        with pytest.raises(TypeError):
+            CO.Council(**{old: True})
     got = CO.Council()
-    assert got.use_hero_memo is False
-    assert got.hero_memo_path is None
+    assert not hasattr(got, "use_hero_memo")
+    assert got.hero_memo_path is None                 # ★既定の原本（data/dq3/hero-memo.yaml）
 
 
 #: ⚠ 人が書くのを待っている件（★ここに無い問題は**赤**にする / RX3-0434）

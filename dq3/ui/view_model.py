@@ -40,7 +40,7 @@ from .. import paths
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 #: ★Lua が書く「いまの値」。⚠ 上書きなので、読めない一瞬がある
-DEFAULT_STATE = paths.lazy_work("state.json")
+DEFAULT_STATE = paths.lazy_runtime("state.json")   # ★RX3-0493
 
 #: ★プレイヤーが得たことだけを貯める場所（⚠ ROM の正解ではない）
 DEFAULT_KNOWLEDGE = paths.lazy_work("dq3-knowledge", "player-knowledge.json")
@@ -763,7 +763,7 @@ class Dq3ViewModel:
 
         ⚠⚠ **出せなければ `None`**（★画面は色ブロックのまま）。
           材料は実行時の RAM / PPU にしかなく、`dq3/phase0/map_art.lua` が
-          `work/dq3-probe/` へ置きます。⚠ FCEUX が動いていなければ空です。
+          `work/runtime/dq3-probe/` へ置きます。⚠ FCEUX が動いていなければ空です。
 
         ## ⚠ 毎回作り直しません
 
@@ -802,7 +802,7 @@ class Dq3ViewModel:
             #   ★書き先は `dq3/paths.py` の 1 か所を通します（RX3-0128）。
             from dq3 import paths as P3
 
-            got = self._tile_art_dir = P3.work("dq3-probe")
+            got = self._tile_art_dir = P3.work("runtime", "dq3-probe")
         return got
 
     @tile_art_dir.setter

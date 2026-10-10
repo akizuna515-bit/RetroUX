@@ -158,6 +158,17 @@ FLAG_LABEL = {"battle_use": "戦闘で使える", "battle_ref": "戦闘が参照
 CLASS_LABEL = {"hero": "勇", "wizard": "魔", "pilgrim": "僧", "sage": "賢",
                "soldier": "戦", "merchant": "商", "fighter": "武", "goofoff": "遊"}
 
+#: ★職業の名前（冒険ログ / RX3-0518）。⚠ 並びは `CLASS_LABEL` と同じ（★1 文字の札を開いた語）
+CLASS_NAME = {"hero": "勇者", "wizard": "魔法使い", "pilgrim": "僧侶", "sage": "賢者",
+              "soldier": "戦士", "merchant": "商人", "fighter": "武闘家", "goofoff": "遊び人"}
+
+
+def class_name(value) -> str | None:
+    """★`class_gender` の 1 バイト → 職業の名前（⚠ 分からなければ None）。"""
+    class_id, _female = split_class_gender(value)
+    key = CLASS_NAMES.get(class_id) if class_id is not None else None
+    return CLASS_NAME.get(key) if key else None
+
 
 def info(item_id, rom_path=None) -> ItemInfo | None:
     """★画面に出せる形で 1 件（⚠ 無ければ None）。"""

@@ -20,7 +20,7 @@ from .view_model import Dq3ViewModel
 
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="RetroUX DQ3 の画面（開発中）")
-    ap.add_argument("--state", help="⚠ Lua が書く state.json（★既定は work/state.json）")
+    ap.add_argument("--state", help="⚠ Lua が書く state.json（★既定は work/runtime/state.json）")
     ap.add_argument("--knowledge", help="★勇者が得たことの置き場")
     ap.add_argument("--interval", type=int, default=500,
                     help="見直す間隔 ms（★既定 500。DQ2 と同じ）")
@@ -171,6 +171,17 @@ def main(argv=None) -> int:
     #   ⚠ `Dq3ViewModel` より前でなければいけません（★下の註）。
     if args.migrate_offer_only:
         return _migrate_offer_only()
+
+    # ★★ 製品間排他（RX3-0505 / 依頼者 2026-10-03「DQ2 / DQ3 の同時起動はサポートしない」）★★
+    #   ★DQ2 が動いていたら、理由を出して**何も始めずに**終わる（⚠ 材料が読めるかだけの --check は対象外）。
+    #   ★握った Mutex はプロセスの終わりまで持つ（⚠ 解放は OS 任せ = 異常終了でも残骸にならない）。
+    product = None
+    if not args.check:
+        from dq3 import product_lock
+
+        product = product_lock.guard("DQ3")
+        if product is None:
+            return 1
 
     vm = Dq3ViewModel(state_path=args.state, knowledge_path=args.knowledge)
 

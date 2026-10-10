@@ -34,8 +34,10 @@ from __future__ import annotations
 import pathlib
 import time
 
-#: 生成物の置き場（`config.lua` と同じ）
-DEFAULT_PATH = pathlib.Path("work/generated/tactics.lua")
+from .. import dq2_paths
+
+#: 生成物の置き場（`config.lua` と同じ / ★RX-0156: CWD ではなく program_root から）
+DEFAULT_PATH = dq2_paths.generated("tactics.lua")
 
 HEADER = """-- 自動生成ファイル。直接編集しないこと。
 -- 生成元: 選んでいる戦術プロフィール（work/tactics/profiles/*.yaml）

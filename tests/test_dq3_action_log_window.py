@@ -34,7 +34,7 @@ class _VM:
 
 
 class _Tail:
-    """★Lua のログの代わり（⚠ 本物の work/dq3-probe は読まない）。"""
+    """★Lua のログの代わり（⚠ 本物の work/runtime/dq3-probe は読まない）。"""
 
     def __init__(self, lines):
         self.lines = list(lines)

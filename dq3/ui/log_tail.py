@@ -14,9 +14,9 @@
 ★一方、Lua は**起きたことをその場でファイルへ書いています**。
 ⚠ そちらを読めば、1 つも取りこぼしません。
 
-    work/dq3-probe/auto_v0.log    戦闘の進行（★ターンごと）
-    work/dq3-probe/mantan_v0.log  まんたんの逐条
-    work/dq3-probe/dev.log        起動・ターボ・画面からの頼み
+    work/runtime/dq3-probe/auto_v0.log    戦闘の進行（★ターンごと）
+    work/runtime/dq3-probe/mantan_v0.log  まんたんの逐条
+    work/runtime/dq3-probe/dev.log        起動・ターボ・画面からの頼み
 
 ## ⚠ 大きくなったファイルを毎回読み直さない
 

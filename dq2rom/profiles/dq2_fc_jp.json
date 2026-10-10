@@ -3,7 +3,7 @@
   "title": "ドラゴンクエストII 悪霊の神々",
   "region": "JP",
   "platform": "Famicom",
-  "_note_mapper": "指示書 2.2 は Mapper 1 (MMC1) と書いているが、それは北米版 Dragon Warrior II の値。この ROM の iNES ヘッダを実測すると Mapper 2 (UNROM) だった。docs/design/rom-analysis-tools-spec.md 1.1",
+  "_note_mapper": "指示書 2.2 は Mapper 1 (MMC1) と書いているが、それは北米版 Dragon Warrior II の値。この ROM の iNES ヘッダを実測すると Mapper 2 (UNROM) だった。docs/design/rom-ram/dq2rom-tool.md 1.1",
   "mapper": 2,
   "mapper_name": "UNROM",
   "hashes": {

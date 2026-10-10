@@ -55,8 +55,8 @@ PLACE_MEMO_SOURCES = ("npc_talk", "conversation")
 MEMOS_FILE = "memos.jsonl"
 
 #: ⚠⚠ 絶対に触らないもの（★検査で見張る）
-NEVER_TOUCH = (ROOT / "work" / "rom", ROOT / "tools", ROOT / "input", ROOT / "work" / "dq3-probe",
-               ROOT / "work" / "evidence", ROOT / "data")
+NEVER_TOUCH = (ROOT / "work" / "rom", ROOT / "tools", ROOT / "input", ROOT / "work" / "runtime" / "dq3-probe",
+               ROOT / "work" / "tests" / "evidence", ROOT / "data")
 
 
 def _count_lines(path: pathlib.Path) -> int:

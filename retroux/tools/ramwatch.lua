@@ -10,7 +10,7 @@
 --   分岐で持つと「切ったつもりで動いていた」が起きる。
 --
 -- 使い方:
---   powershell -ExecutionPolicy Bypass -File scripts\start.ps1 -Lua research\probes\archived\ramwatch_run.lua
+--   powershell -ExecutionPolicy Bypass -File scripts\start-dq2.ps1 -EmulatorOnly -Lua research\probes\archived\ramwatch_run.lua
 --
 --   見る範囲と出力先は research/probes/archived/ramwatch_run.lua で指定する（この下の説明を参照）。
 --

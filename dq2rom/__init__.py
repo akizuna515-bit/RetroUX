@@ -1,7 +1,7 @@
 """dq2rom — FC版ドラゴンクエストII の ROM 解析ツール（独立CLI）。
 
 指示書: `input/claude_code_dq2_rom_analysis_tools.md`
-仕様検討と疑問点: `docs/design/rom-analysis-tools-spec.md`
+仕様検討と疑問点: `docs/design/rom-ram/dq2rom-tool.md`
 
 ★このパッケージは **RetroUX 本体から独立**しています（指示書 §19-9）。
   `retroux` を import しません。成果物は `output/rom-analysis/<sha1>/` に出し、

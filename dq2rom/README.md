@@ -4,8 +4,8 @@ RetroUX 本体とは**独立した CLI ツール**です（指示書 §19-9）�
 `retroux` を import せず、本体のデータも書き換えません。
 
 - 指示書: `input/claude_code_dq2_rom_analysis_tools.md`
-- **仕様検討と疑問点（回答待ち7件）**: `docs/design/rom-analysis-tools-spec.md`
-- 調査ログ: `docs/rom-analysis-notes.md`
+- **仕様検討と疑問点（回答待ち7件）**: `docs/design/rom-ram/dq2rom-tool.md`
+- 調査ログ: `docs/research/260801_dq2rom-notes.md`
 
 ---
 

@@ -20,8 +20,8 @@ Topic State（work/ / ⚠ このプレイの進み具合）                ＝ �
 ⚠ 旧 input/dq3_guide_topic_master*.csv        ★第三者の攻略情報から起こした Topic 表
 ```
 
-★`RULES_PATH` / `MASTER_PATH` という**定数だけ**が残っています。
-⚠ ファイルが無くても落ちません（★`load_master` / `load_rules` が空を返す）。
+★2026-10-03（RX3-0432）: 読む口（`load_master` / `load_rules` / `MASTER_PATH` / `RULES_PATH`）も消しました。
+⚠ `TopicBook` は正本を**渡されたものだけ**使います（★省くと空 / 黙って旧 2 表を読まない）。
 → ⚠ 新しい Topic をここに足さないでください。**勇者メモに書きます**。
 
 ## ⚠ 守ること
@@ -45,25 +45,14 @@ resolved    ⚠ 完了の重みの Fact が当たった（★Stretch）
 """
 from __future__ import annotations
 
-import csv
 import dataclasses
 import datetime
-import io
 import json
 import pathlib
 
-from dq3.knowledge import guide_master as GM
-from dq3.knowledge.guide_master import GuideMasterError, Topic  # noqa: F401 - ★再輸出
+from dq3.knowledge.guide_master import Topic  # noqa: F401 - ★再輸出
 
 from .. import paths
-
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-
-#: ★人が編集する正本（⚠ ここを実行時に書き換えない）
-#   ⚠⚠ 2026-09-04（RX3-0074）: Master は **`input/`** の正式 CSV になりました。
-#     ★読む・検めるのは `guide_master.py`。⚠ 正式が無いときは `_draft` を読みます。
-MASTER_PATH = GM.resolve_path() or GM.OFFICIAL_PATH
-RULES_PATH = ROOT / "data" / "dq3" / "topic-rules.csv"
 
 #: ⚠ このプレイの進み具合（★Git の外 / playdata の作法に合わせる）
 STATE_PATH = paths.lazy_work("dq3-knowledge", "topic-state.json")
@@ -87,8 +76,9 @@ def _now() -> str:
 class Rule:
     """★Fact と Topic を結ぶ条件（⚠ 名前ではなく id で書く）。
 
-    ★`source`: `explicit` = 人が `topic-rules.csv` に書いた /
-      `master` = Guide Master の関連名から実行時に作った弱い Rule（`guide_mapping.py`）。
+    ★`source`: `explicit` = 人が書いた条件（★勇者メモ）/
+      `master` = 旧 Guide Master の関連名から作っていた弱い Rule
+      （⚠ 作る側は 2026-10-03 に消した / RX3-0432。★値の意味だけ残す）。
     """
 
     rule_id: str
@@ -150,53 +140,6 @@ class Rule:
         return fact.get("subject") == want
 
 
-def _int(text, default=None):
-    try:
-        return int(str(text).strip())
-    except (TypeError, ValueError):
-        return default
-
-
-def load_master(path=None) -> dict[str, Topic]:
-    """★Topic の正本を読む。⚠ 無ければ空（★落ちない）。
-
-    ⚠⚠ ただし**壊れていたら止まります**（`GuideMasterError` / 指示書 §28）。
-      ★「無い」と「壊れている」は違います。無いのは環境、壊れているのは事故。
-    """
-    target = GM.resolve_path(path)
-    if target is None:
-        return {}
-    return GM.load(target, strict=True).topics
-
-
-def load_rules(path=None) -> list[Rule]:
-    """★Mapping Rule を読む。⚠ 無ければ空。"""
-    target = pathlib.Path(path) if path else RULES_PATH
-    got: list[Rule] = []
-    try:
-        with io.open(target, encoding="utf-8-sig", newline="") as f:
-            for row in csv.DictReader(f):
-                rule_id = (row.get("rule_id") or "").strip()
-                if not rule_id:
-                    continue
-                got.append(Rule(
-                    rule_id=rule_id,
-                    topic_id=(row.get("topic_id") or "").strip(),
-                    entity_kind=(row.get("entity_kind") or "").strip(),
-                    entity_id=_int(row.get("entity_id")),
-                    predicate=(row.get("predicate") or "").strip(),
-                    place_type=(row.get("place_type") or "").strip(),
-                    location_id=(row.get("location_id") or "").strip(),
-                    match_mode=(row.get("match_mode") or "ANY").strip().upper() or "ANY",
-                    weight=_int(row.get("weight"), 0),
-                    notes=(row.get("notes") or "").strip(),
-                    entity_name=(row.get("entity_name") or "").strip(),
-                    group=(row.get("group") or "").strip()))
-    except OSError:
-        return []
-    return got
-
-
 # --- ★このプレイの進み具合 ---------------------------------------------------------
 
 @dataclasses.dataclass
@@ -238,10 +181,10 @@ class TopicBook:
     def __init__(self, master=None, rules=None, path=None, require_appear: bool = False) -> None:
         #: ★出る条件が 1 度も成立していない Topic は、片づいても見せない（RX3-0436 / 勇者メモ）。
         #:   ⚠ 片づく条件だけ先に成立すると「分かったこと」に出て、**出ていないカードが漏れる**。
-        #:   ★旧 Guide Master の経路は今までどおり（何か 1 本当たれば見える）
         self.require_appear = require_appear
-        self.master = master if master is not None else load_master()
-        self.rules = rules if rules is not None else load_rules()
+        # ⚠ 2026-10-03（RX3-0432）: 省いたら空（★以前は旧 2 表を黙って読んでいた）
+        self.master = master if master is not None else {}
+        self.rules = rules if rules is not None else []
         self.path = pathlib.Path(path) if path is not None else STATE_PATH
         self.states: dict[str, TopicState] = {}
         self._dirty = False

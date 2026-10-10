@@ -355,7 +355,7 @@ def gather(vm=None, progress: Progress | None = None, state=None, enemy_book=Non
 
 def load_state(path=None) -> dict:
     """⚠ vm が無いとき（CLI）に state.json を直に読む。"""
-    target = pathlib.Path(path) if path else paths.work("state.json")
+    target = pathlib.Path(path) if path else paths.runtime("state.json")
     try:
         return json.loads(target.read_text(encoding="utf-8"))
     except (OSError, ValueError):

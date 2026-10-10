@@ -50,7 +50,7 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture(scope="module")
 def result() -> subprocess.CompletedProcess:
     # ★Lua はフォルダを作れない。撮影先（raw）はここで用意する
-    (PROJECT_ROOT / "work" / "art_test" / "raw").mkdir(parents=True, exist_ok=True)
+    (PROJECT_ROOT / "work" / "tests" / "art_test" / "raw").mkdir(parents=True, exist_ok=True)
     return subprocess.run(
         [sys.executable, str(RUNNER), str(SCRIPT)],
         capture_output=True, text=True, encoding="utf-8", errors="replace",

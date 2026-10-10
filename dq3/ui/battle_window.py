@@ -89,7 +89,7 @@ from .log_tail import LogTail
 from .. import paths
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-PROBE = paths.lazy_work("dq3-probe")
+PROBE = paths.lazy_work("runtime", "dq3-probe")
 
 #: ★窓の大きさ（**論理**）。⚠ 実際の高さは `layout` が決める
 WINDOW_W, WINDOW_H = 1920, 210

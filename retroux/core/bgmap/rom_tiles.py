@@ -179,7 +179,7 @@ def best_order(prg: bytes, entries, real: bytes, bases=(0, 1, 2, 3),
 
 # --- ★★ マップ → タイルセット（2026-08-02 実測）★★ --------------------
 
-#: マップヘッダ表（既知 / `docs/rom-analysis-notes.md` 4章）
+#: マップヘッダ表（既知 / `docs/research/260801_dq2rom-notes.md` 4章）
 MAP_HEADER = 0x08000
 MAP_HEADER_SIZE = 8
 

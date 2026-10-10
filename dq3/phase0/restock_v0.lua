@@ -54,7 +54,7 @@ if not ok_cfg or type(CFG) ~= "table" then CFG = {} end
 local ME = "restock_v0"
 local HOST = rawget(_G, "DQ3_DEV")
 
-local logfile = Core.open_log(write_root .. "/work/dq3-probe/restock_v0.log", "補充の記録")
+local logfile = Core.open_log(write_root .. "/work/runtime/dq3-probe/restock_v0.log", "補充の記録")
 local function say(line)
   if logfile ~= nil then logfile:write(line .. string.char(10)); logfile:flush() end
 end

@@ -141,7 +141,7 @@ def link_cells(assets_dir: pathlib.Path, apply: bool,
     from retroux.core.bgmap import (
         Capture, choose_pattern_half, load_screen, metatile_at,
     )
-    from retroux.core.config import user_config as user_config_mod
+    from retroux.core.config import dq2_user_config as user_config_mod  # ★DQ2 専用の設定（RX-0147）
     from retroux.core.db.database import Database
 
     captures = sorted(assets_dir.glob("capture-*.txt"))

@@ -2,7 +2,7 @@
 
 ★★ なぜ窓ごとに分けるのか ★★
 
-依頼者の指示書（`docs/research/dq3-text-capture-brief.md`）§2 の考え方。
+依頼者の指示書（`docs/requests/260825_dq3-text-capture.md`）§2 の考え方。
 DQ3 は意味のある文字を**ほとんど枠の中**に出すので、枠を見つけて中だけ取れば
 地形や飾りを拾わずに済む。
 

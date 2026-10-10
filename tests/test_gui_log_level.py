@@ -15,7 +15,7 @@
 （＝`level` の下限。既定 DEBUG）がそのまま出ていました。
 
 ★「設定に書いてあるのに効いていない」は、いちばん追いにくい壊れ方です
-（`docs/audit/source-to-doc.md` に同じ形の例が並んでいます）。
+（`docs/audit/260812_repo-audit/step2-source-to-doc.md` に同じ形の例が並んでいます）。
 
 ## ★ ここで見ること
 

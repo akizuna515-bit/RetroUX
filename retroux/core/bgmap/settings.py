@@ -12,7 +12,7 @@
 ★**この設定は、書いても効いていませんでした。**
 `load()` を呼んでいたのは `tests/test_map_settings.py` **だけ**で、
 `retroux/ui/map/presenter.py` は設定を通らずに ROM の地図を描いていました
-（`docs/audit/source-to-doc.md` の 2）。
+（`docs/audit/260812_repo-audit/step2-source-to-doc.md` の 2）。
 
 ⚠ そのとき既定は `observed`（現行表示）でしたが、**実際の挙動は ROM 描画**
 でした（README 2026-08-09 / 08-11）。★配線するにあたり、

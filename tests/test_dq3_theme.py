@@ -109,7 +109,7 @@ def test_色を2か所に書いていない():
 # ----------------------------------------------------------------------
 # ⚠ 絵の前提（★崩れたら配色の判断も変わる）
 # ----------------------------------------------------------------------
-ART_DIR = pathlib.Path(__file__).resolve().parents[1] / "work" / "dq3-monster-art"
+ART_DIR = pathlib.Path(__file__).resolve().parents[1] / "work" / "cache" / "dq3-monster-art"
 
 
 @pytest.mark.skipif(not ART_DIR.exists(), reason="★絵がまだ作られていません")

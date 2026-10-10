@@ -1,6 +1,6 @@
 """物語の旗（RX3-0210 / RX3-0211 / 2026-09-12）。★RAM の旗を、人が書いた表（`data/dq3/story-flags.csv`）で意味づける。
 
-★★ ノアニールの眠り（`docs/research/dq3-noaniel-sleep-investigation.md`）★★
+★★ ノアニールの眠り（`docs/research/260912_dq3-noaniel-sleep.md`）★★
 
 ```text
 ROM 13:B20E  map が 11 / 120 かつ `$60B7` bit2 = 0 → 全員「ぐうぐう‥‥。」（★talk_id は同じ / 表の差し替えではない）

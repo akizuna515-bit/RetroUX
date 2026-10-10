@@ -30,7 +30,7 @@ SCRIPT = PROJECT_ROOT / "research" / "probes" / "active" / "state_write_test.lua
 LOG_SCRIPT = PROJECT_ROOT / "research" / "probes" / "active" / "battlelog_test.lua"
 SLOT_SCRIPT = PROJECT_ROOT / "research" / "probes" / "active" / "enemyslot_test.lua"
 WATCH_SCRIPT = PROJECT_ROOT / "research" / "probes" / "active" / "ramwatch_test.lua"
-RAMDUMP = PROJECT_ROOT / "work" / "ramdump" / "DQ2_J.fc0.bin"
+RAMDUMP = PROJECT_ROOT / "work" / "research" / "ramdump" / "DQ2_J.fc0.bin"
 GENERATED = PROJECT_ROOT / "work" / "generated" / "memory_map.lua"
 # ★★ ⚠⚠ 出し先は **Lua の隔離先**（RX3-0480 / 2026-10-01）★★
 #
@@ -54,7 +54,7 @@ OUTPUT = _output()
 pytestmark = pytest.mark.skipif(
     not (DLL.exists() and RUNNER.exists() and SCRIPT.exists()
          and RAMDUMP.exists() and GENERATED.exists()),
-    reason=("Lua を動かす材料が無い（tools/fceux/lua5.1.dll・work/ramdump・"
+    reason=("Lua を動かす材料が無い（tools/fceux/lua5.1.dll・work/research/ramdump・"
             "work/generated）。python research/probes/active/check_spellrows.py --dump と "
             "python -m retroux.core.config.generate_lua で用意できる"),
 )
@@ -94,7 +94,7 @@ def test_map_fields_survive_the_move_gate(written):
 
     ⚠ `test_live_map_wiring.py` は行の字面を見ていて、そこが動いた瞬間に
       落ちました。★そちらは字面をやめたので、**ここで実物を見ます**
-      （`docs/design/handoff-20260807.md` §5 の作法8「渡す側と読む側の両方」）。
+      （`docs/history/handoff/handoff-20260807.md` §5 の作法8「渡す側と読む側の両方」）。
 
     ⚠ `map_tiles` / `map_cells` は `ppu` が要るのでこの走らせ方では出ません
       （★門とは無関係。以前からそうです）。ここでは `map_colors` を見ます。

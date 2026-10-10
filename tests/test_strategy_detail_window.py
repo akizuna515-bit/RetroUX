@@ -1,6 +1,6 @@
 """戦略の中身を見せる窓（2026-08-11 / UI整理 Phase 5）。
 
-設計: docs/design/strategy-unification-design.md（§6 Phase 5）
+設計: docs/design/battle-ai/dq2-strategy-ui.md（§6 Phase 5）
 
 ★★ 確かめたいこと ★★
   1. custom_1 の固定行動を、DQ2 プラグインから人が読める形で取れる

@@ -32,11 +32,12 @@ from __future__ import annotations
 import copy
 import pathlib
 
+from .. import dq2_paths
 from . import models
 from .profile import ID_PATTERN, TacticsProfile, now_iso, slug
 
-#: 既定の置き場（仕様書 10.1）
-DEFAULT_DIR = pathlib.Path("work/tactics/profiles")
+#: 既定の置き場（仕様書 10.1 / ★RX-0156: CWD ではなく program_root から = gui.py と同じ）
+DEFAULT_DIR = dq2_paths.program_work("tactics", "profiles")
 #: 選んでいるプロフィールを覚えるファイル
 ACTIVE_NAME = "active.txt"
 

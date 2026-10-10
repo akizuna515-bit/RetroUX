@@ -39,7 +39,7 @@ ORDER_BY_ID = "id"
 #:
 #:   ★RX3-0266 で 14 カテゴリすべてを JP ROM の呼び出し元と実機で確かめた（⚠ unresolved / inferred は 1 つも無い）。
 #:   ⚠ 攻撃呪文の × は「ダメージ 0（効かない）」（★半減ではない / RX3-0267）。
-#:   ★根拠と推奨: `docs/design/dq3-resistance-analysis.md` §9
+#:   ★根拠と推奨: `docs/design/rom-ram/dq3-resistance.md` §9
 RESIST_GROUPS: tuple = (
     ("攻撃呪文", (("damage_reduction", "メラ・ギラ・イオ", "炎"), ("ice_spells", "ヒャド", "氷"),
                   ("wind_spells", "バギ", "風"), ("lightning_spells", "デイン", "雷"))),

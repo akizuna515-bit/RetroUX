@@ -40,7 +40,7 @@ if not ok_cfg or type(CFG) ~= "table" then CFG = {} end
 local ME = "nav_v0"
 local HOST = DQ3_DEV
 
-local logfile = Core.open_log(write_root .. "/work/dq3-probe/nav_v0.log", "街ナビの記録")
+local logfile = Core.open_log(write_root .. "/work/runtime/dq3-probe/nav_v0.log", "街ナビの記録")
 local function say(line)
   if logfile ~= nil then logfile:write(line .. string.char(10)); logfile:flush() end
 end
@@ -104,7 +104,7 @@ local COLS, ROWS = CFG.columns or 32, CFG.rows or 30
 local CURSOR = CFG.cursor_tile or 0x72
 --: ★★ 施設の人の最初の台詞で高速化を解き、施設ごとに止める（RX3-0241 / 2026-09-13）。
 --
---   ⚠⚠ 依頼者の小WI「自動移動後の施設会話停止位置と引継ぎを整理」（`docs/design/dq3-facility-stop-spec.md`）:
+--   ⚠⚠ 依頼者の小WI「自動移動後の施設会話停止位置と引継ぎを整理」（`docs/requests/260913_dq3-facility-stop.md`）:
 --     「最初のメッセージが発生した瞬間に高速化を解除する」（⚠ 着いた・A を送った・一定フレームではない）。
 --   ★最初の台詞 = はなす のあと `$828B` の見張りが鳴り（★相手がいる）、画面の下半分の会話の窓に字が出た。
 --   ★街移動（`stop_at="first_message"`）だけ。⚠ 聞き込み・補充は今までどおり。

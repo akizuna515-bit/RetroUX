@@ -4,7 +4,7 @@
 
     settings.py    型付きの設定・既定値・表示名との対応
     validation.py  値の検証。⚠ 壊れていても止めず、既定値へ落として理由を残す
-    repository.py  config/mantan.yaml の読み書き・同梱設定とのマージ・
+    repository.py  work/dq2-settings/mantan.yaml の読み書き・同梱設定とのマージ・
                    書きかけを残さない保存
 """
 

@@ -8,17 +8,19 @@
 
   > 係数をコードへ散在させない / 設定ファイルから調整可能にする
 
-  ★既定値はここに置きますが、`config/mission.yaml` で上書きできます。
+  ★既定値はここに置きますが、`work/dq2-settings/mission.yaml` で上書きできます。
 """
 
 from __future__ import annotations
 
 import dataclasses
 import enum
-import pathlib
+from .. import dq2_paths
 
-#: 利用者の設定の置き場（`config/mantan.yaml` と同じ流儀）
-USER_PATH = pathlib.Path("config/mission.yaml")
+#: 利用者の設定の置き場（★まんたんと同じ流儀 / 2026-10-03 RX-0156: write_root 側へ移した）
+USER_PATH = dq2_paths.setting("mission.yaml")
+#: ⚠ 旧の置き場（`config/mission.yaml`）。★新しい方が無いときだけ読む・書き戻さない
+LEGACY_PATH = dq2_paths.legacy_setting("mission.yaml")
 
 #: 設定の形式の版
 SCHEMA_VERSION = 1

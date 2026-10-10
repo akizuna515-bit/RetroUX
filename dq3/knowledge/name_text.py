@@ -57,7 +57,66 @@ def to_display(name: str) -> str:
     return katakana_word(name, known)
 
 
+#: ★仲間の名前の 1 バイト → 字形表の索引（RX3-0518 / 2026-10-05）
+#:
+#:   ★RAM の名前（`state.json` の `party[].name_tiles`）は、字形表の**下位 1 バイト**です。
+#:   ★実測（依頼者の本物の `state.json`）: 4 人とも `+ 0x100` で読めた
+#:     `[11, 16, 50, 0]` → 「あかり」/ エルシト / ハンソロ / ロミオ（★`party_panel.JOBS` の実測名と同じ 4 人）。
+#:   ⚠ 同じ state の `job_tile`（★画面の「つよさ」窓から拾った職業の頭文字）も `+ 0x100` で
+#:     ゆ / せ / け / ふ と読め、`class_gender` の 勇者 / 戦士 / 賢者 / 武闘家 と 4 人とも一致した。
+NAME_TILE_BASE = 0x100
+
+#: ★名前の空き（★字形表の 0x100 は空白 / ⚠ 4 文字に満たない名前の後ろが埋まる）
+_BLANKS = ("␣", " ", "　")
+
+_table: dict | None = None
+
+
+def _name_table() -> dict:
+    """★字形表（索引 → 字）。⚠ 読めなければ空。"""
+    global _table
+    if _table is None:
+        try:
+            from retroux.core.text import Charset
+
+            spec = json.loads(PROFILE.read_text(encoding="utf-8")).get("text")
+            cs = Charset(spec) if spec else None
+            _table = dict(cs.table) if cs is not None else {}
+        except Exception:                                # noqa: BLE001 ★読めないだけ
+            _table = {}
+    return _table
+
+
+def party_name(tiles) -> str | None:
+    """★仲間の名前（`name_tiles`）→ 字。⚠ 1 文字でも読めなければ None（★推測で埋めない）。
+
+    ★濁点・半濁点の字が来たら、前の字に合わせます（NFC）。
+    """
+    import unicodedata
+
+    if not isinstance(tiles, (list, tuple)) or not tiles:
+        return None
+    table = _name_table()
+    if not table:
+        return None
+    out = ""
+    for raw in tiles:
+        if not isinstance(raw, int) or isinstance(raw, bool) or not 0 <= raw <= 0xFF:
+            return None
+        ch = table.get(NAME_TILE_BASE + raw)
+        if ch is None:
+            return None
+        if ch in ("゛", "゜") and out:
+            out = unicodedata.normalize("NFC", out + {"゛": "゙", "゜": "゚"}[ch])
+            continue
+        out += ch
+    for blank in _BLANKS:
+        out = out.replace(blank, " ")
+    out = out.strip()
+    return out or None
+
+
 def reset() -> None:
     """⚠ 検査用（★文字表を読み直す）。"""
-    global _known, _tried
-    _known, _tried = None, False
+    global _known, _tried, _table
+    _known, _tried, _table = None, False, None

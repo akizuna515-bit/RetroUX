@@ -7,7 +7,7 @@
   だった。指示書の値をそのまま使うと、バンク↔オフセットの変換が全部ずれる。
   （北米版 Dragon Warrior II が MMC1 なので、そちらの値が混ざったと思われる）
 
-  詳細は `docs/design/rom-analysis-tools-spec.md` 1.1。
+  詳細は `docs/design/rom-ram/dq2rom-tool.md` 1.1。
 
 UNROM (mapper 2) のメモリ配置:
 

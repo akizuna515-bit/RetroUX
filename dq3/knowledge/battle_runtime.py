@@ -36,7 +36,7 @@ $0530 status
 書いてありました。⚠ **8 bit で探していた**のが原因です
 （★「8 が 4 つ並ぶ場所は 0 件」という観測そのものは正しかった）。
 
-★手がかりは北米版の逆アセンブル（`work/dq3-disasm/disassembly/ram.inc`）:
+★手がかりは北米版の逆アセンブル（`work/research/dq3-disasm/disassembly/ram.inc`）:
 
 ```text
 _enemy_HP:  .WORD 0,0,0,0,0,0,0,0     ; enemy current HP during battle

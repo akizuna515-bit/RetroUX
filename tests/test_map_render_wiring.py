@@ -17,7 +17,7 @@ map:
 ```
 
 ★2026-08-12 に直した **P0-01（`map.assets_dir`）とまったく同じ形**です
-（`docs/audit/source-to-doc.md` の 2）。
+（`docs/audit/260812_repo-audit/step2-source-to-doc.md` の 2）。
 
 ## ★ ここで守ること
 

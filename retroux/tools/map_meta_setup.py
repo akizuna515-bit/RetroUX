@@ -54,11 +54,14 @@ def find_exported(out_dir: pathlib.Path) -> pathlib.Path | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    from ..core.config import user_config
+    from ..core.config import dq2_user_config as user_config  # ★DQ2 専用の設定（RX-0147）
+
+    from ..core import dq2_paths
 
     cfg, _notes = user_config.load()
-    rom = pathlib.Path(cfg.paths.rom)
-    out_dir = pathlib.Path(MAP_DATA_DIR)
+    # ★RX-0156: ROM も置き場も CWD ではなく program_root から（⚠ 以前は起動した場所次第）
+    rom = dq2_paths.rom(cfg)
+    out_dir = dq2_paths.PROJECT_ROOT / MAP_DATA_DIR
     meta = out_dir / META_NAME
 
     what = plan(rom.exists(), meta.is_file())

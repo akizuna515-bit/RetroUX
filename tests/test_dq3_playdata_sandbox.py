@@ -127,6 +127,6 @@ def test_state_jsonやUIの設定も本物を触らない():
     """⚠ 遊びの記録は `dq3-knowledge` だけではない（★窓の位置・設定・IPC も）。"""
     from dq3.ui.ui_settings import DEFAULT_PATH as UI_SETTINGS
 
-    for path in (P3.work("state.json"), P3.work("dq3-command.json"),
+    for path in (P3.runtime("state.json"), P3.runtime("dq3-command.json"),
                  P3.work("dq3-window-state.json"), UI_SETTINGS):
         assert not _inside_repo_work(path), "⚠⚠ 本物を触る: %s" % path

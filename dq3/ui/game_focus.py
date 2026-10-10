@@ -49,10 +49,13 @@ FORBIDDEN = ("RetroUX", "Lua Script")
 
 
 def _default_focus(title: str) -> bool:
-    """★既にある窓の道具を使う（⚠ ここで Win32 を直に呼ばない）。"""
-    from retroux.core import window_align
+    """★既にある窓の道具を使う（⚠ ここで Win32 を直に呼ばない）。
 
-    return bool(window_align.focus(title, match="contains"))
+    ★DQ3 の FCEUX だけを前へ出す（RX3-0504 / DQ2 共存安全化。⚠ 題名だけだと DQ2 の FCEUX を前へ出す）。
+    """
+    from . import fceux_windows
+
+    return bool(fceux_windows.focus(title, match="contains"))
 
 
 class GameFocus:

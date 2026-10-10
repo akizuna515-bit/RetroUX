@@ -181,11 +181,11 @@ def _merge_mantan(data: dict) -> dict:
     """まんたんの利用者設定を重ねる（2026-08-02 / 指示書 §13）。
 
     ★★ **Lua に YAML を読ませない。** ★★
-      `config/mantan.yaml` を Lua が直接解析する仕組みは作りません
+      `work/dq2-settings/mantan.yaml` を Lua が直接解析する仕組みは作りません
       （指示書 §13）。Python で読み・検証・同梱設定とマージしてから、
       いつもの `work/generated/config.lua` へ流します。
 
-          config/mantan.yaml
+          work/dq2-settings/mantan.yaml（⚠ 無ければ旧 config/mantan.yaml）
               ↓ Python で読込・検証・マージ
           work/generated/config.lua
               ↓
@@ -217,7 +217,7 @@ def _merge_mantan(data: dict) -> dict:
 #    ★`config.yaml` は「ゲームの知識」、`user_config.yaml` は
 #      「利用者・環境ごとの選択」。engine はどちらかといえば後者です。
 #
-#  ⚠ さらに `start-retroux.ps1` は**起動のたびに再生成**するので、
+#  ⚠ さらに `start-dq2.ps1` は**起動のたびに再生成**するので、
 #    ★`work/generated/config.lua` を手で書き換えても必ず消えます
 #    （2026-08-07 に実際にこれで実機確認が空振りしました）。
 #
@@ -244,14 +244,18 @@ def _apply_user_overrides(data: dict) -> dict:
     ⚠ 読めなくても**止めません**（★設定が無いのは普通のこと）。
     ★上書きしたときは必ず知らせます（⚠ 黙って変えない）。
     """
-    path = PROJECT_ROOT / "user_config.yaml"
-    if not path.exists():
+    # ★DQ2 専用の設定（`dq2_user_config.yaml`）。無ければ旧 `user_config.yaml` を読むだけ（RX-0147）。
+    #   ⚠ 読む場所を `dq2_user_config.load()` と同じ 1 か所から決める（★2 か所で別々に決めると食い違う）
+    from . import dq2_user_config
+
+    path = dq2_user_config.source_path(PROJECT_ROOT)
+    if path is None or not path.exists():
         return data
     try:
         with path.open(encoding="utf-8") as fh:
             user = yaml.safe_load(fh)
     except (OSError, yaml.YAMLError) as exc:
-        print(f"⚠ user_config.yaml を読めません（★上書きしません）: {exc}")
+        print(f"⚠ {path.name} を読めません（★上書きしません）: {exc}")
         return data
     if not isinstance(user, dict):
         return data
@@ -271,7 +275,7 @@ def _apply_user_overrides(data: dict) -> dict:
         before = target.get(dst_path[-1])
         target[dst_path[-1]] = node
         # ★★ **黙って変えない。** ⚠ 何が効いているか分からなくなります。
-        print(f"★user_config.yaml で上書き: "
+        print(f"★{path.name} で上書き: "
               f"{'.'.join(dst_path)} = {node!r}（元は {before!r}）")
     return data
 
@@ -279,7 +283,7 @@ def _apply_user_overrides(data: dict) -> dict:
 def _attach_enemy_tables(data: dict) -> dict:
     """利用者の ROM から敵の5表を読んで `memory_map` に足す（読めなければ足さない）。"""
     from .. import enemy_tables
-    from . import user_config as user_config_mod
+    from . import dq2_user_config as user_config_mod  # ★DQ2 専用の設定（RX-0147）
 
     try:
         user_cfg, _ = user_config_mod.load()

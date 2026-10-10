@@ -52,7 +52,7 @@ from .log_tail import LogTail
 from .. import paths
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-PROBE = paths.lazy_work("dq3-probe")
+PROBE = paths.lazy_work("runtime", "dq3-probe")
 
 #: ★止まった理由の表は `dq3/events/reasons.py` に 1 本（⚠ ここへ写さない）
 BATTLE_REASONS = RS.BATTLE

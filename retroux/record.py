@@ -22,12 +22,12 @@ from pathlib import Path
 
 import yaml
 
-from .core import enemy_tables
+from .core import dq2_paths, enemy_tables
 from .core import rom as rom_mod
-from .core.config import user_config as user_config_mod
+from .core.config import dq2_user_config as user_config_mod  # ★DQ2 専用の設定（RX-0147）
 from .core.db.database import Database
 from .core.logging_setup import get_logger, setup_logging
-from .core.recorder import Recorder, rotate_events
+from .core.recorder import MAIN_STREAM, Recorder, rotate_events
 from .core.single_instance import AlreadyRunningError, RecorderLock
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -71,7 +71,8 @@ def _build(args: argparse.Namespace,
     # ★イベントの世代交代（§25）。⚠ `Recorder` を作る**前**に一度だけ。
     #   ★世代交代と取り込み位置のリセットは `rotate_events` が対で行う。
     try:
-        rotation = rotate_events(db, user_cfg.path("events"))
+        # ★RX-0162: Lua と同じ write_root の正本 / ★RX-0163: 鍵は論理 ID
+        rotation = rotate_events(db, dq2_paths.events(), stream=MAIN_STREAM)
         if rotation.rotated:
             get_logger("record").info("%s", rotation.message())
     except Exception as exc:                           # noqa: BLE001
@@ -81,9 +82,12 @@ def _build(args: argparse.Namespace,
     recorder = Recorder(
         db=db,
         rom_hash=info.prg_sha256,
-        events_path=user_cfg.path("events"),
+        events_path=dq2_paths.events(),
         command_path=user_cfg.path("command"),
+        stream=MAIN_STREAM,
     )
+    if recorder.hold:
+        get_logger("record").warning("記録の取り込みを止めました: %s", recorder.hold)
     return db, recorder, {"rom": info, "config": config}
 
 

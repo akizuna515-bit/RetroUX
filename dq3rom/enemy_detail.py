@@ -11,7 +11,7 @@
 ## ⚠⚠ 根拠は逆アセンブルのコードフロー（★推測ではない）
 
 ⚠ 資料の文面は写しません（★LICENSE 無し。構造と意味だけ使う /
-`docs/research/dq3-disassembly-study.md`）。
+`docs/research/260824_dq3-disassembly-study.md`）。
 
 | 何を | どこで確かめたか |
 | --- | --- |
@@ -170,7 +170,7 @@ CONTROL_FIELDS: tuple[tuple[str, int, str, str], ...] = (
 #:     ★攻撃呪文は JP bank 4 `$A4BF`〜`$A4DB` が**呪文の番号から** 0〜3 を選び `JSR $A3EF` → ⚠ 効く / 効かない の**二択**
 #:       （★ダメージを減らすのではない。⚠ 倍率表 `$98F3` を使うのはブレスの 1 か所 `$98C7` だけ）。
 #:     ★番号 10 = マホトラ（RX3-0260 / JP `$A735 LDA #$0A`）。
-#:     ★呼び出し元の番地・呪文と道具の対応は `docs/design/dq3-resistance-analysis.md`。
+#:     ★呼び出し元の番地・呪文と道具の対応は `docs/design/rom-ram/dq3-resistance.md`。
 RESISTANCES: tuple[tuple[int, int, int, str, str], ...] = (
     (0,  0x12, 6, "damage_reduction",  "confirmed"),
     (1,  0x12, 4, "ice_spells",        "confirmed"),

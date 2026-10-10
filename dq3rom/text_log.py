@@ -13,7 +13,7 @@
 ## 使い方
 
 ```bash
-python -m dq3rom text-log --log work/dq3-probe/text_events.jsonl
+python -m dq3rom text-log --log work/runtime/dq3-probe/text_events.jsonl
 ```
 """
 

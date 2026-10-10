@@ -6,7 +6,7 @@ RetroUX の「出会った敵」の絵は `work/monster-art-rom/`（`dq2rom mons
 install` の出力）から読む。⚠ `work/` は Git 管理外なので、**clone した
 だけの環境には絵が1枚も無く、モンスターが表示されない**（依頼者の指摘）。
 
-★そこで起動スクリプト（`start-retroux.ps1`）が毎回これを呼ぶ:
+★そこで起動スクリプト（`start-dq2.ps1`）が毎回これを呼ぶ:
   - 絵がそろっていれば何もしない（1行出して終わり。数ms）
   - ROM が無ければ何もしない（★ROM を置けば次回そろう、と伝える）
   - 絵が無く ROM があれば `dq2rom monsters install` を実行する（初回のみ）
@@ -19,7 +19,6 @@ install` の出力）から読む。⚠ `work/` は Git 管理外なので、**c
 
 from __future__ import annotations
 
-import pathlib
 import sys
 
 #: RetroUX が ROM 由来の絵を読む場所（`gui.py` の既定と同じ）。
@@ -41,11 +40,14 @@ def plan(rom_exists: bool, art_count: int) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    from ..core.config import user_config
+    from ..core.config import dq2_user_config as user_config  # ★DQ2 専用の設定（RX-0147）
+
+    from ..core import dq2_paths
 
     cfg, _notes = user_config.load()
-    rom = pathlib.Path(cfg.paths.rom)
-    into = pathlib.Path(ART_ROM_DIR)
+    # ★RX-0156: ROM も置き場も CWD ではなく program_root から（⚠ 以前は起動した場所次第）
+    rom = dq2_paths.rom(cfg)
+    into = dq2_paths.PROJECT_ROOT / ART_ROM_DIR
     art_count = len(list(into.glob("*.png"))) if into.is_dir() else 0
 
     what = plan(rom.exists(), art_count)

@@ -1,6 +1,6 @@
 [project]
 name = "retroux"
-version = "1.1.0"
+version = "1.2.0"
 description = "RetroUX — modernizes the user experience of classic games without changing what made them great"
 requires-python = ">=3.12"
 dependencies = [
@@ -21,6 +21,10 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.retroux]
+# ★DQ2 の製品の版（RX-0160 / D-47）。⚠ [project].version は DQ3 の版（retroux/version.py が読む）
+dq2-version = "1.2.0"
 
 [tool.hatch.build.targets.wheel]
 packages = ["retroux", "dq2rom", "dq3", "dq3rom"]

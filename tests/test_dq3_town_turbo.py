@@ -204,7 +204,7 @@ def test_ログは作業場のdq3_probeに書く(tmp_path, monkeypatch):
     monkeypatch.setenv("RETROUX_WRITE_ROOT", str(tmp_path))
     AE.town_speed_log("[HEARING] START")
     AE.town_speed_log("[SPEED] NORMAL -> TURBO source=HEARING")
-    got = (tmp_path / "work" / "dq3-probe" / AE.LOG_NAME).read_text(encoding="utf-8").splitlines()
+    got = (tmp_path / "work" / "runtime" / "dq3-probe" / AE.LOG_NAME).read_text(encoding="utf-8").splitlines()
     assert [line.split(" ", 1)[1] for line in got] == ["[HEARING] START",
                                                      "[SPEED] NORMAL -> TURBO source=HEARING"]
 

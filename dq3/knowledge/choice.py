@@ -1,6 +1,6 @@
 """会話の選択肢に、⚠ **押してよいかを決める**（RX3-0121 / 2026-09-08）。
 
-★調べた結果は `docs/research/dq3-conversation-choice-analysis.md`。
+★調べた結果は `docs/research/260908_dq3-conversation-choice.md`。
 ⚠ ここはその結論だけを持ちます（★根拠を書き写さない）。
 
 ## ⚠⚠ いちばん大事な結論

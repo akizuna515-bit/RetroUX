@@ -29,7 +29,7 @@ import pathlib
 from dq3 import paths as P3
 
 #: ★出す先（⚠ `dq3/events/writer.py` の `product.log` と同じもの）
-LOG_PATH = P3.lazy_work("dq3-log", "product.log")
+LOG_PATH = P3.lazy_runtime("dq3-log", "product.log")
 
 #: ★画面と記録で同じ名前を使う（⚠ 2 か所に書き分けない）
 PREFIX = "RetroUX DQ3"

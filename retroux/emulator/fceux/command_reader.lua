@@ -12,7 +12,7 @@
 --
 -- ★★ 本物の JSON パーサではない。 ★★
 --   FCEUX の Lua には JSON が無く、入れ子も配列も扱わない前提で
---   **パターン抽出**している（`docs/design/phase6-tactics-spec.md` 5.3）。
+--   **パターン抽出**している（`docs/design/battle-ai/dq2-tactics-phase6.md` 5.3）。
 --   ⚠ だから書く側（`CommandService`）は**平たい1階層**で書く約束。
 
 local CommandReader = {}

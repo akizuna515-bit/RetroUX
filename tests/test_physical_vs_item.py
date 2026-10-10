@@ -40,7 +40,7 @@ HARNESS = (PROJECT_ROOT / "research" / "probes" / "active"
            / "physical_vs_item_test.lua")
 CONFIG = PROJECT_ROOT / "retroux" / "plugins" / "dq2" / "config.yaml"
 BRIDGE = PROJECT_ROOT / "retroux" / "emulator" / "fceux" / "bridge.lua"
-DISASM = PROJECT_ROOT / "work" / "dq2-disasm" / "src" / "us" / "prg"
+DISASM = PROJECT_ROOT / "work" / "research" / "dq2-disasm" / "src" / "us" / "prg"
 
 
 @pytest.fixture(scope="module")

@@ -91,13 +91,13 @@ def _make_old(root: pathlib.Path, *, version: str = "1.1.0") -> pathlib.Path:
     gen = root / "work" / "generated"
     gen.mkdir(parents=True, exist_ok=True)
     (gen / "dq3_phase0.lua").write_bytes(b"-- generated\n")
-    art = root / "work" / "dq3-monster-art"
+    art = root / "work" / "cache" / "dq3-monster-art"
     art.mkdir(parents=True, exist_ok=True)
     (art / "001.png").write_bytes(b"\x89PNG")
     (root / "work" / "state.json").write_bytes(b'{"frame": 1}\n')
     (root / "work" / "retroux.log").write_bytes(b"INFO\n")
     (root / "work" / "recorder.lock").write_bytes(b"1")
-    log = root / "work" / "dq3-log"
+    log = root / "work" / "runtime" / "dq3-log"   # ★RX3-0493
     log.mkdir(parents=True, exist_ok=True)
     (log / "product.log").write_bytes(b"old\n")
     return root
@@ -236,9 +236,9 @@ def test_実演_8分類すべてが写り旧版は無傷(pair):
         src = old / entry.rel
         if not src.exists():
             continue
-        # ⚠ `work/dq3-log/` は**引き継ぎの記録**を書く先なので、中身が違うことを見る
-        if entry.rel == "work/dq3-log":
-            assert not (new / "work" / "dq3-log" / "product.log").exists()
+        # ⚠ `work/runtime/dq3-log/` は**引き継ぎの記録**を書く先なので、中身が違うことを見る
+        if entry.rel == "work/runtime":
+            assert not (new / "work" / "runtime" / "dq3-log" / "product.log").exists()
             continue
         assert not (new / entry.rel).exists(), (
             "⚠ derived を写しています: %s" % entry.rel)
@@ -663,3 +663,64 @@ def test_設定が読めなくても引き継ぎは止まらない(pair):
     assert MG.stale_references(old, new) == []
     got = MG.run(old, new)
     assert got.ok
+
+
+# --- ★DQ2 のデータは写さない（RX3-0507）-----------------------------
+
+def _add_dq2_data(old: pathlib.Path) -> dict[str, bytes]:
+    """★DQ2 と DQ3 を同じフォルダで遊んだ旧版（⚠ 共用の置き場に両方が在る）。"""
+    mine = {
+        "work/retroux.sqlite3": b"SQLite format 3\0dq2-db",
+        "work/retroux.sqlite3-wal": b"wal",
+        "work/events.jsonl": b'{"e":1}\n',
+        "work/savestate-backup/DQ2_J.fc0.20261003-1200": b"dq2-save",
+        "work/rom/DQ2_J.nes": b"NES\x1a" + bytes(16),
+        "work/playdata-archive/20261003-1200/state.json": b"{}\n",
+        "work/playdata-archive/20261003-1200-x-2/state.json": b"{}\n",
+    }
+    for rel, body in mine.items():
+        path = old / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(body)
+    return mine
+
+
+def test_DQ2のデータは写らずDQ3は写る(pair):
+    old, new = pair
+    dq2 = _add_dq2_data(old)
+    before = _snapshot(old)
+    got = MG.run(old, new)
+    assert got.ok, got.failed
+    for rel in dq2:
+        assert not (new / rel).exists(), "⚠⚠ DQ2 のものを写しています: %s" % rel
+    # ★DQ3 のものは従来どおり写る（⚠ 共用の置き場でも）
+    for rel in ("work/savestate-backup/DQ3_J.fc1.20260930-120000",
+                "work/rom/DQ3_J.nes",
+                "work/playdata-archive/dq3-20260930-235959/memos.jsonl",
+                "work/dq3-knowledge/memos.jsonl"):
+        assert (new / rel).read_bytes() == (old / rel).read_bytes(), rel
+    assert _snapshot(old) == before                     # ⚠⚠ 旧版は無傷
+
+
+def test_DQ2のぶんは件数にも数えない(pair):
+    """⚠ 実行前の一覧（件数・大きさ）と実際に写す数が食い違わない。"""
+    old, new = pair
+    base = {i.rel: (i.files, i.size) for i in MG.plan(old)}
+    _add_dq2_data(old)
+    after = {i.rel: (i.files, i.size) for i in MG.plan(old)}
+    assert after == base
+    dry = MG.run(old, new, dry_run=True)
+    real = MG.run(old, new)
+    assert dry.copied == real.copied
+
+
+def test_DQ2のものしか無い置き場は項目にしない(tmp_path):
+    old = _make_old(tmp_path / "old")
+    for rel in ("work/rom/DQ3_J.nes",
+                "work/savestate-backup/DQ3_J.fc1.20260930-120000"):
+        (old / rel).unlink()
+    (old / "work/rom/DQ2_J.nes").write_bytes(b"NES\x1a")
+    (old / "work/savestate-backup/DQ2_J.fc0.x").write_bytes(b"x")
+    rels = {i.rel for i in MG.plan(old)}
+    assert "work/rom" not in rels
+    assert "work/savestate-backup" not in rels

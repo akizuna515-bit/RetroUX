@@ -9,7 +9,7 @@
   work/dq3-ui-settings.json      人が選んだ作戦・役割・補充の目標
         │ run のはじめに**物理コピー**
         ▼
-work/test-sandbox/<run_id>/
+work/tests/sandbox/<run_id>/
   fceux/                         ★FCEUX 一式（exe + dll + cfg + fcs + sav）
   work/dq3-knowledge/ …          ★Python と Lua の書き先
   production-before.json / production-after.json / result.txt
@@ -60,11 +60,11 @@ from .. import paths
 ROOT = paths.ROOT
 
 #: ★隔離先の親
-SANDBOX_ROOT = ROOT / "work" / "test-sandbox"
+SANDBOX_ROOT = ROOT / "work" / "tests" / "sandbox"
 #: ★固定のテスト入力（★あれば本番ではなくこちらから写す / WI §6）
-FIXTURES = ROOT / "work" / "test-fixtures" / "dq3"
+FIXTURES = ROOT / "work" / "tests" / "fixtures" / "dq3"
 #: ★証跡（⚠ 失敗した run は必ず残す）
-EVIDENCE = ROOT / "work" / "evidence"
+EVIDENCE = ROOT / "work" / "tests" / "evidence"
 
 FCEUX_DIR = ROOT / "tools" / "fceux"
 DEV_LUA = ROOT / "dq3" / "phase0" / "dev.lua"
@@ -101,7 +101,7 @@ def production_files(root: pathlib.Path = ROOT) -> list[pathlib.Path]:
     cfg = root / "tools" / "fceux" / "fceux.cfg"
     if cfg.exists():
         out.append(cfg)
-    for rel in ("work/dq3-knowledge", "work/test-fixtures/dq3", "work/playdata-archive"):
+    for rel in ("work/dq3-knowledge", "work/tests/fixtures/dq3", "work/playdata-archive"):
         d = root / rel
         if d.is_dir():
             out += sorted(p for p in d.rglob("*") if p.is_file())
@@ -184,7 +184,7 @@ class Sandbox:
     # --- ★作る --------------------------------------------------------
 
     def build(self) -> "Sandbox":
-        for d in (self.work, self.knowledge, self.work / "dq3-probe",
+        for d in (self.work, self.knowledge, self.work / "runtime" / "dq3-probe", self.work / "runtime",
                   self.work / "generated", self.work / "evidence"):
             d.mkdir(parents=True, exist_ok=True)
         self.fceux.mkdir(parents=True, exist_ok=True)
@@ -283,7 +283,7 @@ class Sandbox:
                 got.unlink()
 
     def keep_as_evidence(self, name: str | None = None) -> pathlib.Path:
-        """★証跡として `work/evidence/<run_id>/` へ写す。"""
+        """★証跡として `work/tests/evidence/<run_id>/` へ写す。"""
         target = EVIDENCE / (name or self.run_id)
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists():
@@ -297,7 +297,7 @@ class Sandbox:
 #
 #   ⚠⚠ 実機スクリプトは `taskkill /IM fceux64.exe` で**名前ごと全部**閉じていた。
 #     ★依頼者が遊んで確かめている最中の FCEUX まで閉じた（20:57 / 最後のセーブから後が消えうる）。
-#   → ★exe の置き場で見分ける: 隔離先（work/test-sandbox/…）から起こしたものだけ閉じる。
+#   → ★exe の置き場で見分ける: 隔離先（work/tests/sandbox/…）から起こしたものだけ閉じる。
 #   ⚠ 依頼者の FCEUX（tools/fceux/）には触らない。
 # ----------------------------------------------------------------------
 FCEUX_IMAGE = "fceux64.exe"
@@ -327,7 +327,7 @@ def is_sandbox_exe(path: str) -> bool:
     if not path:
         return False
     got = str(path).replace("\\", "/").lower()
-    return "/work/test-sandbox/" in got
+    return "/work/tests/sandbox/" in got
 
 
 def _ours(path: str, ppid: int) -> bool:
@@ -380,7 +380,7 @@ def open_sandbox(tag: str = "run", *, production_root: pathlib.Path = ROOT,
     """★作って、環境変数を立てて、⚠ 抜けるときに**必ず**本番を検算する。
 
     ⚠⚠ 例外で抜けても検算します（★落ちたときこそ本番が心配）。
-    ★失敗した run は `work/evidence/<run_id>/` に残ります。
+    ★失敗した run は `work/tests/evidence/<run_id>/` に残ります。
     """
     sbx = create(tag, production_root=production_root, sandbox_root=sandbox_root)
     sbx.apply_env()

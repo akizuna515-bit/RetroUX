@@ -14,7 +14,7 @@
 
 ## ★Turbo は Lua が持つ
 
-★Turbo の入り切りは `WM_COMMAND` では絶対指定できない（切り替えしか無い / `docs/research/fceux-speed-control.md`）。
+★Turbo の入り切りは `WM_COMMAND` では絶対指定できない（切り替えしか無い / `docs/research/260826_fceux-speed-control.md`）。
 → ★街の頼み（navigate / restock / use_item）に `turbo="1"` を添え、Lua の `town_speed.lua` が入れる。
   ★終わりの `town_end` で Lua が切る（⚠ 遭遇・セーブ・人の B では Lua が**先に**切る）。
 ★ここ（Python）が持つのは **無音**と、**開始前の倍率**（管理画面の 2 倍速など）だけ。
@@ -72,7 +72,7 @@ def town_speed_log(line: str) -> None:
     from .. import paths
 
     try:
-        path = paths.work("dq3-probe", LOG_NAME)
+        path = paths.work("runtime", "dq3-probe", LOG_NAME)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8", newline="") as fh:
             fh.write("%s %s\n" % (time.strftime("%H:%M:%S"), line))

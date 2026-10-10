@@ -127,6 +127,55 @@ def test_入口は道具の終了コードをそのまま返す(monkeypatch: pyt
     assert dq3sb.main([]) == 1
 
 
+# --- ★DQ2 のセーブを見張らない（RX3-0503 / DQ2 共存安全化）-----------------
+
+
+def test_見張るのはDQ3のROMのファイルだけ(tmp_path: Path) -> None:
+    src = tmp_path / "fcs"
+    src.mkdir()
+    for name in ("DQ3_J.fc0", "DQ3_J.fcs", "DQ3_J-bak.fc1",
+                 "DQ2_J.fc0", "DQ2_J-bak.fc0", "DQ2_J.fcs"):
+        (src / name).write_bytes(name.encode())
+
+    got = sorted({p.name for pat in dq3sb.dq3_patterns(Path("rom/DQ3_J.nes"))
+                  for p in src.glob(pat)})
+    assert got == ["DQ3_J-bak.fc1", "DQ3_J.fc0", "DQ3_J.fcs"]
+
+
+def test_ROMの名前を変えていればその名前で見張る() -> None:
+    """★FCEUX は ROM のファイル名の stem でセーブを書く（`paths.dq3_rom` を変えた人）。"""
+    assert dq3sb.dq3_patterns(Path("D:/roms/Dragon Quest III.nes")) == (
+        "Dragon Quest III*.fc[0-9]", "Dragon Quest III*.fcs")
+
+
+def test_入口はDQ3の見張りで呼び必ず戻す(monkeypatch: pytest.MonkeyPatch) -> None:
+    """⚠ 差し替えたまま戻さないと、同じ process の後続（検査）が DQ3 の見張りのままになる。"""
+    seen: list[tuple[str, ...]] = []
+    monkeypatch.setattr(dq3sb._dq2, "main", lambda: seen.append(dq3sb._dq2.PATTERNS) or 0)
+    monkeypatch.setattr(dq3sb.P3, "rom_or_legacy", lambda name="DQ3_J.nes": Path("rom/DQ3_J.nes"))
+
+    assert dq3sb.main(["--once"]) == 0
+
+    assert seen == [("DQ3_J*.fc[0-9]", "DQ3_J*.fcs")]
+    # ⚠ 「呼ぶ前の値」と比べない（★前の検査が戻し忘れていると、戻し忘れた値どうしで一致してしまう）
+    assert dq3sb._dq2.PATTERNS == ("*.fc[0-9]", "*.fcs")
+
+
+def test_DQ3の控えはDQ2のスロットに世代を作らない(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """★本物の scan を DQ3 の見張りで回す（⚠ 以前は DQ2_J まで 100 世代で控えていた）。"""
+    src = tmp_path / "fcs"
+    dst = tmp_path / "backup"
+    src.mkdir()
+    (src / "DQ3_J.fc0").write_bytes(b"dq3")
+    (src / "DQ2_J.fc0").write_bytes(b"dq2")
+    monkeypatch.setattr(sb, "PATTERNS", dq3sb.dq3_patterns(Path("rom/DQ3_J.nes")))
+
+    assert sb.scan(src, dst, generations=100, quiet=True) == 1
+    assert (dst / "DQ3_J.fc0").is_dir()
+    assert not (dst / "DQ2_J.fc0").exists()
+
+
 # --- 100 世代たまること ----------------------------------------------------
 
 

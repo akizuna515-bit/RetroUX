@@ -1,6 +1,6 @@
 """戦略ドロップダウン（2026-08-10 / UI整理 Phase 3）。
 
-設計: docs/design/strategy-unification-design.md
+設計: docs/design/battle-ai/dq2-strategy-ui.md
 
 ★★ 確かめたいこと ★★
   1. メイン画面のドロップダウンは4戦略（目的+作戦を1つに畳んだ）

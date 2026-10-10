@@ -282,8 +282,8 @@ pat.search(text)     # ← monsters の外（spells / items / menu_layouts）に
 
 ## 9. 関連
 
-- `docs/rom-analysis-notes.md` — 調査ログ（コマンドと根拠）
-- `docs/rom-analysis-references.md` — 資料源と取得状況
-- `docs/design/rom-analysis-tools-spec.md` — `dq2rom` の仕様と決定事項
+- `docs/research/260801_dq2rom-notes.md` — 調査ログ（コマンドと根拠）
+- `docs/research/260725_dq2-rom-analysis-references.md` — 資料源と取得状況
+- `docs/design/rom-ram/dq2rom-tool.md` — `dq2rom` の仕様と決定事項
 - `docs/50-playbook.md` — 踏んだ失敗の一覧
 - `docs/inventory/open_questions.md` — 未解決（C-10 に日本版マップ）

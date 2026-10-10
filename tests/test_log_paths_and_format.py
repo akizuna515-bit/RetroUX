@@ -37,7 +37,7 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 LAUNCHER = PROJECT_ROOT / "scripts" / "launcher-common.ps1"
-START = PROJECT_ROOT / "scripts" / "start-retroux.ps1"
+START = PROJECT_ROOT / "scripts" / "start-dq2.ps1"
 
 
 # --- 1. パスの短縮 ---------------------------------------------------------
@@ -210,43 +210,88 @@ def test_画面の絞り込みがlauncherの行を読める():
         "★この検査の前提が崩れている（古い書式が読めてしまう）")
 
 
-# --- 3. ⚠ 実ログに絶対パスが出ていないか（あれば）-------------------------
+# --- 3. ⚠ ログに絶対パスが出ていないか ---------------------------------------
+#
+# ★前は「利用者の実ログの最後の起動」を見ていた（RX-0043）。⚠ それだと、直したあとでも
+#   **直す前の行が残る間は赤**になり、検査の結果が利用者の過去の起動に左右される（RX3-0530）。
+# → 通常の検査は、**隔離した一時ログ**に製品の書き出しを通して仕様（相対で書く）を見る。
+#   実運用のログは `python -m retroux.tools.audit_log_paths` で別に監査する（読むだけ）。
 
-def test_実ログの絶対パスを数える():
-    """★実機のログで確かめる（RX-0043）。
+def _write_real_log(tmp_path, monkeypatch):
+    """製品の書き出し（旧の置き場の設定を読んだときのログ）を、一時ログへ流す。"""
+    import logging
 
-    ⚠ いまのログには**直す前の行が残っている**ので、
-      ★直したあとの行だけを見る（過去は直せない）。
+    from retroux.core import dq2_paths
 
-    ★★ ⚠⚠ **境目を「明日」にしていた**（2026-08-14 に気づいた）★★
-      `2026-08-15` と書いてあったので、⚠ **この検査は1行も見ていなかった**。
-      ★「0 件」は通っていたのではなく、**通っていなかった**だけ。
+    program = tmp_path / "program"
+    (program / "config").mkdir(parents=True)
+    (program / "config" / "mission.yaml").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(dq2_paths, "PROJECT_ROOT", program)
+    monkeypatch.setenv("RETROUX_WRITE_ROOT", str(program))
+    monkeypatch.setattr(dq2_paths, "_LEGACY_REPORTED", set())
+    log = tmp_path / "retroux.log"
+    handler = logging.FileHandler(log, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s %(message)s"))
+    logger = logging.getLogger("retroux.settings")
+    old_level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    try:
+        got = dq2_paths.setting_to_read(dq2_paths.setting("mission.yaml"), dq2_paths.legacy_setting("mission.yaml"))
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(old_level)
+        handler.close()
+    assert got == dq2_paths.legacy_setting("mission.yaml"), "★旧を読む道を通っていない（検査の前提が崩れている）"
+    return log, program
 
-    ★★ ⚠ **日付を書くのをやめた** ★★
-      境目をその日へ下げたら、⚠ **同じ日の直す前の起動**（08:39）が
-      引っかかった。★日付では「直す前／後」を切り分けられない。
-      → ★**最後の起動から先だけ**を見る。⚠ 日付を書かないので古びない。
-    """
-    log = PROJECT_ROOT / "work" / "retroux.log"
-    if not log.exists():
-        pytest.skip("実ログが無い")
-    pat = re.compile(r"[A-Za-z]:[/\\][A-Za-z0-9_.\-]+(?:[/\\][A-Za-z0-9_.\-]+)+")
-    root_name = PROJECT_ROOT.name
-    #: ★起動の1行目（`launcher-common.ps1` が必ず出す）。ここから先を見る
-    START_MARK = "launcher 設定を変換しています"
-    lines = log.read_text(encoding="utf-8", errors="replace").splitlines()
-    starts = [i for i, l in enumerate(lines) if START_MARK in l]
-    if not starts:
-        pytest.skip("★起動の目印が見つからない（古いログ）")
-    recent = lines[starts[-1]:]
 
-    bad = []
-    for line in recent:
-        for m in pat.finditer(line):
-            if root_name in m.group(0):
-                bad.append(m.group(0))
-    # ⚠⚠ **「0 件」と「1行も見ていない」を混ぜない**（★前はこれで素通りしていた）
-    assert len(recent) > 1, (
-        f"★最後の起動のログが {len(recent)} 行しかない。⚠ 何も見ていない")
-    assert bad == [], (
-        f"⚠ 最後の起動のログ {len(recent)} 行に絶対パスが {len(bad)} 件: {bad[:3]}")
+def test_製品が書いたログに絶対パスが出ない(tmp_path, monkeypatch):
+    from retroux.tools import audit_log_paths as A
+
+    log, program = _write_real_log(tmp_path, monkeypatch)
+    lines = log.read_text(encoding="utf-8").splitlines()
+    # ⚠⚠ 「0 件」と「1 行も見ていない」を混ぜない
+    assert any("旧の置き場の設定を読みました" in line for line in lines), lines
+    # ★隔離した置き場の名前は tmp の中にある → 製品の名前（PROJECT_ROOT.name = 本物の根の名前）ではなく、
+    #   隔離した根の名前で数える。書いてあれば、相対でなく絶対で出している
+    assert A.find_violations(lines, program.name) == [], lines
+    assert "config/mission.yaml" in lines[0] and str(program) not in lines[0]
+
+
+def test_監査は絶対パスの行を見つけ修正の前後を分ける(tmp_path):
+    from datetime import datetime
+
+    from retroux.tools import audit_log_paths as A
+
+    root = A.PROJECT_ROOT.name
+    bs = chr(92)
+    old = ("2026-10-08 08:05:41 [INFO] settings 旧の置き場の設定を読みました: "
+           + bs.join(["C:", "Projects", root, "config", "mission.yaml"]) + "（★保存は …）")
+    new = "2026-10-09 09:00:00 [INFO] settings 旧の置き場の設定を読みました: config/mission.yaml"
+    lines = ["2026-10-08 08:05:40 [INFO] launcher 設定を変換しています", old, new]
+    assert A.last_launch(lines) == lines
+    assert A.last_launch(["別の行"]) == []
+    found = A.find_violations(lines, root)
+    assert [v["stamp"] for v in found] == ["2026-10-08 08:05:41"] and found[0]["line_no"] == 2
+    before, after = A.split_by_fix(found, datetime(2026, 10, 8, 18, 0, 0))
+    assert (len(before), len(after)) == (1, 0)                 # ★修正より前の記録
+    before, after = A.split_by_fix(found, datetime(2026, 10, 8, 8, 0, 0))
+    assert (len(before), len(after)) == (0, 1)                 # ★修正より後に出た行 = 違反
+    before, after = A.split_by_fix(found, None)
+    assert (len(before), len(after)) == (0, 1)                 # ⚠ 修正の日時が分からなければ見逃さない側
+
+
+def test_監査の道具は読むだけで終了コードを返す(tmp_path):
+    from retroux.tools import audit_log_paths as A
+
+    log = tmp_path / "retroux.log"
+    assert A.main([str(log)]) == 2                              # ログが無い
+    root = A.PROJECT_ROOT.name
+    bs = chr(92)
+    text = ("2026-12-31 08:05:40 [INFO] launcher 設定を変換しています\n"
+            "2026-12-31 08:05:41 [INFO] settings x: " + bs.join(["C:", "Projects", root, "config", "a.yaml"]) + "\n")
+    log.write_text(text, encoding="utf-8")
+    before = log.read_bytes()
+    assert A.main([str(log)]) == 1                              # 修正より後の日時の違反
+    assert log.read_bytes() == before, "⚠ 監査がログを書き換えた"

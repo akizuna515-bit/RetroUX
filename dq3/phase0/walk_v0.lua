@@ -34,7 +34,7 @@ if not ok_cfg or type(CFG) ~= "table" then CFG = {} end
 local ME = "walk_v0"
 local HOST = DQ3_DEV
 
-local logfile = Core.open_log(write_root .. "/work/dq3-probe/walker_v0.log",
+local logfile = Core.open_log(write_root .. "/work/runtime/dq3-probe/walker_v0.log",
                               "歩きの記録")
 local function say(line)
   if logfile ~= nil then logfile:write(line .. "\n"); logfile:flush() end
@@ -120,7 +120,7 @@ end
 
 local function start()
   runs = runs + 1
-  local dir = write_root .. "/work/dq3-evidence"
+  local dir = write_root .. "/work/tests/dq3-evidence"
   shots = Capture.new({dir = dir, say = say})
   say("=== WALK_V0 start " .. os.date("%Y-%m-%d %H:%M:%S")
       .. " run=" .. runs .. " ===")

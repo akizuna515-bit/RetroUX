@@ -40,7 +40,7 @@ def test_Luaが4枚とパレット組を出す():
       ここは前 `add("map_cells", self:map_seen_cells(radius))` という
       **1行そのもの**を見ていました。★軽量化（採取を移動時だけにする）で
       採取が `_map_sample` 越しになった途端、⚠ **直っているのに赤く**
-      なりました。`docs/design/handoff-20260807.md` §5 の5番と同じ形です。
+      なりました。`docs/history/handoff/handoff-20260807.md` §5 の5番と同じ形です。
 
       → ★見るのは「欄が state.json に載るか」だけにします。
         ⚠ どこから値を取るかは実装の都合です。

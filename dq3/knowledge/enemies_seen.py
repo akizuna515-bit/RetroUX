@@ -71,7 +71,7 @@ def _tidy(text: str) -> str:
     """★名前だけを取り出す（⚠ 空白と枠の印とカーソルを落とす）。
 
     ⚠⚠ 2026-09-03 の実機で `▶スライム` と読めていました
-      （`work/dq3-probe/battle-screens.jsonl` #8 / #10 / #13）。
+      （`work/runtime/dq3-probe/battle-screens.jsonl` #8 / #10 / #13）。
       ★狙う相手を選んでいるあいだ、⚠ 敵の行の**先頭に ▶ が出ます**。
     """
     for mark in FILLER:
@@ -184,7 +184,7 @@ def _sane(group) -> bool:
     ⚠⚠ 戦闘の**開始直後**、RAM が未初期化の値を返す枚があります。
 
     ```text
-    実測（work/dq3-probe/battle-screens.jsonl）
+    実測（work/runtime/dq3-probe/battle-screens.jsonl）
       #1 ids/n=[(0, 255)]                  ⚠ 匹数が 255
       #2 ids/n=[(0,0),(0,0),(0,0),(0,0)]   ⚠ 全部 0
     ```
@@ -209,7 +209,7 @@ def appeared_name(tiles, columns: int = 32, rows: int = 30) -> str | None:
     ⚠⚠ **群が 1 つのときの唯一の手がかり**です（RX3-0065 / 2026-09-03）。
 
     ```text
-    実測（work/dq3-probe/battle-screens.jsonl）
+    実測（work/runtime/dq3-probe/battle-screens.jsonl）
       1 群の戦闘 17 枚すべて   ⚠ 一覧の窓が**出ない**
       出ていたのは            ★「アルミラージが␣あらわれた！」の 1 行
     ```
@@ -294,7 +294,7 @@ class EnemyNames:
         #
         #   ★最初は「合わない回は覚えない」にしていました。
         #   ⚠⚠ ところが実機 run で **会った 4 体 / 覚えた 0 件**になりました
-        #     （`work/evidence/20260903_085554_fix-verify`）。
+        #     （`work/tests/evidence/20260903_085554_fix-verify`）。
         #   ★戦闘中、窓の「N ひき」は**描き直されません**。
         #     ⚠ 1 匹倒した時点で RAM の匹数とずれ、そこから先は
         #     **永久に覚えなくなります**（★歯止めが強すぎました）。

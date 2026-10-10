@@ -6,7 +6,7 @@
 
 ⚠⚠ 戦闘の呪文では**推測で書いて 5 回失敗した**。
 ★今回は依頼者に**普通に回復してもらった記録**から手順を起こしている
-（`work/dq3-probe/battle_record.txt` の f=221601-222024）。
+（`work/runtime/dq3-probe/battle_record.txt` の f=221601-222024）。
 
 ## ⚠ ここで固定すること
 
@@ -51,7 +51,7 @@ def _sandbox() -> pathlib.Path:
     """★走行ごとの隔離先（`conftest.py` が決める）。"""
     got = os.environ.get("RETROUX_TEST_SANDBOX")
     return pathlib.Path(got) if got else (
-        ROOT / "work" / "_test_sandbox")
+        ROOT / "work" / "tests" / "lua-sandbox")
 
 # ⚠ 隔離先は**走行ごとに変わる**（RX-0114 / 2026-08-30）。
 #   ★`conftest.py` が `RETROUX_TEST_SANDBOX` を立てる。
@@ -76,12 +76,12 @@ def _prepare() -> None:
     from dq3rom import ppu
 
     write_lua(build())                                   # ⚠ 生成し忘れ防止
-    (SANDBOX / "dq3-probe").mkdir(parents=True, exist_ok=True)
-    (SANDBOX / "dq3-probe" / "mantan_v0.log").write_text("", encoding="utf-8")
+    (SANDBOX / "runtime" / "dq3-probe").mkdir(parents=True, exist_ok=True)
+    (SANDBOX / "runtime" / "dq3-probe" / "mantan_v0.log").write_text("", encoding="utf-8")
 
     chunks = ss.load(_state()).chunks
     ram = chunks["RAM"]
-    (SANDBOX / "dq3-probe" / "field_ram.txt").write_text(
+    (SANDBOX / "runtime" / "dq3-probe" / "field_ram.txt").write_text(
         "\n".join(f"{0x0700 + i:04X} {ram[0x0700 + i]:02X}"
                   for i in range(0x100)) + "\n", encoding="utf-8")
 
@@ -91,20 +91,20 @@ def _prepare() -> None:
     #     セーブが変わると窓の位置がずれ、⚠ 「(6,2) で見つけていない」で
     #     15 件がまとめて落ちました（2026-08-31）。
     sc = ppu.scroll_of(chunks)
-    (SANDBOX / "dq3-probe" / "field_scroll.txt").write_text(
+    (SANDBOX / "runtime" / "dq3-probe" / "field_scroll.txt").write_text(
         "%d %d %d" % (sc.x, sc.y, sc.nametable) + chr(10), encoding="utf-8")
 
     screen = ppu.screen_of(chunks)
     lines = [" ".join(f"{b:02X}" for b in screen[y * 32:(y + 1) * 32])
              for y in range(30)]
-    (SANDBOX / "dq3-probe" / "field_nametable.txt").write_text(
+    (SANDBOX / "runtime" / "dq3-probe" / "field_nametable.txt").write_text(
         "\n".join(lines) + "\n", encoding="utf-8")
 
     # ⚠⚠ **生の 2 面ぶん**も渡す（★スクロールしていても窓を見つけられるか）。
     #   実機ではここで詰まった: 窓の位置は「画面」の座標なので、
     #   生のネームテーブルをそのまま見ると**永久に見つからない**。
     ntar = bytes(chunks["NTAR"])
-    (SANDBOX / "dq3-probe" / "field_ntar.txt").write_text(
+    (SANDBOX / "runtime" / "dq3-probe" / "field_ntar.txt").write_text(
         chr(10).join(ntar[i:i + 32].hex(" ") for i in range(0, 2048, 32))
         + chr(10), encoding="utf-8")
 

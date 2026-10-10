@@ -86,7 +86,7 @@ def test_読めないものがあればpartialと記録する(charset):
 
 # --- 実機で貯めたもの ---------------------------------------------------
 
-LOG = ROOT / "work" / "dq3-probe" / "text_events.jsonl"
+LOG = ROOT / "work" / "runtime" / "dq3-probe" / "text_events.jsonl"
 
 
 @pytest.mark.skipif(not LOG.exists() or not LOG.read_text(encoding="utf-8").strip(),

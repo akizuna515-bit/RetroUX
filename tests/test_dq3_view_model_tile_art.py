@@ -3,7 +3,7 @@
 ## ⚠⚠ ここが「橋渡し」です
 
 ```text
-Lua        work/dq3-probe/map_art.json + .bin
+Lua        work/runtime/dq3-probe/map_art.json + .bin
   ↓
 tile_art.from_runtime()          ★tests/test_dq3_map_art_runtime.py
   ↓

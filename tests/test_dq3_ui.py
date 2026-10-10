@@ -146,7 +146,7 @@ def test_訪れていない地点は中身を出さない():
     """⚠⚠ 名前すら出さない（★DQ3 の ROM に地名の平文は無い / RX3-0013）。"""
     from dq3.ui.view_model import Dq3ViewModel
 
-    vm = Dq3ViewModel(state_path=ROOT / "work" / "state.json",
+    vm = Dq3ViewModel(state_path=ROOT / "work" / "runtime" / "state.json",
                       knowledge_path=ROOT / "存在しない.json")
     view = vm.location_view("aliahan")
     assert view.name is None, "⚠⚠ 訪れていないのに名前を出している"
@@ -168,7 +168,7 @@ def test_訪れた地点だけを地図に出す(tmp_path):
         "heard_counts": {"aliahan": 2},
     }, ensure_ascii=False), encoding="utf-8")
 
-    vm = Dq3ViewModel(state_path=ROOT / "work" / "state.json",
+    vm = Dq3ViewModel(state_path=ROOT / "work" / "runtime" / "state.json",
                       knowledge_path=know)
     assert vm.known_locations() == ["aliahan"], "⚠ 訪れていない地点が混ざっている"
 
@@ -236,6 +236,10 @@ ALLOWED_RETROUX_CHANGES = {
         "⚠ `user_config.yaml` の読み手を 1 本に保つため（★別の reader を足すと、"
         "知らない項目として警告が出るか、同じファイルを 2 か所が別々に解釈する）。"
         "⚠ 既定は空文字で、DQ2 の挙動は変わりません"),
+    "retroux/core/dq2_paths.py": (
+        "★旧の置き場の設定を読んだときのログに絶対パスを出していたのを、根からの相対に直した"
+        "（RX3-0530 / RX-0043）。⚠ DQ3 の都合ではなく DQ2 のログの書式の不具合の修正。"
+        "DQ2 の挙動（どこを読み書きするか）は変わらない"),
     "retroux/version.py": (
         "★`build-info.json` / `source_commit()` / `build_id()` / `stamp()` を足した"
         "（RX3-0464）。⚠ 配布 Runtime には `pyproject.toml` が入らないので、"
@@ -1190,7 +1194,7 @@ def test_配分はどちらの下限も割らない():
 def test_配分は人がつまんで変えられる():
     """★`QSplitter` にする（⚠ 固定の割合を押しつけない）。
 
-    `docs/design/dq3-ui-v0.md`:
+    `docs/design/ui/dq3-ui-v0.md`:
 
         ⚠ してはいけない   中身が増えたら窓が広がる／高くなる
         ★してよい         人がつまんで変えたとき

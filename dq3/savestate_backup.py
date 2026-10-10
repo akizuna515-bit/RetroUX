@@ -59,7 +59,7 @@ _GENERATIONS_FLAG = "--generations"
 _SRC_FLAG = "--src"
 
 #: ⚠⚠ 控えが空振りしたことを残す場所（★画面に出ない起動でも後から分かるように）
-WARN_LOG = P3.lazy_work("dq3-log", "savestate-backup.log")
+WARN_LOG = P3.lazy_runtime("dq3-log", "savestate-backup.log")
 
 
 def with_src(argv: list[str]) -> list[str]:
@@ -154,21 +154,43 @@ def with_generations(argv: list[str], generations: int = DQ3_GENERATIONS) -> lis
     return [_GENERATIONS_FLAG, str(generations), *argv]
 
 
+def dq3_patterns(rom_path=None) -> tuple[str, ...]:
+    """★DQ3 の ROM のセーブステートだけを拾う glob（RX3-0503 / DQ2 共存安全化）。
+
+    ⚠⚠ あちらの既定（`*.fc[0-9]` / `*.fcs`）は `fcs/` の**全部**を見ていて、
+      DQ3 の控えが先に立つと **DQ2_J のスロットまで DQ3 の 100 世代で**控えていました
+      （調査 `docs/research/261003_dq2-separation-phase-plan.md` §3 Q1）。
+    ★FCEUX はセーブステートを `<ROM のファイル名の stem>.fcN` で書くので、stem で絞ります
+      （★`*` は `DQ3_J-bak.fc0` のような退避も拾うため / ⚠ stem は字義どおり `glob.escape`）。
+    ⚠ DQ3 の利用者向けの挙動（世代数・保存先・画面）は変えません。
+    """
+    import glob
+    import pathlib
+
+    path = rom_path if rom_path is not None else P3.rom_or_legacy()
+    stem = glob.escape(pathlib.Path(path).stem or "DQ3_J")
+    return (f"{stem}*.fc[0-9]", f"{stem}*.fcs")
+
+
 def main(argv: list[str] | None = None) -> int:
     """DQ2 の道具を、DQ3 の既定で呼ぶ。
 
     ⚠ あちらの `main()` は引数を受け取らず `sys.argv` を読みます（★公開済みなので
       そのままにします）。→ ★ここで `sys.argv` を差し替えて呼び、必ず戻します。
+    ★見張るファイルも DQ3 の ROM のものだけに差し替え、必ず戻します（RX3-0503）。
     """
     given = list(sys.argv[1:] if argv is None else argv)
     # ⚠⚠ 先に知らせる（★空振りしていることに気づけないのが一番悪い / RX3-0468）
     warn_if_no_savestates()
     saved = sys.argv
+    saved_patterns = _dq2.PATTERNS
     sys.argv = [saved[0], *with_src(with_generations(given))]
+    _dq2.PATTERNS = dq3_patterns()
     try:
         return _dq2.main()
     finally:
         sys.argv = saved
+        _dq2.PATTERNS = saved_patterns
 
 
 if __name__ == "__main__":

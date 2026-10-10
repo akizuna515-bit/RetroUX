@@ -3,7 +3,7 @@
 -- core/ はゲーム非依存。DQ2 の知識（アドレス・状態遷移・危険判定）はすべてここに閉じる。
 -- アドレスは memory_map.yaml が正であり、このファイルに直接書かない（指示書の方針）。
 --
--- 特定の根拠と確度は docs/memory_map.md を参照。
+-- 特定の根拠と確度は docs/design/dq2-memory-map.md を参照。
 
 local DQ2 = {}
 DQ2.__index = DQ2

@@ -108,7 +108,7 @@ def bottom_split(total_h: int, strip_min: int, log_min: int,
     ## ★これは「既定」だけです
 
       ⚠ 人がつまんで変えたぶんは、こちらでは戻しません
-      （`docs/design/dq3-ui-v0.md`「★してよい ＝ 人がつまんで変えたとき」）。
+      （`docs/design/ui/dq3-ui-v0.md`「★してよい ＝ 人がつまんで変えたとき」）。
     """
     total = max(0, int(total_h))
     strip_min = max(0, int(strip_min))

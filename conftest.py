@@ -92,13 +92,19 @@ if not os.environ.get("RETROUX_WRITE_ROOT"):
     (_write_root / "work").mkdir(parents=True, exist_ok=True)
     os.environ["RETROUX_WRITE_ROOT"] = str(_write_root)
 
+# ⚠⚠ 製品間排他（RX-0152 / RX3-0505）の Mutex を、検査では**本物の名前で取らない**。
+#   ★遊んでいる DQ2 / DQ3 と取り合うと、検査が「起動中です」の箱を出して止まる / 遊んでいる側の起動を拒む。
+#   ★プロセスごとに分ける（xdist の worker どうしで取り合わない）。
+if not os.environ.get("RETROUX_PRODUCT_LOCK_PREFIX"):
+    os.environ["RETROUX_PRODUCT_LOCK_PREFIX"] = "Local\\RetroUX_ProductTest_%d" % os.getpid()
+
 
 # --- ⚠⚠ Lua の隔離先を走行ごとに分ける（RX-0114 Phase 1 / 2026-08-30）------
 #
 # ## ⚠⚠ 何が起きるところだったか
 #
 #   `research/probes/reusable/lua_run.py` は、実 Lua を動かす前に
-#   `work/_test_sandbox/work/events.jsonl` と `retroux.log` を**空にする**。
+#   `work/tests/lua-sandbox/work/events.jsonl` と `retroux.log` を**空にする**。
 #   ★110 個の検査ファイルが、この**同じ 1 か所**を使っていた。
 #
 #     worker A: lua を動かす → 書く →           読む
@@ -110,7 +116,7 @@ if not os.environ.get("RETROUX_WRITE_ROOT"):
 #
 # ## ★分け方
 #
-#   `work/_test_sandbox/<worker>-<pid>/`。
+#   `work/tests/lua-sandbox/<worker>-<pid>/`。
 #   ⚠ pytest の `tmp_path_factory` を使わないのは、**検査ファイルが
 #     import 時に隔離先を定数へ入れている**ため（fixture より早い）。
 #     ★`pytest_configure` は collection より前に走るので間に合う。
@@ -123,7 +129,7 @@ SANDBOX_ENV = "RETROUX_TEST_SANDBOX"
 #: ★置き場そのものを変えたいとき（⚠ ふだんは使いません）
 SANDBOX_HOME_ENV = "RETROUX_TEST_SANDBOX_HOME"
 
-SANDBOX_HOME = ROOT / "work" / "_test_sandbox"
+SANDBOX_HOME = ROOT / "work" / "tests" / "lua-sandbox"
 
 #: ⚠ これより古い置き土産は片付ける（★秒）。
 SANDBOX_KEEP_SECONDS = 24 * 60 * 60
@@ -133,7 +139,7 @@ def _sweep_old_sandboxes(now: float) -> None:
     """★古い隔離先を片付ける。
 
     ⚠ 走行ごとに作るので、**放っておくと増え続ける**。
-    ★ただし片付けるのは `work/_test_sandbox/` の中の、
+    ★ただし片付けるのは `work/tests/lua-sandbox/` の中の、
       `<worker>-<pid>` という形の folder だけ（⚠ 既定の `work/` は残す）。
     """
     home = _sandbox_home()
@@ -187,6 +193,8 @@ def pytest_configure(config) -> None:
     worker = os.environ.get("PYTEST_XDIST_WORKER") or "main"
     mine = _sandbox_home() / ("%s-%d" % (worker, os.getpid()))
     (mine / "work").mkdir(parents=True, exist_ok=True)
+    # ★RX3-0495: 足場の Lua が結果を書く置き場（⚠ Lua はフォルダを作れない）
+    (ROOT / "work" / "tests" / "out").mkdir(parents=True, exist_ok=True)
     os.environ[SANDBOX_ENV] = str(mine)
     _sweep_old_sandboxes(time.time())
 
@@ -366,7 +374,7 @@ def _isolate_real_sqlite() -> bool:
     real_work = (ROOT / "work").resolve()
     worker = os.environ.get("PYTEST_XDIST_WORKER") or "main"
     sandbox_work = _sandbox_home() / DB_COPY_DIR_NAME / worker
-    # ⚠⚠ **付け替えを 2 度かけません。** ★隔離先は `work/_test_sandbox/` の下、
+    # ⚠⚠ **付け替えを 2 度かけません。** ★隔離先は `work/tests/lua-sandbox/` の下、
     #   つまり**本物の `work/` の中**にあるので、⚠ 写しの道で開き直すと
     #   もう一度付け替わり、★中身が空の別のファイルを読みます（2026-10-01 に実測）。
     sandbox_home = _sandbox_home().resolve()
@@ -422,7 +430,7 @@ def _isolate_real_sqlite() -> bool:
 #   ⚠ 黙って skip を増やさないため、★変わっていたら**走行そのものを赤にします**。
 #
 # ⚠ 見るのは `work/` の**直下のファイル**だけです（★フォルダの中は潜らない）。
-#   `work/_test_sandbox/` `work/release/` などは検査と道具の作業場なので対象外です。
+#   `work/tests/lua-sandbox/` `work/release/` などは検査と道具の作業場なので対象外です。
 
 #: ⚠⚠ **何も外しません。**
 #
@@ -1009,7 +1017,7 @@ def prepare_dq3_probe(slot: str = "DQ3_J.fc2") -> pathlib.Path:
 
     state_path = ROOT / "tools" / "fceux" / "fcs" / slot
     write_lua(build())                                   # ⚠ 生成し忘れ防止
-    out = test_sandbox() / "work" / "dq3-probe"
+    out = test_sandbox() / "work" / "runtime" / "dq3-probe"
     out.mkdir(parents=True, exist_ok=True)
     (out / "auto_v0.log").write_text("", encoding="utf-8")
     state = ss.load(state_path)

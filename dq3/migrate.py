@@ -58,8 +58,8 @@ ROOT_MARKERS: tuple[tuple[str, str], ...] = (
     ("build-info.json", "★版と断面"),
 )
 
-#: ★記録の置き場（⚠ derived / `work/dq3-log/` は既に分類済み）
-JOURNAL_REL = ("dq3-log", "migration.log")
+#: ★記録の置き場（⚠ derived / `work/runtime/` は区分ごと分類済み / RX3-0493）
+JOURNAL_REL = ("runtime", "dq3-log", "migration.log")
 
 #: ★★ 引き継ぎを「どうしたか」の覚え（⚠ derived / 引き継がない）★★
 #
@@ -403,7 +403,15 @@ def plan(src) -> list[Item]:
     for got in OWN.user_data_paths(src_root):
         rel = got.relative_to(src_root).as_posix()
         entry = OWN.entry_for(rel)
-        files, size = OWN.tree_size(got)
+        # ⚠⚠ 共用の置き場は**中身を数え直す**（★DQ2 のぶんを数えない / RX3-0507）
+        files = size = 0
+        for abs_src, rel_in in _files_under(got):
+            if _is_dq2(rel, abs_src, rel_in, got):
+                continue
+            files += 1
+            size += abs_src.stat().st_size
+        if files == 0 and got.is_dir() and any(got.iterdir()):
+            continue                   # ⚠ DQ2 のものしか無い置き場は項目にしない
         out.append(Item(rel, (entry.label if entry else "") or rel, files, size))
     return out
 
@@ -411,6 +419,13 @@ def plan(src) -> list[Item]:
 # ----------------------------------------------------------------------
 # ★写す（⚠⚠ copy only / 旧版は触らない）
 # ----------------------------------------------------------------------
+
+def _is_dq2(item_rel: str, abs_src: pathlib.Path, rel_in, base: pathlib.Path) -> bool:
+    """⚠⚠ そのファイルは DQ2 のものか（★写さない / RX3-0507）。"""
+    if base.is_file():
+        return OWN.is_dq2_owned(item_rel)
+    return OWN.is_dq2_owned("%s/%s" % (item_rel, rel_in.as_posix()))
+
 
 def _files_under(target: pathlib.Path):
     """★そのパスの下のファイルを (絶対, そこからの相対) で返す。"""
@@ -497,6 +512,8 @@ def run(src, dst=None, *, dry_run: bool = False,
         for item in items:
             base = src_root / item.rel
             for abs_src, rel_in in _files_under(base):
+                if _is_dq2(item.rel, abs_src, rel_in, base):
+                    continue               # ⚠⚠ DQ2 のものは写さない（RX3-0507）
                 out = dst_root / item.rel
                 out = out / rel_in if base.is_dir() else out
                 try:

@@ -129,8 +129,8 @@ def test_敵のいまの守備力はスクルト前のセーブで表の値():
     ene = _profile()["runtime"]["battle_enemies"]
     ids, counts = int(ene["ids"], 16), int(ene["counts"], 16)
     status, dfn = int(ene["status"], 16), int(ene["defense"], 16)
-    paths = sorted((ROOT / "work" / "test-fixtures" / "dq3").rglob("*.fcs"))
-    paths += sorted((ROOT / "work" / "test-savestates").glob("DQ3_J*"))
+    paths = sorted((ROOT / "work" / "tests" / "fixtures" / "dq3").rglob("*.fcs"))
+    paths += sorted((ROOT / "work" / "tests" / "savestates").glob("DQ3_J*"))
     seen = 0
     for path in paths:
         try:

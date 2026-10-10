@@ -40,7 +40,12 @@ class MetatileRenderer:
                  assets_root=None) -> None:
         if store is None:
             root = pathlib.Path(assets_root) if assets_root else None
-            store = AssetStore(root or pathlib.Path("work/map-assets"))
+            if root is None:
+                # ★RX-0156: CWD ではなく program_root から（⚠ 以前は起動した場所次第）
+                from ...core import dq2_paths
+
+                root = dq2_paths.program_work("map-assets")
+            store = AssetStore(root)
         self.store = store
         #: ★読み込んだ画像を覚えておく（毎回ディスクを読まない）
         self._cache: dict[tuple[str, str], QPixmap | None] = {}

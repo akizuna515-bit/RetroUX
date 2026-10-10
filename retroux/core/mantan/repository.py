@@ -2,7 +2,7 @@
 
 ## 読み込みの順（指示書 §4.1）
 
-    1. config/mantan.yaml                        利用者の設定
+    1. work/dq2-settings/mantan.yaml             利用者の設定（⚠ 無ければ旧 config/mantan.yaml）
     2. retroux/plugins/dq2/config.yaml の mantan  同梱の既定
     3. コード内の安全な既定値（`MantanSettings()`）
 
@@ -24,7 +24,8 @@ import tempfile
 
 import yaml
 
-from .settings import USER_PATH, MantanSettings
+from .. import dq2_paths
+from .settings import LEGACY_PATH, USER_PATH, MantanSettings
 from .validation import from_dict
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -59,7 +60,9 @@ def load(user_path=None, plugin_path=None):
     戻り値は `(設定, 気づいたことの一覧, 利用者の設定を使えたか)`。
     ⚠ 例外を投げません。**設定が壊れていても起動できること**が要件です。
     """
-    user_path = pathlib.Path(user_path) if user_path else USER_PATH
+    # ★既定の置き場は、新しい方が無ければ旧 `config/mantan.yaml` を読む（RX-0156 / ⚠ 書き戻さない）
+    user_path = (pathlib.Path(user_path) if user_path
+                 else dq2_paths.setting_to_read(USER_PATH, LEGACY_PATH))
     plugin_path = pathlib.Path(plugin_path) if plugin_path else PLUGIN_CONFIG
     problems: list[str] = []
 

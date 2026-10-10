@@ -9,8 +9,8 @@
 -- ## ⚠ v1 と混ぜません（★依頼者 §20）
 --
 --   ```text
---   v1  work/dq3-probe/auto_v0.log    `AI actual ...`
---   v2  work/dq3-probe/enemy_action2.log  `AI action2 ...`   ★こちら
+--   v1  work/runtime/dq3-probe/auto_v0.log    `AI actual ...`
+--   v2  work/runtime/dq3-probe/enemy_action2.log  `AI action2 ...`   ★こちら
 --   ```
 --
 --   ⚠⚠ 比べる間は**別々の記録**にします（★片方が片方を汚さない）。
@@ -42,7 +42,7 @@ local ME = "enemy_watch2"
 local W2 = {}
 W2.hook = Hook.new()
 
-local LOG = Core.open_log(write_root .. "/work/dq3-probe/enemy_action2.log",
+local LOG = Core.open_log(write_root .. "/work/runtime/dq3-probe/enemy_action2.log",
                           "敵の行動（命令フック / v2）")
 local function write(line)
   if LOG == nil then return end

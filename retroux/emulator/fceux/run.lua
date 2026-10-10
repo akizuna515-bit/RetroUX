@@ -1,8 +1,9 @@
 -- RetroUX 本番の入口
 --
 -- 起動:
---   set RETROUX_ROOT=F:\Projects\260721_RetroUX
---   tools\fceux\fceux64.exe -lua retroux\emulator\fceux\run.lua work\rom\DQ2_J.nes
+--   DQ2.cmd（★RETROUX_ROOT を立てて FCEUX を起こす）
+--   手で: tools\fceux\fceux64.exe -lua retroux\emulator\fceux\run.lua work\rom\DQ2_J.nes
+--   （★RETROUX_ROOT が無ければ、このファイルの置き場から根を決める）
 --
 -- 事前に `python -m retroux.core.config.generate_lua` を実行しておくこと。
 --
@@ -10,8 +11,20 @@
 -- Python 側からは:
 --   write_command(path, encountered=[...], action="mantan", request_id=<毎回変える>)
 
+-- ★根: RETROUX_ROOT（起動スクリプトが立てる）→ 無ければ**このファイルの置き場**から（RX-0160）。
+--   ⚠ 以前は開発機の絶対パス（F: の Projects）を既定にしていて、配布物では存在しない場所を見ていた。
+--   ★FCEUX の Lua 窓からこのファイルを直接開いても、自分の場所（retroux/emulator/fceux/ の 3 つ上）で動く。
+local function script_root()
+  local info = debug and debug.getinfo and debug.getinfo(1, "S")
+  local src = (info and info.source or ""):gsub("^@", ""):gsub("\\", "/")
+  return src:match("^(.*)/retroux/emulator/fceux/[^/]+$")
+end
+
 local root = os.getenv("RETROUX_ROOT")
-if root == nil or root == "" then root = "F:/Projects/260721_RetroUX" end
+if root == nil or root == "" then root = script_root() end
+if root == nil or root == "" then
+  error("RetroUX の場所が分かりません（DQ2.cmd から起動するか、RETROUX_ROOT を設定してください）")
+end
 root = root:gsub("\\", "/"):gsub("/$", "")
 
 local Bridge       = assert(loadfile(root .. "/retroux/emulator/fceux/bridge.lua"))()

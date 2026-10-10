@@ -100,7 +100,7 @@ dq3_phase0:
     #   ⚠ ただし**直したものを実機でまだ動かしていません**。
     #   ★試すときは、下の例のコメントを外してください。
     #   ⚠ 合わなければ `target_not_shown` などで**止まります**（暴走しません）。
-    #   詳しくは `docs/research/dq3-text-capture-report.md` の §13。
+    #   詳しくは `docs/research/260825_dq3-text-capture.md` の §13。
     #
     # ★呪文を使う例（実機で通ったら、そのまま差し替えれば動きます）
     #   p3:
@@ -126,7 +126,7 @@ dq3_phase0:
     #
     #   ★RX3-0169: A = Auto の近道（★戦闘の本体でだけ）/ T・タ = **Auto 中の速さ**
     #     （AUTO_TURBO ⇄ AUTO_NORMAL / ★均衡・初見でも人が押せば速く（2026-09-11）/ Auto OFF では何もしない）
-    #   ⚠ Lua から出せるのは **normal と turbo だけ**（`docs/research/fceux-speed-control.md`）。
+    #   ⚠ Lua から出せるのは **normal と turbo だけ**（`docs/research/260826_fceux-speed-control.md`）。
     #   ★戻すと普通の速さ（★管理画面の 2 倍速は画面が送り直す）。
     #   ★戦闘を目で追いたいときは false にしてください（★速くしない）。
     turbo_with_auto: true

@@ -4,7 +4,7 @@
 #   PRG-only CRC32:  48349B0B
 #   PRG-only SHA256: B0F0CE24890DB516C01B1E748A8B4C68B38CEBC404C2BC1C24A1EF6FE02AC5CC
 #
-# 特定の根拠と確度は docs/memory_map.md を参照。
+# 特定の根拠と確度は docs/design/dq2-memory-map.md を参照。
 # このファイルが正であり、アドレスをコードへ直接書かないこと（指示書の方針）。
 #
 # confidence:
@@ -175,7 +175,7 @@ addresses:
     confidence: confirmed
     description: |
       各キャラの持ち物。**配列のインデックスがどうぐメニューの行番号に対応する。**
-      実測で確認（work/itemmenu/）:
+      実測で確認（work/research/260725_itemmenu/）:
         $0600=55 → row0 かわのよろい
         $0601=46 → row1 どうのつるぎ
         $0602=3C → row2 やくそう
@@ -325,7 +325,7 @@ addresses:
       1人目=0 / 2人目=1 / 3人目=2。次のターンで 0 に戻る。
       戦闘コマンド(0x09)と敵の対象選択(0x0A)のどちらでも同じ人を指す。
 
-      根拠（work/o2/verify.txt / 17項目すべて一致）:
+      根拠（work/research/260725_o2/verify.txt / 17項目すべて一致）:
         ・3つの戦闘（敵の構成2種類: よろいムカデ+キングコブラ / おおねずみ）で
           いずれも 0,1,2 になった
         ・★B（キャンセル）で1人前に戻すと **値も 01 -> 00 に戻った**。
@@ -394,12 +394,12 @@ addresses:
       3. ここは 6502 のスタックページ($0100-$01FF)。他の用途の値が残る。
          **メニューIDと行数を確認せずに読んではいけない。**
 
-      画面との一致（work/shopfind/02_shop_list.png / 4行すべて）:
+      画面との一致（work/research/260725_shopfind/02_shop_list.png / 4行すべて）:
         行0 やくそう 15G / 行1 どくけしそう 8G
         行2 キメラのつばさ 80G / 行3 せいすい 40G
 
   # --- パーティ --------------------------------------------------------
-  # 以下は日米の公開資料で一致していたアドレス（docs/10-research-notes.md R-3）。
+  # 以下は日米の公開資料で一致していたアドレス（docs/research/260721_dq2-research-notes.md R-3）。
   # current_hp のみ実測で確認済み。他は未検証。
   party:
     member_stride: 0x12     # ローレシア -> サマルトリア -> ムーンブルク
@@ -409,7 +409,7 @@ addresses:
     #
     # ★★ **長年「読めていない」だった項目が解けた** ★★
     #   文字コード表を CHR-RAM の字形から起こしたため
-    #   （`docs/how-to-read-rom.md` 5章）。以前は
+    #   （`docs/guide/how-to-read-rom.md` 5章）。以前は
     #   「先頭4バイト `0A 0F 31 5F` が『あかり␣』と読める」までで止まっていた。
     #
     # 実測（`tools/fceux/fcs/DQ2_J.fc1`）:
@@ -711,7 +711,7 @@ addresses:
   #
   # ★2026-08-21 訂正（RX-0010）: 以前「展開する手順は日本版では未解読」とあったが、
   #   2026-08-09 に街・ダンジョン 108/108、08-11 に世界地図を解読済み
-  #   （`docs/map-decoder-evidence.md`）。ここでは位置の確認に使う。
+  #   （`docs/research/260802_dq2-map-decoder-evidence.md`）。ここでは位置の確認に使う。
   map_data_pointer:
     addr: 0x0023
     size: 2
@@ -1274,7 +1274,7 @@ monster_actions:
 #
 # ★★ **CHR-RAM の字形を目で読んで起こした。推測ではない。** ★★
 #   セーブステートの `CHRR` チャンク（8KB = 512タイル）を PNG に描いて読んだ
-#   （手順は `docs/how-to-read-rom.md` 5章）。
+#   （手順は `docs/guide/how-to-read-rom.md` 5章）。
 #
 # 裏取り:
 #   ・敵の名前83体が、既に分かっていた9体と **9/9 一致**（未解決コード0）

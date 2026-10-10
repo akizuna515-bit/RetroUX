@@ -3,7 +3,7 @@
 ## ⚠⚠ なぜ要るか（★実際に困りました）
 
 `engine: layered` を実機で試そうとして、`work/generated/config.lua` を
-手で書き換えました。⚠ ところが `start-retroux.ps1` は**起動のたびに
+手で書き換えました。⚠ ところが `start-dq2.ps1` は**起動のたびに
 `generate_lua` を実行**するため、★書き換えは必ず消えます。
 
 結果、ログにこう出て**veto を1件も確認できませんでした**:

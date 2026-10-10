@@ -20,9 +20,9 @@ map / kind が変わった            → SPECIAL（★通常床の判定から�
 ## ★出すもの
 
 ```text
-work/dq3-probe/passability/edges_009.jsonl        ★edge ごとに 1 行（予測 / 実測 / 一致）
-work/dq3-probe/passability/mismatches_009.json    ⚠ 不一致（★周辺 3x3 / tile / collision / NPC）
-work/dq3-probe/passability/report_009.json        ★混同行列 / 一致率 / coverage
+work/runtime/dq3-probe/passability/edges_009.jsonl        ★edge ごとに 1 行（予測 / 実測 / 一致）
+work/runtime/dq3-probe/passability/mismatches_009.json    ⚠ 不一致（★周辺 3x3 / tile / collision / NPC）
+work/runtime/dq3-probe/passability/report_009.json        ★混同行列 / 一致率 / coverage
 ```
 """
 
@@ -37,7 +37,7 @@ from . import passability as P
 from .. import paths
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-EVIDENCE = paths.lazy_work("evidence")
+EVIDENCE = paths.lazy_work("tests", "evidence")
 
 #: ⚠ NPC が塞いでいたかを見る時間幅（フレーム）
 NPC_WINDOW = 90

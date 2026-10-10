@@ -235,7 +235,7 @@ FIELDS: tuple[Field, ...] = (
     #   先に危険状態が成立して自動入力ごと止まるため）。
     #   ★安全網は**危険時手動復帰**が担う。二重に持つと設定が煩雑になる。
     # ⚠⚠ **`spell_policy`（回復呪文の選び方）は削除しました**（2026-08-10 / UI整理）。
-    #   棚卸し（docs/strategy-parameter-audit.md）で **Lua が読んでいない**
+    #   棚卸し（docs/audit/260810_dq2-strategy-parameter-audit.md）で **Lua が読んでいない**
     #   ことが確定（§11 の疑い）。★mantan 側の `spell_policy` とは別物です
     #   （あちらは動くので消していません）。
 
@@ -313,7 +313,7 @@ FIELDS: tuple[Field, ...] = (
 
     # ⚠⚠ **2026-08-10 に 19 項目を削除しました**（UI整理 Phase 2）★★
     #
-    #   棚卸し（docs/strategy-parameter-audit.md）で「UNUSED / FUTURE」と
+    #   棚卸し（docs/audit/260810_dq2-strategy-parameter-audit.md）で「UNUSED / FUTURE」と
     #   分類したものです。★どれも Lua が読んでおらず、設定しても行動に
     #   出ませんでした。指示書 §9-C・§17「未実装・未使用を UI に出さない」。
     #

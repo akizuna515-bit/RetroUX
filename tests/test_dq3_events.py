@@ -49,7 +49,7 @@ def bench(tmp_path, monkeypatch):
 
 
 def _product(work) -> list:
-    path = work / "dq3-log" / EW.PRODUCT_NAME
+    path = work / "runtime" / "dq3-log" / EW.PRODUCT_NAME
     if not path.exists():
         return []
     return [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
@@ -179,7 +179,7 @@ def test_Productの行には日付が入る(bench):
 def test_normalではdiagnosticを書かない(bench):
     w, _log, work, _clock = bench
     w.emit(EV.BATTLE_END, EV.SRC_BATTLE, {"result": EV.WIN, "actions": 4})
-    assert not (work / "dq3-log" / EW.DIAGNOSTIC_NAME).exists()
+    assert not (work / "runtime" / "dq3-log" / EW.DIAGNOSTIC_NAME).exists()
 
 
 def test_diagnosticでは詳細が残る(bench):
@@ -190,7 +190,7 @@ def test_diagnosticでは詳細が残る(bench):
            {"result": EV.STOPPED, "rounds": 1, "actions": 3,
             "reason": "screen_frozen"}, level=EV.WARNING)
     rows = [json.loads(ln) for ln
-            in (work / "dq3-log" / EW.DIAGNOSTIC_NAME).read_text(
+            in (work / "runtime" / "dq3-log" / EW.DIAGNOSTIC_NAME).read_text(
                 encoding="utf-8").splitlines() if ln.strip()]
     assert len(rows) == 1
     got = rows[0]
@@ -389,8 +389,8 @@ def test_冒険ログがEventを使い回す(bench):
     text = ADV.build(state={})
     assert "## 8 RetroUX が代わりにやったこと" in text
     assert "自動戦闘：勝利 2ターン（8行動）" in text
-    # ★新しい順（⚠ 他の節と並べ方を揃える）
-    assert text.index("武器屋に到着") < text.index("自動戦闘：勝利")
+    # ★古い順（RX3-0518: どの節も 古い → 新しい / ⚠ 以前は新しい順だった）
+    assert text.index("自動戦闘：勝利") < text.index("武器屋に到着")
 
 
 def test_冒険ログは記録が無ければ無いと書く(bench):

@@ -26,7 +26,10 @@ from __future__ import annotations
 import pathlib
 import subprocess
 
-from ..core import layout, window_align
+from ..core import layout
+# ★DQ2 の窓だけを探して動かす写し（RX-0145）。⚠ 題名だけで探すと、DQ2 を閉じたときに
+#   DQ3 の FCEUX へ WM_CLOSE が届きうる（未セーブの進行を失う / 調査 D3）。
+from ..core import dq2_window_align as window_align
 
 #: エクスプローラ等を出すときの旗。⚠ コンソールを一瞬も光らせない。
 #  （`CREATE_NO_WINDOW`。R-1 で「黒い窓が出る」を潰した経緯がある）

@@ -1,6 +1,6 @@
 """ワールドマップを探索済み範囲まで自由にスクロールする（RX3-0255 / 2026-09-13）。
 
-依頼者の小WI（★正本の写し `docs/design/dq3-world-map-scroll-spec.md`）:
+依頼者の小WI（★正本の写し `docs/requests/260913_dq3-world-map-scroll.md`）:
 
 ```text
 通常            現在地へ追随

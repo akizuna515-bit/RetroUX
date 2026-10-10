@@ -68,7 +68,7 @@ def test_群の旗はセーブの群ごとの一覧と合う():
     ene = _profile()["runtime"]["battle_enemies"]
     ids, counts, status = int(ene["ids"], 16), int(ene["counts"], 16), int(ene["status"], 16)
     checked = 0
-    for path in sorted((ROOT / "work" / "test-fixtures" / "dq3").rglob("*.fcs")):
+    for path in sorted((ROOT / "work" / "tests" / "fixtures" / "dq3").rglob("*.fcs")):
         try:
             ram = ss.load(path).chunks["RAM"]
         except Exception:                                  # noqa: BLE001

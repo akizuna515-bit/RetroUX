@@ -4,8 +4,8 @@
 
     retroux/config/default_keybindings.yaml   既定（同梱・編集させない）
       ↓ 書いてある項目だけ上書き
-    config/keybindings.yaml                   利用者の設定
-      ↓
+    work/dq2-settings/keybindings.yaml        利用者の設定（★write_root 側 / RX-0156）
+      ↓                                       ⚠ 無ければ旧 config/keybindings.yaml を読む（書き戻さない）
     実行時のキー割り当て
 
 ## ⚠⚠ **設定が壊れていても RetroUX は起動できること**（指示書 §14.4）
@@ -27,9 +27,19 @@ import pathlib
 
 from .actions import ACTION_BY_NAME, CONTEXTS, action_names
 
+from . import dq2_paths
+
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEFAULT_PATH = PROJECT_ROOT / "retroux" / "config" / "default_keybindings.yaml"
-USER_PATH = PROJECT_ROOT / "config" / "keybindings.yaml"
+#: ★2026-10-03（RX-0156）: 利用者の設定は write_root 側（`work/dq2-settings/keybindings.yaml`）
+USER_PATH = dq2_paths.setting("keybindings.yaml")
+#: ⚠ 旧の置き場（`config/keybindings.yaml`）。★新しい方が無いときだけ読む・書き戻さない
+LEGACY_PATH = dq2_paths.legacy_setting("keybindings.yaml")
+
+
+def read_path() -> pathlib.Path:
+    """★利用者の設定を読む場所（★新しい方 → 無ければ旧）。"""
+    return dq2_paths.setting_to_read(USER_PATH, LEGACY_PATH)
 
 #: この版が読める形。★上げるときは移行のしかたも一緒に決める。
 SCHEMA_VERSION = 1
@@ -305,7 +315,7 @@ def load(default_path=None, user_path=None) -> Keybindings:
       キーの配列ごと差し替えるので、「既定の A も残る」ことはない。
     """
     default_file = pathlib.Path(default_path or DEFAULT_PATH)
-    user_file = pathlib.Path(user_path or USER_PATH)
+    user_file = pathlib.Path(user_path or read_path())
 
     base, why = _read_yaml(default_file)
     if base is None:
@@ -387,7 +397,7 @@ def to_lua(bindings: "Keybindings") -> str:
     lines = [
         "-- 自動生成ファイル。直接編集しないこと。",
         "-- 生成元: retroux/config/default_keybindings.yaml"
-        " + config/keybindings.yaml",
+        " + work/dq2-settings/keybindings.yaml",
         "-- 生成: retroux/core/config/generate_lua.py",
         "--",
         "-- ★アクション名 -> キーの並び。Lua はキーの意味を知らない。",

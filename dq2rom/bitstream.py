@@ -15,7 +15,7 @@
       rol $6E
 
   -> **MSB ファースト**。複数ビット値は最初に読んだビットが最上位。
-  （`docs/design/rom-analysis-tools-spec.md` 2.2）
+  （`docs/design/rom-ram/dq2rom-tool.md` 2.2）
 
   モンスターの絵（`B04_8971`）も `asl $DD / rol $DE` で回しており同じ向き。
   それでも **順序を選べるようにしてある**のは、ワールドマップなど

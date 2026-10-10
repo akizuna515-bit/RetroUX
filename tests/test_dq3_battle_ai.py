@@ -277,7 +277,7 @@ def test_まどうしのつえを道具で使う(judge, driver, legality):
 
 
 def test_リソース節約でマホトラを使う(judge):
-    """★RX3-0260（2026-09-14 依頼者の小WI「リソース節約時のマホトラ活用」/ 正本 `docs/design/dq3-mahotora-spec.md`）。
+    """★RX3-0260（2026-09-14 依頼者の小WI「リソース節約時のマホトラ活用」/ 正本 `docs/requests/260914_dq3-mahotora.md`）。
 
     ```text
     MH1 節約・消化戦・ほかの人だけで倒せる → 寄与が低い人はマホトラ   MH2 最短撃破は使わない   MH3 MP 満タンは使わない

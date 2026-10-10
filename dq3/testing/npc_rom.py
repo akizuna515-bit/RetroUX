@@ -446,7 +446,7 @@ def runtime_view(master_npcs: list[dict], slots: list[dict]) -> list[dict]:
 
 def write_all(root, rom=None) -> dict:
     """★指示書 §8 の 4 つを書く。"""
-    out = pathlib.Path(root) / "work" / "dq3-probe" / "npcs"
+    out = pathlib.Path(root) / "work" / "runtime" / "dq3-probe" / "npcs"
     out.mkdir(parents=True, exist_ok=True)
     day, night = all_maps(False, rom), all_maps(True, rom)
     var = variants()
@@ -460,7 +460,7 @@ def write_all(root, rom=None) -> dict:
 
 
 def write_ledger(root, map_id: int, night: bool = False, rom=None) -> pathlib.Path:
-    out = pathlib.Path(root) / "work" / "dq3-probe" / "npcs"
+    out = pathlib.Path(root) / "work" / "runtime" / "dq3-probe" / "npcs"
     out.mkdir(parents=True, exist_ok=True)
     path = out / ("map_%03d.json" % map_id)
     path.write_text(json.dumps(ledger(map_id, night, rom), ensure_ascii=False, indent=2) + "\n",

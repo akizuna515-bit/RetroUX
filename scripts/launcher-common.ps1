@@ -94,7 +94,10 @@ function Show-LauncherError {
     )
     Write-LauncherLog "ERROR" ($Message + " " + $Detail)
 
-    $body = "RetroUX を起動できませんでした。`n`n" + $Message
+    # ★製品名（RX-0155）。⚠ 起動スクリプトが `$script:RetroUXProductTitle` を立てていなければ従来どおり「RetroUX」
+    $title = "RetroUX"
+    if ($script:RetroUXProductTitle) { $title = $script:RetroUXProductTitle }
+    $body = $title + " を起動できませんでした。`n`n" + $Message
     if ($script:RetroUXLogPath) {
         $body += "`n`n詳細:`n" + $script:RetroUXLogPath
     }
@@ -105,7 +108,7 @@ function Show-LauncherError {
     try {
         Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
         [System.Windows.Forms.MessageBox]::Show(
-            $body, "RetroUX",
+            $body, $title,
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
     } catch {
@@ -160,7 +163,7 @@ function Get-PythonText {
 # ★★ Python の置き場を決めるのは**ここ 1 か所**（RX3-0473 / 2026-09-29）★★
 #
 #   ⚠⚠ 以前は各 launcher が `.venv\Scripts\python.exe` を独立に組み立てていました
-#     （start-dq3.ps1 / start-retroux.ps1 / launcher-common.ps1）。
+#     （start-dq3.ps1 / start-dq2.ps1 / launcher-common.ps1）。
 #     ★配布 Runtime には `.venv` が無いので、全部を直す必要がありました。
 #
 #   ★解決の順番:
@@ -197,6 +200,30 @@ function Get-RetroUXPython {
         if (Test-Path -LiteralPath $windowless) { return $windowless }
     }
     return $null
+}
+
+# --- 展開先が深すぎないか（RX-0166 / RX3-0517 / 2026-10-05）-------------
+#
+# ⚠⚠ 深い場所へ展開すると、Qt がエラーも出さずに止まる（★最も長いパスが 260 文字を超えたとき / 実測）。
+#   ★Qt を起こす前に見て、理由を出して止める（依頼者「深い場所に展開しようとしたらチェックエラーにしてOK」）。
+#   ★判定は Python 側の 1 か所（`retroux.core.path_depth`）。⚠ ここでは結果を文にするだけ。
+#   ★戻り値: 止める理由の文（★問題なければ空）。⚠ 判定できなかったときも空（★起動は止めない）。
+function Get-RetroUXDepthProblem {
+    param([string]$Python, [string]$Root)
+    try {
+        $out = (& $Python -m retroux.core.path_depth --root $Root) 2>$null
+        if ($LASTEXITCODE -ne 3) { return "" }
+        $line = "$out".Trim()
+        $total = if ($line -match 'total=(\d+)') { $Matches[1] } else { "?" }
+        $allowed = if ($line -match 'allowed=(\d+)') { $Matches[1] } else { "?" }
+        return ("RetroUX を置いたフォルダが深すぎます。`n`n" +
+            "このままでは、中のいちばん長いパスが " + $total + " 文字になり、Windows の上限（259 文字）を超えます。" +
+            "起動しても画面が出ないまま止まります。`n`n" +
+            "C:\Tools など浅い場所へ ZIP を展開し直してください（展開先のフォルダの文字数の目安: " + $allowed + " 文字以下）。`n`n" +
+            "いまの場所: " + $Root)
+    } catch {
+        return ""
+    }
 }
 
 function Get-RetroUXPythonHint {
@@ -265,4 +292,79 @@ function Start-NoConsole {
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     return [System.Diagnostics.Process]::Start($psi)
+}
+
+# --- ★★ 製品間排他（RX-0152 / RX3-0505 / 依頼者 2026-10-03「DQ2 / DQ3 の同時起動はサポートしない」）★★
+#
+#   ★DQ2 と DQ3 は同時に 1 製品だけ。⚠ 判定は FCEUX の有無ではなく、製品の GUI が握る OS の Mutex で行う
+#     （他の用途の FCEUX・前回の残り（orphan）を「相手が起動中」と誤らない）。
+#   ★名前は Python 側（`retroux/core/product_lock.py` / `dq3/product_lock.py`）と同じ（★検査が突き合わせる）:
+#
+#     Local\RetroUX_Product_DQ2 / _DQ3   ★名札: その製品の GUI が開いている間だけ存在する
+#     Local\RetroUX_ProductLaunch        ★起動の順番待ち: 起動スクリプトが「起動の手順」の間だけ所有する
+#
+#   ★順番待ちを取ってから相手の名札を見て、自分の GUI の名札が出るまで持つ
+#     → DQ2.cmd と DQ3.cmd をほぼ同時に叩いても、⚠ 「確認 → 取得」の隙間で両方が通らない。
+#   ★Mutex はプロセスが死ねば OS が解放する（⚠ 異常終了で古いロックが残り、永久に起動できなくなることが無い）。
+
+$script:RetroUXProductPrefix = "Local\RetroUX_Product"
+$script:RetroUXProductLabels = @{ DQ2 = "RetroUX DQ2"; DQ3 = "RetroUX DQ3" }
+
+function Get-RetroUXOtherProduct {
+    param([Parameter(Mandatory = $true)][string]$Me,
+          [string]$Prefix = $script:RetroUXProductPrefix)
+    foreach ($p in @("DQ2", "DQ3")) {
+        if ($p -eq $Me) { continue }
+        $m = $null
+        if ([System.Threading.Mutex]::TryOpenExisting(($Prefix + "_" + $p), [ref]$m)) {
+            $m.Dispose()
+            return $p
+        }
+    }
+    return $null
+}
+
+function Get-RetroUXBusyMessage {
+    param([Parameter(Mandatory = $true)][string]$Me,
+          [Parameter(Mandatory = $true)][string]$Other)
+    return ($script:RetroUXProductLabels[$Other] + " が起動中です。`n" +
+            $Other + "を終了してから" + $script:RetroUXProductLabels[$Me] + "を起動してください。")
+}
+
+function Enter-RetroUXProductLaunch {
+    param([int]$TimeoutMs = 60000,
+          [string]$Prefix = $script:RetroUXProductPrefix)
+    $m = New-Object System.Threading.Mutex($false, ($Prefix + "Launch"))
+    $ok = $false
+    try { $ok = $m.WaitOne($TimeoutMs) }
+    catch [System.Threading.AbandonedMutexException] {
+        # ★前の起動スクリプトが解放せずに死んだ = 取れた（⚠ stale を OS が教えてくれる）
+        $ok = $true
+    }
+    if (-not $ok) { $m.Dispose(); return $null }
+    return $m
+}
+
+function Exit-RetroUXProductLaunch {
+    param($Mutex)
+    if ($null -eq $Mutex) { return }
+    try { $Mutex.ReleaseMutex() } catch { }
+    $Mutex.Dispose()
+}
+
+function Wait-RetroUXProduct {
+    # ★自分の GUI が名札を出すまで待つ（★出たら順番待ちを手放してよい）
+    param([Parameter(Mandatory = $true)][string]$Me,
+          [int]$TimeoutMs = 20000,
+          [string]$Prefix = $script:RetroUXProductPrefix)
+    $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
+    while ((Get-Date) -lt $deadline) {
+        $m = $null
+        if ([System.Threading.Mutex]::TryOpenExisting(($Prefix + "_" + $Me), [ref]$m)) {
+            $m.Dispose()
+            return $true
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    return $false
 }

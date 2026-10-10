@@ -383,7 +383,7 @@
         "0x12"
       ],
       "confidence": "confirmed",
-      "_note": "★DQ3 自身の式: $32 == $FD かつ $60B7 & $20（固定バンク $C8F8）。★$06F0 は音のドライバの「いまの曲」×2（bank1 $85C1）で、ENTERING / RESULT を分けるのに使う。\n⚠⚠ 旧い値 $0062 は戦闘中フラグではない（入口で種類を渡す引数 ＋ 汎用の作業バイト）。\n★根拠: RX3-0165（docs/research/dq3-battle-state-research.md）/ 実機 5 戦 ＋ 非戦闘 3,128 枚で誤検出 0。"
+      "_note": "★DQ3 自身の式: $32 == $FD かつ $60B7 & $20（固定バンク $C8F8）。★$06F0 は音のドライバの「いまの曲」×2（bank1 $85C1）で、ENTERING / RESULT を分けるのに使う。\n⚠⚠ 旧い値 $0062 は戦闘中フラグではない（入口で種類を渡す引数 ＋ 汎用の作業バイト）。\n★根拠: RX3-0165（docs/research/260911_dq3-battle-state.md）/ 実機 5 戦 ＋ 非戦闘 3,128 枚で誤検出 0。"
     },
     "window_color": {
       "address": "0x06E0",
@@ -394,7 +394,7 @@
       "time": "0x06DF",
       "night_from": "0x78",
       "confidence": "confirmed",
-      "_note": "★窓の色（RX3-0220 で調べ / RX3-0225 で Auto を人へ返す合図に使う）。ゲームが HP と状態から 1 本の処理（JP bank 13 $959B-$961C）で決めて $06E0 に置く（★フィールドと戦闘で同じバイト）。\n上から順に: 死んでいる人がいる → $27（オレンジ）/ 生きている人の HP < floor(最大 HP / 4) → $2A（緑）/ 夜（$06DF >= $78）で $60B7 bit5 が立っていない → $21（薄い青）/ それ以外 → $30（白）。\n⚠ 毒では変わらない / 赤は無い。★毎フレームではなく出来事（戦闘の頭・死・HP の変化・状態が治った）で作り直す。\n★読む所: dq3/phase0/generate_lua.py → CFG.window_color → battle_speed.lua（人へ返す色）/ auto_v0.lua（毎フレーム読む）/ dev.lua（state.json の window_color）。\n★根拠: repo のセーブ 57 通りで 規則 = $06E0 = $03E8 = PRAM[1]（docs/research/dq3-auto-release-window-color-consult.md）/ 見張り: tests/test_dq3_window_color.py"
+      "_note": "★窓の色（RX3-0220 で調べ / RX3-0225 で Auto を人へ返す合図に使う）。ゲームが HP と状態から 1 本の処理（JP bank 13 $959B-$961C）で決めて $06E0 に置く（★フィールドと戦闘で同じバイト）。\n上から順に: 死んでいる人がいる → $27（オレンジ）/ 生きている人の HP < floor(最大 HP / 4) → $2A（緑）/ 夜（$06DF >= $78）で $60B7 bit5 が立っていない → $21（薄い青）/ それ以外 → $30（白）。\n⚠ 毒では変わらない / 赤は無い。★毎フレームではなく出来事（戦闘の頭・死・HP の変化・状態が治った）で作り直す。\n★読む所: dq3/phase0/generate_lua.py → CFG.window_color → battle_speed.lua（人へ返す色）/ auto_v0.lua（毎フレーム読む）/ dev.lua（state.json の window_color）。\n★根拠: repo のセーブ 57 通りで 規則 = $06E0 = $03E8 = PRAM[1]（docs/research/260912_dq3-consult-auto-release-window-color.md）/ 見張り: tests/test_dq3_window_color.py"
     },
     "map_no": {
       "address": "0x008B",

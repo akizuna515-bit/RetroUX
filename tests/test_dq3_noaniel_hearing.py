@@ -1,6 +1,6 @@
 """ノアニール: 目覚めた後の会話を聞き込みで聞く（RX3-0210 / 2026-09-12 依頼者「210 Aで」）。
 
-★原因（`docs/research/dq3-noaniel-sleep-investigation.md`）: 眠っている間は全員「ぐうぐう‥‥。」（ROM 13:B20E / talk_id は同じ）。
+★原因（`docs/research/260912_dq3-noaniel-sleep.md`）: 眠っている間は全員「ぐうぐう‥‥。」（ROM 13:B20E / talk_id は同じ）。
 ⚠ heard は「一度話したか」だけだったので、眠っている間に話した 10 人が目覚めた後も済みのまま候補から外れた。
 → ★案 A: `$60B7`（Lua → state.json の story_60b7）で段階を決め、heard に段階を残す。目覚めた後は起きている時の会話だけ済み。
 """

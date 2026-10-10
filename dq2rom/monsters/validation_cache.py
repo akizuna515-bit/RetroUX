@@ -21,7 +21,7 @@
     2  ★`RETROUX_NO_TEST_CACHE=1` で必ず計算し直す
     3  ⚠ 鍵が変わることを検査で確かめる（ROM / 撮影 / コード）
 
-  詳しくは `docs/design/test-validation-cache.md`。
+  詳しくは `docs/design/platform/dq2-test-validation-cache.md`。
 """
 
 from __future__ import annotations

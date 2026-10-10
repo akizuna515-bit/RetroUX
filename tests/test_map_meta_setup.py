@@ -38,5 +38,5 @@ def test_exportの出力は_sha1_フォルダの下にある(tmp_path):
 def test_起動スクリプトが呼んでいる():
     """⚠ 道具を作っただけで呼んでいない、をやらない。"""
     src = (pathlib.Path(__file__).resolve().parents[1]
-           / "scripts" / "start-retroux.ps1").read_bytes().decode("utf-8")
+           / "scripts" / "start-dq2.ps1").read_bytes().decode("utf-8")
     assert "retroux.tools.map_meta_setup" in src

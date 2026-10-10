@@ -520,6 +520,10 @@ def _write_state(tmp_path, monkeypatch, data):
     path = tmp_path / "window-state.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     monkeypatch.setattr(window_state, "DEFAULT_PATH", path)
+    # ★DQ2 の整列は resolver の置き場を渡す（RX-0156）ので、そちらも差し替える
+    from retroux.core import dq2_paths
+
+    monkeypatch.setattr(dq2_paths, "window_state", lambda: path)
     return path
 
 

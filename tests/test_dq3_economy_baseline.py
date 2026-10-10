@@ -227,7 +227,7 @@ def test_H_止まったrunは隔離先の生ログを読む(tmp_path, monkeypatc
     """⚠⚠ `report.md` は**最後に**書かれます。★止まった run には在りません。"""
     run = tmp_path / "runs" / "20260923-105601"
     run.mkdir(parents=True)
-    sbx = tmp_path / "sandbox" / "20260923-105601-battle-ai" / "work" / "dq3-probe"
+    sbx = tmp_path / "sandbox" / "20260923-105601-battle-ai" / "work" / "runtime" / "dq3-probe"
     sbx.mkdir(parents=True)
     (sbx / "auto_v0.log").write_text("AUTO_V0_DONE 勝利 rounds=1 actions=1 mp_used=0",
                                      encoding="utf-8")

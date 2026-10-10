@@ -16,7 +16,7 @@
   混ぜて並べると、利用者が**どちらが確定した値か区別できない**。
   一覧＋詳細にしたので列ではなく節で分けるが、分ける理由は同じ。
 
-設計と根拠: `docs/design/monster-book-spec.md`
+設計と根拠: `docs/design/ui/dq2-monster-book.md`
 """
 
 from __future__ import annotations

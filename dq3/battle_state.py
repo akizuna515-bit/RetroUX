@@ -9,7 +9,7 @@
 ```
 
 ⚠⚠ `$62` でも画面のマス数でも決めません（★RX3-0165 で両方外れた /
-`docs/research/dq3-battle-state-research.md`）。
+`docs/research/260911_dq3-battle-state.md`）。
 
 ★使う所: セーブステートの場面（`dq3/testing/fixtures.py`）/ 生成（`dq3/phase0/generate_lua.py`）。
 """

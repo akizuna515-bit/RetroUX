@@ -1,7 +1,7 @@
 {
-  "exported_at": "2026-10-02T19:23:01+09:00",
+  "exported_at": "2026-10-10T16:04:27+09:00",
   "min_setup_version": "1.0.0",
   "product": "retroux-dq3",
-  "source_commit": "8a5598be2015be92611790d0156a705fae63a21c",
-  "version": "1.1.0"
+  "source_commit": "f6a02f316795df590b9ac352c168738de2a6cfb0",
+  "version": "1.2.0"
 }

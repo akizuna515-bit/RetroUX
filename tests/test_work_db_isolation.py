@@ -67,7 +67,7 @@ def test_本物のworkへの接続は写しへ向く():
     got = pathlib.Path(moved[0])
     assert got.is_file()
     # ⚠⚠ 写しの道で開き直しても**もう一度付け替えない**こと
-    #   （★隔離先は `work/_test_sandbox/` = 本物の `work/` の中にある / 2026-10-01 に実測）
+    #   （★隔離先は `work/tests/lua-sandbox/` = 本物の `work/` の中にある / 2026-10-01 に実測）
     before = set(CF._db_redirects)
     con = sqlite3.connect(str(got))
     try:

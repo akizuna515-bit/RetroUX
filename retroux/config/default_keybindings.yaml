@@ -1,7 +1,8 @@
 # キーバインドの既定値（2026-08-01 の指示書 §12.1）。
 #
 # ★★ **このファイルは利用者が編集する対象ではありません。** ★★
-#   直したいときは `config/keybindings.yaml` に**変えたいものだけ**書きます。
+#   直したいときは `work/dq2-settings/keybindings.yaml` に**変えたいものだけ**書きます
+#   （★2026-10-03 / RX-0156。旧 `config/keybindings.yaml` は新しい方が無いとき読むだけ）。
 #   書かなかった項目はここの値が使われます（指示書 §12.2）。
 #   画面の「キーバインド設定」から編集・検証・反映できます。
 #
@@ -38,7 +39,7 @@ bindings:
     context: gameplay
     # ⚠ Escape は FCEUX で「メニューを閉じる/終了」に使われることがあるため、
     #   既定では**割り当てません**（空 = 割り当てなし / 指示書 §14.3）。
-    #   使いたい人は config/keybindings.yaml で設定してください。
+    #   使いたい人は work/dq2-settings/keybindings.yaml で設定してください。
     keyboard: []
     restore_emulator_focus: true
 
@@ -94,7 +95,8 @@ bindings:
 
   open_settings:
     context: global
-    # ⚠ 設定画面はこの版では未実装。**キーだけ先に配らない**。
+    # ★管理画面（状態・キー設定・プレイデータ / RX-0171）。★本体の ⚙ ボタンから開く。
+    #   ⚠ 既定のキーは割り当てない（依頼者 2026-10-06 / 空いているキーを選んで足せる）。
     keyboard: []
     restore_emulator_focus: false
 
@@ -123,5 +125,5 @@ bindings:
 #     に割り当て済みです。
 #
 # ★パッドの割り当ては**このファイルでは変えられません**（キーボード専用）。
-#   一覧は README の「ゲームパッド」、切り分けは docs/60-gamepad-setup.md。
+#   一覧は README の「ゲームパッド」、切り分けは docs/guide/gamepad-setup.md。
 #   長押しの長さだけ user_config.yaml の `gamepad.force_auto_hold_ms` で変えられます。

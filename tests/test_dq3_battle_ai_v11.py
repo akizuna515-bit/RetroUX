@@ -241,14 +241,14 @@ def test_まひのビットは健康なセーブで1度も立たない():
 
 
 def _never_set_in_healthy_saves(name: str, label: str) -> None:
-    """★健康なセーブ（`work/test-savestates`）で、その旗が 1 度も立たないこと。"""
+    """★健康なセーブ（`work/tests/savestates`）で、その旗が 1 度も立たないこと。"""
     from retroux.core.bgmap import savestate as ss
 
     row = _profile()["runtime"]["party"]["status_flags"][name]
     base, size = 0x073C, 2
     mask = 1 << int(row["bit"])
     seen = 0
-    for path in sorted((ROOT / "work" / "test-savestates").glob("DQ3_J*")):
+    for path in sorted((ROOT / "work" / "tests" / "savestates").glob("DQ3_J*")):
         try:
             ram = ss.load(path).chunks["RAM"]
         except Exception:                              # noqa: BLE001

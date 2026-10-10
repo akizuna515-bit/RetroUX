@@ -15,7 +15,7 @@ from dq3rom import item_meta as IM
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ROM_PATH = ROOT / "work" / "rom" / "DQ3_J.nes"
-DISASM = ROOT / "work" / "dq3-disasm" / "disassembly"
+DISASM = ROOT / "work" / "research" / "dq3-disasm" / "disassembly"
 
 
 def _rom_ready() -> bool:
@@ -57,7 +57,7 @@ def test_5つの表がROMの中にある(prg):
 def test_表の位置は北米版の逆アセンブルと1バイトも違わない(prg):
     """★★ これが位置の裏取り。⚠ 1 バイトずれたら**別の場所**に見つかる。
 
-    ⚠ 逆アセンブル（`work/dq3-disasm/`）が無い環境では skip します。
+    ⚠ 逆アセンブル（`work/research/dq3-disasm/`）が無い環境では skip します。
     """
     import re
 

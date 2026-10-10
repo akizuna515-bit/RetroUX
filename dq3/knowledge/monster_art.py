@@ -13,7 +13,7 @@ Monster Image Repository
 
 ## ⚠ 同梱しません
 
-★ROM から起こしたものなので `work/dq3-monster-art/` に置きます
+★ROM から起こしたものなので `work/cache/dq3-monster-art/` に置きます
 （⚠ `data/` ではありません）。無ければ**作ります**（1 度だけ）。
 """
 from __future__ import annotations
@@ -30,7 +30,7 @@ from dq3 import paths as P3
 #     ⚠⚠ 検査が `RETROUX_WRITE_ROOT` を差し替えても**追いついていませんでした**
 #       （★本物の `work/` に 139 枚を書きうる形でした）。
 #   ★`lazy_work` なので、⚠ 使う瞬間に書き先を引き直します（RX3-0342）。
-ART_DIR = P3.lazy_work("dq3-monster-art")
+ART_DIR = P3.lazy_work("cache", "dq3-monster-art")
 #: ⚠ 解決は `dq3/paths.py::rom()` の 1 本（RX3-0467）。★任意の場所を指定できます。
 ROM_PATH = P3.lazy_rom()
 #: ★置き場の絵が**どの作り方で**作られたか（RX3-0223）

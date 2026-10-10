@@ -34,14 +34,14 @@ echo  セーブステートの世代バックアップ
 echo ------------------------------------------------------------
 echo  プロジェクト : %CD%
 echo  監視するもの : tools/fceux/fcs のセーブステート
-echo  保存先       : work/savestate-backup
+echo  保存先       : work/runtime/dq2-backup/savestate-backup
 echo.
 echo  世代を作るのは中身が変わったときだけです。10世代まで残します。
 echo  このウィンドウは開いたままにしてください。
 echo ============================================================
 echo.
 
-uv run python -m retroux.tools.savestate_backup %*
+uv run python -m retroux.tools.dq2_savestate_backup %*
 set RC=%ERRORLEVEL%
 
 echo.

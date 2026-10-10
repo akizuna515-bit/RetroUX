@@ -76,7 +76,7 @@ local Cursor = dofile(root .. "/dq3/phase0/cursor.lua")
 --   → ★閉じる**前に** nil にする。以後の `say` は静かに捨てる。
 --: ★★ ⚠⚠ **記録が開けないときは、黙って進まない**（RX-0114 / 2026-08-30）★★
 --
---   ⚠ `work/dq3-probe/` が無いと `io.open` は nil を返し、`say` は
+--   ⚠ `work/runtime/dq3-probe/` が無いと `io.open` は nil を返し、`say` は
 --     以後すべて捨てられます。★そこまでは意図どおりです。
 --
 --   ⚠⚠ ところが `load_feature` の失敗も `say` で書いていたため、
@@ -89,7 +89,7 @@ local Cursor = dofile(root .. "/dq3/phase0/cursor.lua")
 --
 --   → ★開けなかったことだけは `print` で残します
 --     （⚠ FCEUX の Lua 窓に出ます。実機で気づける唯一の場所）。
-local LOG = Core.open_log(write_root .. "/work/dq3-probe/dev.log",
+local LOG = Core.open_log(write_root .. "/work/runtime/dq3-probe/dev.log",
                           "開発用 1 本の記録")
 local function say(line)
   if LOG == nil then return end
@@ -212,7 +212,7 @@ end
 
 local CommandReader = dofile(root .. "/dq3/phase0/command_reader.lua")
 local commands = CommandReader.new({
-  path = write_root .. "/work/dq3-command.json",
+  path = write_root .. "/work/runtime/dq3-command.json",   -- ★RX3-0493
   every = (CFG.ui or {}).command_every or 30,
   say = say,
 })
@@ -251,7 +251,7 @@ HOST.on_load[#HOST.on_load + 1] = function() town_speed.stop("LOAD") end
 --   ⚠ `joypad.set` は `B.tick` の 1 か所のまま（★自動が握っている間は渡さない）。
 local PadInput = dofile(root .. "/dq3/phase0/pad_input.lua")
 local HumanState = dofile(root .. "/dq3/phase0/human_state.lua")
-local pad_reader = PadInput.new({path = write_root .. "/work/dq3-gamepad.txt"})
+local pad_reader = PadInput.new({path = write_root .. "/work/runtime/dq3-gamepad.txt"})   -- ★RX3-0493
 HOST.buttons.pad = pad_reader.tick
 local pad_last_save = nil
 function HOST.pad_status()
@@ -807,12 +807,12 @@ HOST.where = where
 --     ★CHR だけで 8KB あり、⚠ 混ぜると `state.json` が毎回 8KB になります。
 --
 --   ```text
---   work/dq3-probe/map_art.json   ★小さい情報（⚠ 地図が変わったときだけ）
---   work/dq3-probe/map_art.bin    ⚠ CHR 8KB（★中身が変わったときだけ）
+--   work/runtime/dq3-probe/map_art.json   ★小さい情報（⚠ 地図が変わったときだけ）
+--   work/runtime/dq3-probe/map_art.bin    ⚠ CHR 8KB（★中身が変わったときだけ）
 --   ```
 local MapArt = dofile(root .. "/dq3/phase0/map_art.lua")
 local map_art = MapArt.new({
-  dir = write_root .. "/work/dq3-probe",
+  dir = write_root .. "/work/runtime/dq3-probe",
   every = (CFG.ui or {}).map_art_every or 30,
   say = say,
   json = Core.json,
@@ -824,7 +824,8 @@ local map_art = MapArt.new({
 HOST.map_art = map_art
 
 local state = StateWriter.new({
-  path = write_root .. "/work/state.json",
+  path = write_root .. "/work/runtime/state.json",   -- ★RX3-0493（⚠ DQ2 の bridge.lua は work/state.json のまま）
+  ensure_dir = Core.ensure_dir,                       -- ★無ければ開けなかったときだけ作る
   every = (CFG.ui or {}).state_every or 30,
   -- ★戦闘中だけ細かく書く（RX3-0065 / 2026-09-03）。
   --   ⚠ 敵の一覧が全部見える時間が短く、0.5 秒おきでは取りこぼしていた。

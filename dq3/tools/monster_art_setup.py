@@ -9,7 +9,7 @@
         ↓
 monster_art.ensure()
         ↓
-work/dq3-monster-art/*.png
+work/cache/dq3-monster-art/*.png
         ↓
 図鑑・戦闘画面
 ```

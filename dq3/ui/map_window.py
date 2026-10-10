@@ -543,8 +543,12 @@ class MapCanvas(QFrame):
         if self.follow and kind in WORLD_KINDS:
             # ★★ 世界地図は追随中も見た所ぜんぶ（RX3-0255）。⚠ 居る場所では作り直さない（★増えた升を描き足す）
             return self._world_image_now(key, kind, map_id, seen, _x, _y), at
-        stamp = ((key, len(seen), len(explored), _x, _y) if (self.follow or kind not in (0, 2))
-                 else (key, len(seen), len(explored)))
+        # ⚠⚠ 材料（絵・実機の升）も鍵に入れる（RX3-0428）。⚠ 無いと、セーブを読んだ直後の
+        #   色ブロックが、立ち止まっている間ずっと使い回される（★材料が後から届いても描き直さない）。
+        #   ★どちらも材料のファイルが書き換わったときだけ別の物になる（`vm.tile_art`）→ 描き直しは増えない
+        stuff = (_tile_art(self.vm), _tile_cells(self.vm, kind, map_id))
+        stamp = ((key, len(seen), len(explored), _x, _y, stuff) if (self.follow or kind not in (0, 2))
+                 else (key, len(seen), len(explored), stuff))
         if stamp != self._image_for:
             self._image = self._build_image(key, kind, map_id, seen,
                                             _x, _y, explored=explored)

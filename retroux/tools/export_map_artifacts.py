@@ -48,10 +48,10 @@ OUT_DIR = PROJECT_ROOT / "output"
 #   ただし「何が欠けたか」は必ず画面と README に出します。
 #   ★黙って空の ZIP ができるのが一番まずい形です。
 LAYOUT: tuple[tuple[str, str, str], ...] = (
-    ("01_docs", "docs", "map-decoder-*.md"),
-    ("01_docs", "docs", "dq2-type1-tileset-evidence.md"),
+    ("01_docs", "docs/design", "dq2-map-decoder-*.md"),
+    ("01_docs", "docs/research", "260803_dq2-type1-tileset-evidence.md"),
     ("01_docs", "docs/research", "dq2-map-*.md"),
-    ("01_docs", "docs/research", "dq2-world-map-decoder.md"),
+    ("01_docs", "docs/research", "260802_dq2-world-map-decoder.md"),
     ("02_schema", "docs/schema", "map-master-*.schema.json"),
     ("02_schema", "docs/schema", "sample-map-master.json"),
     ("03_core", "retroux/core/bgmap", "*.py"),

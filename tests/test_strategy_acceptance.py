@@ -1,7 +1,7 @@
 """4戦略の受入（2026-08-11 / UI整理 Phase 6・自動でできる範囲）。
 
-設計: docs/design/strategy-unification-design.md（§6 Phase 6）
-実機の手順: docs/design/strategy-acceptance-phase6.md
+設計: docs/design/battle-ai/dq2-strategy-ui.md（§6 Phase 6）
+実機の手順: docs/history/260811_dq2-strategy-acceptance-phase6.md
 
 ★★ ここで固めること（実機を起動せずに確かめられる契約）★★
   戦略を選んだとき、下の4つが**まとめて正しく**束ねられること。

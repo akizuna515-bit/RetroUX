@@ -9,7 +9,7 @@
   → ★**固定した写し**を使います。⚠ 遊んでも動きません。
 
 ```text
-work/test-savestates/     ★固定した写し（⚠ Git の外 / 大きさは 1 本 12KB ほど）
+work/tests/savestates/     ★固定した写し（⚠ Git の外 / 大きさは 1 本 12KB ほど）
 tools/fceux/fcs/          ⚠ 依頼者が遊ぶ本物（★写しが無いときだけ使う）
 ```
 
@@ -26,14 +26,14 @@ import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 #: ★固定した写し（⚠ Git の外）
-PINNED = ROOT / "work" / "test-savestates"
+PINNED = ROOT / "work" / "tests" / "savestates"
 #: ⚠ 依頼者が遊ぶ本物（★写しが無いときだけ）
 LIVE = ROOT / "tools" / "fceux" / "fcs"
 
 #: ★写しが「使える」と言える条件（⚠ **DQ3 のセーブがあること** / RX3-0461）
 #:
 #:   ⚠⚠ ここは長らく `*.fc*` でした。★その形は **DQ2 のセーブにも当たります**。
-#:   ⚠ `work/test-savestates/` には DQ2 が 22 本・DQ3 が 20 本あります（実測）。
+#:   ⚠ `work/tests/savestates/` には DQ2 が 22 本・DQ3 が 20 本あります（実測）。
 #:   → ★DQ3 のぶんだけ消えても `PINNED` を返し続け、`LIVE` へ落ちません。
 #:   ⚠⚠ そうなると DQ3 のセーブを使う検査が **module ごと静かに skip** します
 #:     （★`dq3_states.py` の `pick()` は `allow_module_level=True` で skip する）。

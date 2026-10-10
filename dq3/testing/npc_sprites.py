@@ -18,7 +18,7 @@ $F334（map 読み込みの終わり）が $6ABE[slot] の見た目 id ごとに
 attr  bit6 = 左右反転 / bit7 = 上下反転 / bit1,0 = sprite パレット（$3F10 + n*4 / 色 0 は透明）
 ```
 
-★ローカル生成物（PNG）は `work/dq3-probe/appearance/` だけ。⚠ Git に入れるのは 1 文字辞書 `data/dq3/npc-appearance-labels.json` だけ。
+★ローカル生成物（PNG）は `work/runtime/dq3-probe/appearance/` だけ。⚠ Git に入れるのは 1 文字辞書 `data/dq3/npc-appearance-labels.json` だけ。
 """
 from __future__ import annotations
 
@@ -257,9 +257,9 @@ def label_for(appearance_id: int, labels: dict | None = None) -> str:
 def build(root) -> dict:
     """★成果物を全部書く: contact-sheet.png / index.json / 辞書の骨（null）。"""
     root = pathlib.Path(root)
-    app_dir = root / "work" / "dq3-probe" / "appearance"
-    day = json.loads((root / "work/dq3-probe/npcs/all-maps-day.json").read_text(encoding="utf-8"))
-    night = json.loads((root / "work/dq3-probe/npcs/all-maps-night.json").read_text(encoding="utf-8"))
+    app_dir = root / "work" / "runtime" / "dq3-probe" / "appearance"
+    day = json.loads((root / "work/runtime/dq3-probe/npcs/all-maps-day.json").read_text(encoding="utf-8"))
+    night = json.loads((root / "work/runtime/dq3-probe/npcs/all-maps-night.json").read_text(encoding="utf-8"))
     sprites = sprites_from_batches(load_batches(app_dir))
     sheet = contact_sheet(sprites, app_dir / "contact-sheet.png")
     rows = index_rows(sprites, day, night)

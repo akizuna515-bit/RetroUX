@@ -56,6 +56,8 @@ function M.new(opts)
   local busy = opts.busy
   local busy_every = opts.busy_every or every
   local say = opts.say or function() end
+  -- ★RX3-0493: 書き先は work/runtime/。⚠ 無ければ開けなかったときだけ作る（`core.lua` の ensure_dir）
+  local ensure_dir = opts.ensure_dir
   local party_of = opts.party or function() return {} end
   local extra = opts.extra or function() return {} end
   --- ★いまどこに居るか（⚠ 番地を知っているのは呼び出し側）
@@ -137,6 +139,9 @@ function M.new(opts)
     -- ★一時ファイルへ書いてから置き換える（⚠ 読む側に欠けを見せない）
     local tmp = path .. ".tmp"
     local f = io.open(tmp, "w")
+    if f == nil and ensure_dir ~= nil and ensure_dir(tmp) then
+      f = io.open(tmp, "w")                     -- ★folder を作って、もう一度
+    end
     if f == nil then
       W.failed = W.failed + 1
       if W.last_error == nil then

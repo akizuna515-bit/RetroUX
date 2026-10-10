@@ -8,7 +8,7 @@
   3. 「落とさない」と「まだ分からない」を書き分ける
   4. 耐性の数値を**効き方の言葉**にする（0=必ず効く / 7=効かない）
 
-出典と根拠: `docs/design/monster-book-spec.md` 3章
+出典と根拠: `docs/design/ui/dq2-monster-book.md` 3章
 """
 
 from __future__ import annotations

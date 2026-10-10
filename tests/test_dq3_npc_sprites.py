@@ -92,9 +92,9 @@ def test_公開辞書は値が1文字かnull():
 
 def test_画像はGitに入らない():
     """⚠ 指示書 §9: contact sheet / sprite PNG は work/ に置き、Git 管理外。"""
-    got = subprocess.run(["git", "check-ignore", "-q", "work/dq3-probe/appearance/contact-sheet.png"],
+    got = subprocess.run(["git", "check-ignore", "-q", "work/runtime/dq3-probe/appearance/contact-sheet.png"],
                          cwd=str(ROOT), capture_output=True)
-    assert got.returncode == 0, "⚠ work/dq3-probe/appearance/ が .gitignore に無い"
+    assert got.returncode == 0, "⚠ work/runtime/dq3-probe/appearance/ が .gitignore に無い"
     tracked = subprocess.run(["git", "ls-files", "--", "*.png", "*.json"], cwd=str(ROOT), capture_output=True,
                              text=True).stdout.splitlines()
     # ⚠ `artifacts/maps/contact-sheet.png` は別件（RX3-0028 の地図）。★見るのは NPC の見本帳の置き場だけ

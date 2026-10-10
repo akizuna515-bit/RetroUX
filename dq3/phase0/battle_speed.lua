@@ -1,6 +1,6 @@
 -- ★★ 戦闘の AUTO と TURBO ― 2 つの別の状態（RX3-0166 → RX3-0169 → RX3-0237 / 2026-09-13）★★
 --
--- ## ★意味（依頼者「DQ3 戦闘AUTO / TURBO UI見直し仕様」/ ★正本の写し docs/design/dq3-auto-turbo-ui-spec.md）
+-- ## ★意味（依頼者「DQ3 戦闘AUTO / TURBO UI見直し仕様」/ ★正本の写し docs/requests/260913_dq3-auto-turbo-ui.md）
 --
 --   ```text
 --   AUTO    AI に戦闘を任せる / 手動へ戻す      ★auto_v0.lua の持ち物（⚠ ここは知らせてもらう）

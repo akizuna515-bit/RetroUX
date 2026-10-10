@@ -144,6 +144,17 @@ def _log_tail(path, count: int) -> "list | None":
     return [ln.rstrip("\n") for ln in lines[-count:]]
 
 
+def _layout() -> str:
+    """★プログラム（program_root）とデータ（write_root）が同じフォルダか（⚠ 場所は書かない / RX-0172）。"""
+    try:
+        from . import dq2_paths
+
+        same = dq2_paths.program_root().resolve() == dq2_paths.write_root().resolve()
+    except Exception as exc:                           # noqa: BLE001
+        return f"不明（{exc}）"
+    return "プログラムとデータは同じフォルダ" if same else "プログラムとデータは別のフォルダ（RETROUX_WRITE_ROOT）"
+
+
 def collect(*, root=None, user_cfg=None, rom_hash=None, read_only=None,
             warnings=None, schema_version=None, tactics=None,
             log_tail=0) -> dict:
@@ -151,15 +162,22 @@ def collect(*, root=None, user_cfg=None, rom_hash=None, read_only=None,
 
     ⚠ 省くと、読んだ人が「無い」と「取れなかった」を区別できない。
     """
-    from ..version import VERSION
+    from .dq2_version import VERSION, build   # ★DQ2 の製品の版（RX-0160）と断面（RX-0172）
+    from .dq2_admin import runtime_kind
 
     here = pathlib.Path(root or pathlib.Path(__file__).resolve().parents[2])
     made: dict = {
         "RetroUX": VERSION,
+        # ★断面（RX-0172 / BP-05）。★「どの build の話か」を問い合わせで決められるように
+        "build": build(),
         "Python": f"{sys.version_info.major}.{sys.version_info.minor}."
                   f"{sys.version_info.micro}",
+        # ★同梱 Python（Portable）か、開発の .venv か（RX-0172）
+        "Python の種別": runtime_kind(),
         # ★どの exe で動いているか＝公開用（pythonw）か開発用（python）か
         "実行ファイル": pathlib.Path(sys.executable).name,
+        # ★プログラムとデータが同じフォルダか（RX-0172）。⚠ 場所そのものは出さない（利用者名を含みうる）
+        "置き場所": _layout(),
         "OS": f"{platform.system()} {platform.release()} ({platform.version()})",
         "FCEUX": fceux_version(here),
         "起動モード": ("閲覧専用" if read_only else "記録あり")
@@ -192,6 +210,13 @@ def collect(*, root=None, user_cfg=None, rom_hash=None, read_only=None,
                     made[label] = _relative(user_cfg.path(key), here)
                 except Exception as exc:               # noqa: BLE001
                     made[label] = f"不明（{exc}）"
+            # ★events の正本は設定ではなく dq2_paths（★Lua と同じ write_root / RX-0162）
+            try:
+                from . import dq2_paths
+
+                made["記録（events）"] = _relative(dq2_paths.events(), here)
+            except Exception as exc:                   # noqa: BLE001
+                made["記録（events）"] = f"不明（{exc}）"
             # ⚠ ROM のパスは出さない（利用者名を含みうる）。あるかだけ書く
             try:
                 rom = pathlib.Path(user_cfg.path("rom"))
